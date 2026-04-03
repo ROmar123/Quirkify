@@ -48,7 +48,7 @@ export default function AuctionList() {
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 px-4 py-12">
         {[1, 2, 3].map(i => (
-          <div key={`skeleton-${i}`} className="aspect-[3/4] bg-zinc-50 animate-pulse rounded-none" />
+          <div key={`skeleton-${i}`} className="aspect-[3/4] bg-purple-50 animate-pulse rounded-3xl" />
         ))}
       </div>
     );
@@ -61,10 +61,9 @@ export default function AuctionList() {
           <motion.h1 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-7xl md:text-[10rem] font-bold tracking-tighter mb-4 text-black leading-[0.8] font-display"
+            className="text-7xl md:text-8xl font-black mb-4 leading-tight gradient-text"
           >
-            LIVE <br />
-            <span className="text-quirky italic">DROPS.</span>
+            Live Drops 🔴
           </motion.h1>
           <p className="text-zinc-500 max-w-md text-[10px] font-bold uppercase tracking-[0.4em] mt-8">
             Exclusive Quirkify Verified items. Bid now to secure yours.
@@ -115,9 +114,9 @@ export default function AuctionList() {
       </AnimatePresence>
 
       {auctions.length === 0 ? (
-        <div className="text-center py-32 border border-zinc-100 rounded-none bg-zinc-50">
+        <div className="text-center py-32 border border-purple-100 rounded-3xl bg-purple-50">
           <Gavel className="w-12 h-12 mx-auto mb-4 text-zinc-300" />
-          <p className="text-zinc-400 font-bold uppercase tracking-widest text-xs">No active auctions.</p>
+          <p className="text-purple-400 font-bold uppercase tracking-widest text-xs">No active auctions.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
@@ -178,14 +177,14 @@ function AuctionCard({ auction, onBid, bidValue, setBidValue }: {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="group border border-zinc-100 bg-white p-8 rounded-none shadow-sm hover:shadow-2xl transition-all duration-500"
+      className="group bg-white p-6 rounded-3xl shadow-sm border border-purple-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
     >
-      <div className="aspect-[3/4] overflow-hidden bg-zinc-50 mb-8 relative border border-zinc-100">
+      <div className="aspect-[3/4] overflow-hidden bg-purple-50 mb-8 relative border border-purple-100">
         {auction.product && (
           <img 
             src={auction.product.imageUrl} 
             alt={auction.product.name}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 grayscale group-hover:grayscale-0"
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 transition-all"
             referrerPolicy="no-referrer"
           />
         )}
@@ -200,12 +199,12 @@ function AuctionCard({ auction, onBid, bidValue, setBidValue }: {
         </div>
         <button 
           onClick={() => setShowBids(!showBids)}
-          className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm text-black text-[8px] font-bold px-2 py-1 uppercase tracking-widest border border-zinc-100 hover:bg-black hover:text-white transition-colors"
+          className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm text-black text-[8px] font-bold px-2 py-1 uppercase tracking-widest border border-purple-100 hover:bg-black hover:text-white transition-colors"
         >
           {auction.bidCount} BIDS
         </button>
         {auction.product?.rarity && (
-          <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm text-black text-[8px] font-bold px-2 py-1 uppercase tracking-widest border border-zinc-100">
+          <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm text-black text-[8px] font-bold px-2 py-1 uppercase tracking-widest border border-purple-100">
             {auction.product.rarity}
           </div>
         )}
@@ -216,18 +215,18 @@ function AuctionCard({ auction, onBid, bidValue, setBidValue }: {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className="absolute inset-x-4 bottom-12 bg-white/95 backdrop-blur-md border border-zinc-100 p-4 shadow-2xl z-10"
+              className="absolute inset-x-4 bottom-12 bg-white/95 backdrop-blur-md border border-purple-100 p-4 shadow-2xl z-10"
             >
               <div className="flex items-center justify-between mb-4">
                 <h4 className="text-[8px] font-bold uppercase tracking-widest">Bidding History</h4>
-                <button onClick={() => setShowBids(false)} className="text-[8px] font-bold uppercase tracking-widest text-zinc-400">Close</button>
+                <button onClick={() => setShowBids(false)} className="text-[8px] font-bold uppercase tracking-widest text-purple-400">Close</button>
               </div>
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {bids.map((bid, i) => (
                   <div key={bid.id} className="flex items-center justify-between py-1 border-b border-zinc-50 last:border-0">
                     <div className="flex items-center gap-2">
                       <Link to={`/profile/${bid.bidderId}`} className="w-4 h-4 bg-zinc-100 rounded-full flex items-center justify-center hover:bg-quirky transition-colors">
-                        <UserIcon className="w-2 h-2 text-zinc-400 hover:text-white" />
+                        <UserIcon className="w-2 h-2 text-purple-400 hover:text-white" />
                       </Link>
                       <span className="text-[8px] font-bold truncate w-24">{(bid as any).bidderName || 'Anonymous'}</span>
                     </div>
@@ -235,7 +234,7 @@ function AuctionCard({ auction, onBid, bidValue, setBidValue }: {
                   </div>
                 ))}
                 {bids.length === 0 && (
-                  <p className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest text-center py-4">No bids yet</p>
+                  <p className="text-[8px] text-purple-400 font-bold uppercase tracking-widest text-center py-4">No bids yet</p>
                 )}
               </div>
             </motion.div>
@@ -247,50 +246,50 @@ function AuctionCard({ auction, onBid, bidValue, setBidValue }: {
         <div className="flex items-start justify-between">
           <div>
             <h3 className="font-bold text-xl uppercase tracking-tight truncate font-display">{auction.product?.name}</h3>
-            <p className="text-zinc-400 text-[8px] font-bold uppercase tracking-widest">{auction.product?.category}</p>
+            <p className="text-purple-400 text-[8px] font-bold uppercase tracking-widest">{auction.product?.category}</p>
           </div>
           <TrendingUp className="w-5 h-5 text-quirky" />
         </div>
 
         <div className="grid grid-cols-4 gap-1">
           {Object.entries(auction.product?.stats || {}).map(([key, val]) => (
-            <div key={key} className="bg-zinc-50 p-2 text-center border border-zinc-100">
-              <p className="text-[6px] text-zinc-400 uppercase font-bold">{key[0]}</p>
+            <div key={key} className="bg-purple-50 p-2 text-center border border-purple-100">
+              <p className="text-[6px] text-purple-400 uppercase font-bold">{key[0]}</p>
               <p className="text-[10px] font-bold">{val}</p>
             </div>
           ))}
         </div>
 
-        <div className="flex items-center justify-between p-6 bg-zinc-50 border border-zinc-100">
+        <div className="flex items-center justify-between p-6 bg-purple-50 border border-purple-100">
           <div>
-            <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Current Bid</p>
+            <p className="text-[8px] font-bold text-purple-400 uppercase tracking-widest mb-1">Current Bid</p>
             <p className="text-2xl font-bold text-black">R{auction.currentBid}</p>
           </div>
-          <div className="w-10 h-10 bg-cyber rounded-none flex items-center justify-center">
+          <div className="w-10 h-10 bg-cyber rounded-3xl flex items-center justify-center">
             <Sparkles className="w-4 h-4 text-black" />
           </div>
         </div>
 
         <div className="flex gap-3">
           <div className="flex-1 relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 text-[10px] font-bold">R</span>
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-400 text-[10px] font-bold">R</span>
             <input 
               type="number" 
               value={bidValue || ''}
               onChange={(e) => setBidValue(Number(e.target.value))}
               placeholder={`${auction.currentBid + 1}`}
-              className="w-full pl-8 pr-4 py-4 bg-white border border-zinc-100 text-xs font-bold focus:outline-none focus:border-quirky transition-colors"
+              className="w-full pl-8 pr-4 py-3 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-800 focus:outline-none focus:border-purple-400 transition-colors"
             />
           </div>
           <button 
             onClick={() => onBid(bidValue)}
             disabled={timeLeft === 'ENDED' || !bidValue || bidValue <= auction.currentBid}
-            className="px-8 py-4 bg-black text-white text-[10px] font-bold uppercase tracking-widest hover:bg-quirky transition-all disabled:bg-zinc-100 disabled:text-zinc-400"
+            className="btn-primary px-6 py-3 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
           >
             PLACE BID
           </button>
         </div>
-        <p className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest text-center">
+        <p className="text-[8px] text-purple-400 font-bold uppercase tracking-widest text-center">
           {timeLeft === 'ENDED' ? 'Auction has concluded' : `Minimum bid: R${auction.currentBid + 1}`}
         </p>
       </div>

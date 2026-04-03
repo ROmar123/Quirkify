@@ -5,14 +5,12 @@ import { db } from '../../firebase';
 import { Product } from '../../types';
 import { useCart } from '../../context/CartContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  ShoppingBag, 
-  ArrowLeft, 
-  ShieldCheck, 
-  Truck, 
-  RefreshCcw, 
-  Star, 
-  Zap, 
+import {
+  ShoppingBag,
+  ShieldCheck,
+  Truck,
+  RefreshCcw,
+  Zap,
   Trophy,
   ChevronRight,
   ChevronLeft,
@@ -46,27 +44,24 @@ export default function ProductDetails() {
         setLoading(false);
       }
     };
-
     fetchProduct();
     window.scrollTo(0, 0);
   }, [id]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="w-12 h-12 border-4 border-quirky border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#FDF4FF' }}>
+        <div className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#A855F7', borderTopColor: 'transparent' }} />
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4 text-center">
-        <h2 className="text-4xl font-bold tracking-tighter uppercase mb-4">Product Not Found</h2>
-        <p className="text-zinc-400 text-xs uppercase tracking-widest mb-8">The quirkiness you're looking for has vanished.</p>
-        <Link to="/" className="px-8 py-4 bg-black text-white text-[10px] font-bold uppercase tracking-widest hover:bg-quirky transition-all">
-          Back to Store
-        </Link>
+      <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center" style={{ background: '#FDF4FF' }}>
+        <h2 className="text-4xl font-black mb-4 gradient-text">Product Not Found</h2>
+        <p className="text-purple-300 text-sm font-semibold mb-8">The quirkiness you're looking for has vanished.</p>
+        <Link to="/" className="btn-primary px-8 py-3">Back to Store</Link>
       </div>
     );
   }
@@ -79,60 +74,65 @@ export default function ProductDetails() {
     navigate('/checkout');
   };
 
+  const rarityStyle = (rarity: string) => {
+    if (rarity === 'Unique') return { background: 'linear-gradient(135deg, #FBBF24, #FB923C)', color: 'white' };
+    if (rarity === 'Super Rare') return { background: 'linear-gradient(135deg, #F43F5E, #FB923C)', color: 'white' };
+    if (rarity === 'Rare') return { background: 'linear-gradient(135deg, #A855F7, #6366F1)', color: 'white' };
+    return { background: '#F3F0FF', color: '#7C3AED' };
+  };
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen" style={{ background: '#FDF4FF' }}>
       <div className="max-w-7xl mx-auto px-4 py-12">
         {/* Breadcrumbs */}
-        <nav className="flex items-center gap-2 text-[8px] font-bold uppercase tracking-widest text-zinc-400 mb-12">
-          <Link to="/" className="hover:text-black transition-colors">Store</Link>
+        <nav className="flex items-center gap-2 text-xs font-semibold text-purple-300 mb-10">
+          <Link to="/" className="hover:text-purple-500 transition-colors">Store</Link>
           <ChevronRight className="w-3 h-3" />
-          <span className="text-zinc-300">{product.category}</span>
+          <span className="text-purple-200">{product.category}</span>
           <ChevronRight className="w-3 h-3" />
-          <span className="text-black">{product.name}</span>
+          <span className="text-purple-600 font-bold">{product.name}</span>
         </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
           {/* Image Gallery */}
-          <div className="space-y-6">
-            <div className="aspect-square bg-zinc-50 relative overflow-hidden group border border-zinc-100">
+          <div className="space-y-4">
+            <div className="aspect-square bg-white rounded-3xl relative overflow-hidden group shadow-sm border border-purple-100">
               <AnimatePresence mode="wait">
                 <motion.img
                   key={activeImage}
-                  initial={{ opacity: 0, scale: 1.1 }}
+                  initial={{ opacity: 0, scale: 1.05 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                  exit={{ opacity: 0, scale: 0.97 }}
+                  transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                   src={images[activeImage]}
                   alt={product.name}
-                  className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
+                  className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
                 />
               </AnimatePresence>
-              
+
               {/* Rarity Badge */}
-              <div className={cn(
-                "absolute top-6 left-6 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-white shadow-2xl",
-                product.rarity === 'Unique' ? 'bg-cyber' : 
-                product.rarity === 'Super Rare' ? 'bg-hot' : 
-                product.rarity === 'Rare' ? 'bg-quirky' : 'bg-black'
-              )}>
-                {product.rarity}
+              <div
+                className="absolute top-4 left-4 px-3 py-1.5 rounded-full text-xs font-bold shadow-lg"
+                style={rarityStyle(product.rarity || 'Common')}
+              >
+                ✦ {product.rarity}
               </div>
 
               {/* Navigation Arrows */}
               {images.length > 1 && (
                 <>
-                  <button 
+                  <button
                     onClick={() => setActiveImage((prev) => (prev === 0 ? images.length - 1 : prev - 1))}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-black hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-all"
                   >
-                    <ChevronLeft className="w-5 h-5" />
+                    <ChevronLeft className="w-5 h-5 text-purple-600" />
                   </button>
-                  <button 
+                  <button
                     onClick={() => setActiveImage((prev) => (prev === images.length - 1 ? 0 : prev + 1))}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-black hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-all"
                   >
-                    <ChevronRight className="w-5 h-5" />
+                    <ChevronRight className="w-5 h-5 text-purple-600" />
                   </button>
                 </>
               )}
@@ -140,17 +140,17 @@ export default function ProductDetails() {
 
             {/* Thumbnails */}
             {images.length > 1 && (
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-4 gap-3">
                 {images.map((img, idx) => (
                   <button
                     key={idx}
                     onClick={() => setActiveImage(idx)}
                     className={cn(
-                      "aspect-square border-2 transition-all overflow-hidden bg-zinc-50",
-                      activeImage === idx ? "border-black" : "border-transparent hover:border-zinc-200"
+                      "aspect-square rounded-2xl overflow-hidden border-2 transition-all",
+                      activeImage === idx ? "border-purple-400 shadow-md" : "border-transparent hover:border-purple-200"
                     )}
                   >
-                    <img src={img} alt="" className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all" referrerPolicy="no-referrer" />
+                    <img src={img} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   </button>
                 ))}
               </div>
@@ -159,138 +159,123 @@ export default function ProductDetails() {
 
           {/* Product Info */}
           <div className="flex flex-col">
-            <div className="flex items-start justify-between mb-6">
+            <div className="flex items-start justify-between mb-4">
               <div>
-                <p className="text-[10px] font-bold text-quirky uppercase tracking-[0.3em] mb-2">
-                  {product.category} {product.condition && `• ${product.condition}`}
+                <p className="text-sm font-bold text-purple-400 mb-2">
+                  {product.category}{product.condition && ` · ${product.condition}`}
                 </p>
-                <h1 className="text-5xl md:text-7xl font-bold tracking-tighter uppercase leading-[0.9] font-display">
+                <h1 className="text-4xl md:text-5xl font-black leading-tight text-purple-900">
                   {product.name}
                 </h1>
               </div>
               <div className="flex gap-2">
-                <button 
+                <button
                   onClick={() => setIsLiked(!isLiked)}
                   className={cn(
-                    "w-12 h-12 border border-zinc-100 flex items-center justify-center transition-all",
-                    isLiked ? "bg-hot text-white border-hot" : "bg-white text-zinc-400 hover:text-black hover:border-black"
+                    "w-11 h-11 rounded-full border-2 flex items-center justify-center transition-all",
+                    isLiked ? "bg-pink-500 border-pink-500 text-white" : "border-purple-200 text-purple-300 hover:border-pink-400 hover:text-pink-400"
                   )}
                 >
                   <Heart className={cn("w-5 h-5", isLiked && "fill-current")} />
                 </button>
-                <button className="w-12 h-12 border border-zinc-100 flex items-center justify-center text-zinc-400 hover:text-black hover:border-black transition-all">
+                <button className="w-11 h-11 rounded-full border-2 border-purple-200 flex items-center justify-center text-purple-300 hover:border-purple-400 hover:text-purple-500 transition-all">
                   <Share2 className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            <div className="flex items-baseline gap-4 mb-12">
-              <span className="text-4xl font-bold font-display">R{product.priceRange.min}</span>
+            <div className="flex items-baseline gap-4 mb-8">
+              <span className="text-4xl font-black text-purple-900">R{product.priceRange.min}</span>
               {product.discountPrice && (
-                <span className="text-xl text-zinc-300 line-through font-display">R{product.priceRange.max}</span>
+                <span className="text-xl text-purple-200 line-through font-bold">R{product.priceRange.max}</span>
               )}
               {isSoldOut && (
-                <span className="px-3 py-1 bg-zinc-100 text-zinc-400 text-[8px] font-bold uppercase tracking-widest border border-zinc-200">
-                  Sold Out
-                </span>
+                <span className="badge-pill bg-gray-100 text-gray-400 text-xs">Sold Out</span>
               )}
             </div>
 
-            <div className="prose prose-zinc mb-12">
-              <p className="text-zinc-500 text-sm leading-relaxed uppercase tracking-tight">
-                {product.description}
-              </p>
-            </div>
+            <p className="text-purple-500 text-sm leading-relaxed mb-8">
+              {product.description}
+            </p>
 
             {/* Stats Grid */}
             {product.stats && (
-              <div className="grid grid-cols-2 gap-4 mb-12">
-                <div className="p-4 bg-zinc-50 border border-zinc-100">
+              <div className="grid grid-cols-2 gap-3 mb-8">
+                <div className="p-4 bg-white rounded-2xl border border-purple-100 shadow-sm">
                   <div className="flex items-center gap-2 mb-2">
-                    <Zap className="w-3 h-3 text-quirky" />
-                    <span className="text-[8px] font-bold uppercase tracking-widest text-zinc-400">Quirkiness</span>
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #A855F7, #6366F1)' }}>
+                      <Zap className="w-3 h-3 text-white" />
+                    </div>
+                    <span className="text-xs font-bold text-purple-400">Quirkiness</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1 bg-zinc-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-quirky" style={{ width: `${product.stats.quirkiness}%` }} />
+                    <div className="flex-1 h-2 bg-purple-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${product.stats.quirkiness}%`, background: 'linear-gradient(90deg, #A855F7, #F472B6)' }} />
                     </div>
-                    <span className="text-[10px] font-bold">{product.stats.quirkiness}</span>
+                    <span className="text-xs font-bold text-purple-600">{product.stats.quirkiness}</span>
                   </div>
                 </div>
-                <div className="p-4 bg-zinc-50 border border-zinc-100">
+                <div className="p-4 bg-white rounded-2xl border border-purple-100 shadow-sm">
                   <div className="flex items-center gap-2 mb-2">
-                    <Trophy className="w-3 h-3 text-hot" />
-                    <span className="text-[8px] font-bold uppercase tracking-widest text-zinc-400">Rarity Score</span>
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F43F5E, #FB923C)' }}>
+                      <Trophy className="w-3 h-3 text-white" />
+                    </div>
+                    <span className="text-xs font-bold text-purple-400">Rarity Score</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1 bg-zinc-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-hot" style={{ width: `${product.stats.rarity}%` }} />
+                    <div className="flex-1 h-2 bg-pink-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${product.stats.rarity}%`, background: 'linear-gradient(90deg, #F43F5E, #FBBF24)' }} />
                     </div>
-                    <span className="text-[10px] font-bold">{product.stats.rarity}</span>
+                    <span className="text-xs font-bold text-pink-600">{product.stats.rarity}</span>
                   </div>
                 </div>
               </div>
             )}
 
             {/* Actions */}
-            <div className="space-y-4 mt-auto">
+            <div className="space-y-3 mt-auto">
               {!isSoldOut ? (
                 <>
-                  <div className="flex gap-4">
-                    <div className="flex items-center border border-zinc-100 bg-zinc-50">
-                      <button 
-                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                        className="px-4 py-4 hover:bg-zinc-100 transition-colors"
-                      >
-                        -
-                      </button>
-                      <span className="w-12 text-center text-xs font-bold">{quantity}</span>
-                      <button 
-                        onClick={() => setQuantity(quantity + 1)}
-                        className="px-4 py-4 hover:bg-zinc-100 transition-colors"
-                      >
-                        +
-                      </button>
+                  <div className="flex gap-3">
+                    <div className="flex items-center bg-white rounded-2xl border-2 border-purple-200 overflow-hidden">
+                      <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-4 py-3 hover:bg-purple-50 transition-colors font-bold text-purple-500">-</button>
+                      <span className="w-10 text-center text-sm font-bold text-purple-700">{quantity}</span>
+                      <button onClick={() => setQuantity(quantity + 1)} className="px-4 py-3 hover:bg-purple-50 transition-colors font-bold text-purple-500">+</button>
                     </div>
-                    <button 
+                    <button
                       onClick={() => addToCart(product, quantity)}
-                      className="flex-1 bg-white border-2 border-black text-black py-4 text-[10px] font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-all flex items-center justify-center gap-2"
+                      className="btn-secondary flex-1"
                     >
                       <ShoppingBag className="w-4 h-4" />
                       Add to Cart
                     </button>
                   </div>
-                  <button 
-                    onClick={handleBuyNow}
-                    className="w-full bg-black text-white py-5 text-[10px] font-bold uppercase tracking-widest hover:bg-quirky transition-all shadow-2xl shadow-black/10"
-                  >
+                  <button onClick={handleBuyNow} className="btn-primary w-full py-4 text-base justify-center">
+                    <Zap className="w-5 h-5" />
                     {product.condition === 'New' ? 'Quick Checkout' : 'Buy It Now'}
                   </button>
                 </>
               ) : (
-                <button 
-                  disabled
-                  className="w-full bg-zinc-100 text-zinc-400 py-5 text-[10px] font-bold uppercase tracking-widest cursor-not-allowed border border-zinc-200"
-                >
+                <button disabled className="w-full bg-gray-100 text-gray-400 py-4 rounded-full font-bold cursor-not-allowed">
                   Currently Unavailable
                 </button>
               )}
             </div>
 
             {/* Trust Badges */}
-            <div className="grid grid-cols-3 gap-4 mt-12 pt-12 border-t border-zinc-100">
-              <div className="text-center">
-                <ShieldCheck className="w-5 h-5 mx-auto mb-2 text-zinc-300" />
-                <p className="text-[6px] font-bold uppercase tracking-widest text-zinc-400">Authentic Only</p>
-              </div>
-              <div className="text-center">
-                <Truck className="w-5 h-5 mx-auto mb-2 text-zinc-300" />
-                <p className="text-[6px] font-bold uppercase tracking-widest text-zinc-400">Free Shipping</p>
-              </div>
-              <div className="text-center">
-                <RefreshCcw className="w-5 h-5 mx-auto mb-2 text-zinc-300" />
-                <p className="text-[6px] font-bold uppercase tracking-widest text-zinc-400">30 Day Returns</p>
-              </div>
+            <div className="grid grid-cols-3 gap-3 mt-8 pt-8 border-t border-purple-100">
+              {[
+                { icon: ShieldCheck, label: 'Authentic Only', color: '#A855F7' },
+                { icon: Truck, label: 'Free Shipping', color: '#4ADE80' },
+                { icon: RefreshCcw, label: '30 Day Returns', color: '#60A5FA' },
+              ].map(({ icon: Icon, label, color }) => (
+                <div key={label} className="text-center">
+                  <div className="w-10 h-10 rounded-full mx-auto mb-2 flex items-center justify-center" style={{ background: `${color}20` }}>
+                    <Icon className="w-5 h-5" style={{ color }} />
+                  </div>
+                  <p className="text-xs font-semibold text-purple-400">{label}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>

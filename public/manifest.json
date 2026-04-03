@@ -4,8 +4,8 @@
   "description": "The gamified social commerce platform for unique collectibles.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "background_color": "#FDF4FF",
+  "theme_color": "#A855F7",
   "icons": [
     {
       "src": "https://picsum.photos/seed/quirkify/192/192",
