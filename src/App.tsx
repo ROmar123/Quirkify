@@ -89,7 +89,13 @@ export default function App() {
   const location = useLocation();
 
   useEffect(() => {
-    getRedirectResult(auth).catch(() => {});
+    getRedirectResult(auth).then((result) => {
+      if (result?.user) {
+        setUser(result.user);
+        setIsAdmin(result.user.email === 'patengel85@gmail.com');
+        setLoading(false);
+      }
+    }).catch(() => {});
     const timeout = setTimeout(() => setLoading(false), 5000);
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       clearTimeout(timeout);
