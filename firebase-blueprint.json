@@ -1,0 +1,284 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Public user profile information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "bio": { "type": "string" },
+        "location": { "type": "string" },
+        "socialLinks": {
+          "type": "object",
+          "properties": {
+            "twitter": { "type": "string" },
+            "instagram": { "type": "string" }
+          }
+        },
+        "stats": {
+          "type": "object",
+          "properties": {
+            "itemsCollected": { "type": "number" },
+            "auctionsWon": { "type": "number" },
+            "totalBids": { "type": "number" }
+          }
+        },
+        "badges": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "email", "stats", "createdAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A customer order.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "items": { "type": "array", "items": { "type": "object" } },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "processing", "shipped", "delivered", "cancelled"] },
+        "shippingInfo": { "type": "object" },
+        "paymentInfo": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "orderType": { "type": "string", "enum": ["store", "auction"] }
+      },
+      "required": ["id", "userId", "userEmail", "items", "total", "status", "shippingInfo", "createdAt", "orderType"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "A product in the Quirkify catalog.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "priceRange": {
+          "type": "object",
+          "properties": {
+            "min": { "type": "number" },
+            "max": { "type": "number" }
+          },
+          "required": ["min", "max"]
+        },
+        "confidenceScore": { "type": "number" },
+        "imageUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "rarity": { "type": "string", "enum": ["Common", "Limited", "Rare", "Super Rare", "Unique"] },
+        "stats": {
+          "type": "object",
+          "properties": {
+            "quirkiness": { "type": "number" },
+            "rarity": { "type": "number" },
+            "utility": { "type": "number" },
+            "hype": { "type": "number" }
+          }
+        },
+        "serialNumber": { "type": "string" },
+        "maxSupply": { "type": "number" },
+        "marketData": {
+          "type": "object",
+          "properties": {
+            "location": { "type": "string" },
+            "trend": { "type": "string", "enum": ["up", "down", "stable"] }
+          }
+        }
+      },
+      "required": ["id", "name", "description", "category", "priceRange", "status", "createdAt", "rarity", "stats"]
+    },
+    "UserProgress": {
+      "title": "UserProgress",
+      "description": "User gamification progress.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "xp": { "type": "number" },
+        "level": { "type": "number" },
+        "balance": { "type": "number" },
+        "collectionCount": { "type": "number" },
+        "badges": { "type": "array", "items": { "type": "string" } },
+        "lastActive": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "xp", "level", "balance", "collectionCount", "lastActive"]
+    },
+    "CollectionItem": {
+      "title": "CollectionItem",
+      "description": "An item owned by a user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "productId": { "type": "string" },
+        "acquiredAt": { "type": "string", "format": "date-time" },
+        "purchasePrice": { "type": "number" }
+      },
+      "required": ["id", "ownerId", "productId", "acquiredAt", "purchasePrice"]
+    },
+    "Pack": {
+      "title": "Pack",
+      "description": "A mystery pack containing items.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "imageUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["available", "sold-out"] }
+      },
+      "required": ["id", "name", "description", "price", "imageUrl", "status"]
+    },
+    "Campaign": {
+      "title": "Campaign",
+      "description": "A marketing campaign suggested by AI.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "suggestedProducts": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["draft", "active", "completed"] },
+        "type": { "type": "string", "enum": ["sale", "auction", "social"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "description", "status", "type", "createdAt"]
+    },
+    "Auction": {
+      "title": "Auction",
+      "description": "A product auction.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "startPrice": { "type": "number" },
+        "currentBid": { "type": "number" },
+        "highestBidderId": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "ended", "cancelled"] },
+        "bidCount": { "type": "number" }
+      },
+      "required": ["id", "productId", "sellerId", "startPrice", "currentBid", "startTime", "endTime", "status", "bidCount"]
+    },
+    "Bid": {
+      "title": "Bid",
+      "description": "A bid placed on an auction.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "auctionId": { "type": "string" },
+        "bidderId": { "type": "string" },
+        "amount": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "auctionId", "bidderId", "amount", "timestamp"]
+    },
+    "LiveSession": {
+      "title": "LiveSession",
+      "description": "A live-streamed auction session.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "hostId": { "type": "string" },
+        "hostName": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["live", "ended", "scheduled"] },
+        "currentAuctionId": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "viewerCount": { "type": "number" },
+        "thumbnailUrl": { "type": "string" }
+      },
+      "required": ["id", "hostId", "hostName", "title", "status", "startTime", "viewerCount"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A message in a live session chat.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sessionId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["text", "bid", "system"] }
+      },
+      "required": ["id", "sessionId", "senderId", "senderName", "text", "timestamp", "type"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "A user notification.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["outbid", "won", "order_update", "system"] },
+        "read": { "type": "boolean" },
+        "link": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "title", "message", "type", "read", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Public user profiles."
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications."
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Customer orders."
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Collection of products."
+    },
+    "/campaigns/{campaignId}": {
+      "schema": "Campaign",
+      "description": "Collection of marketing campaigns."
+    },
+    "/auctions/{auctionId}": {
+      "schema": "Auction",
+      "description": "Collection of auctions."
+    },
+    "/auctions/{auctionId}/bids/{bidId}": {
+      "schema": "Bid",
+      "description": "Sub-collection of bids for a specific auction."
+    },
+    "/live_sessions/{sessionId}": {
+      "schema": "LiveSession",
+      "description": "Collection of live stream sessions."
+    },
+    "/live_sessions/{sessionId}/chat/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Sub-collection of chat messages for a live session."
+    },
+    "/user_progress/{uid}": {
+      "schema": "UserProgress",
+      "description": "User gamification data."
+    },
+    "/users/{userId}/collection/{itemId}": {
+      "schema": "CollectionItem",
+      "description": "Items owned by a user."
+    },
+    "/packs/{packId}": {
+      "schema": "Pack",
+      "description": "Available mystery packs."
+    }
+  }
+}

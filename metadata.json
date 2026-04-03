@@ -1,0 +1,8 @@
+{
+  "name": "Quirkify",
+  "description": "The future of social commerce. Enterprise-grade AI-curated, live-streamed auctions with secure Yoco payments and real-time logistics.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
