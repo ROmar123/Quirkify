@@ -128,7 +128,7 @@ export default function App() {
     <CartProvider>
       <div className="min-h-screen bg-white text-black font-sans selection:bg-quirky selection:text-white">
         <nav className="fixed top-0 left-0 right-0 z-50 border-b border-zinc-100 bg-white/80 backdrop-blur-md">
-          <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
             <Link to="/" className="flex items-center">
               <Logo />
             </Link>
@@ -191,7 +191,7 @@ export default function App() {
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="md:hidden absolute top-16 left-0 right-0 bg-white border-b border-zinc-100 p-4 shadow-xl"
+                className="md:hidden absolute top-20 left-0 right-0 bg-white border-b border-zinc-100 p-4 shadow-xl"
               >
                 <div className="flex flex-col gap-4">
                   {navLinks.map(link => (
@@ -211,7 +211,7 @@ export default function App() {
           </AnimatePresence>
         </nav>
 
-        <main className="pt-16 pb-20">
+        <main className="pt-20 pb-20">
           {!user && (
             <div className="max-w-7xl mx-auto px-4 pt-24">
               <motion.div 
