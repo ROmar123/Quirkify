@@ -89,12 +89,14 @@ export default function App() {
   const location = useLocation();
 
   useEffect(() => {
+    const timeout = setTimeout(() => setLoading(false), 5000);
     const unsubscribe = onAuthStateChanged(auth, (u) => {
+      clearTimeout(timeout);
       setUser(u);
       setIsAdmin(u?.email === 'patengel85@gmail.com');
       setLoading(false);
     });
-    return unsubscribe;
+    return () => { clearTimeout(timeout); unsubscribe(); };
   }, []);
 
   const navLinks = useMemo(() => [
