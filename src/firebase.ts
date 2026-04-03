@@ -10,16 +10,9 @@ export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
-export const signIn = async () => {
-  try {
-    return await signInWithPopup(auth, googleProvider);
-  } catch (error: any) {
-    if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
-      return signInWithRedirect(auth, googleProvider);
-    }
-    throw error;
-  }
-};
+const isMobile = () => /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+export const signIn = () =>
+  isMobile() ? signInWithRedirect(auth, googleProvider) : signInWithPopup(auth, googleProvider);
 export { getRedirectResult };
 export const signOut = () => auth.signOut();
 

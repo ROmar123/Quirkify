@@ -89,20 +89,28 @@ export default function App() {
   const location = useLocation();
 
   useEffect(() => {
-    getRedirectResult(auth).then((result) => {
-      if (result?.user) {
-        setUser(result.user);
-        setIsAdmin(result.user.email === 'patengel85@gmail.com');
+    const timeout = setTimeout(() => setLoading(false), 8000);
+
+    // Must call getRedirectResult first — this completes the redirect sign-in
+    // flow and triggers onAuthStateChanged with the signed-in user.
+    getRedirectResult(auth).catch(() => {}).finally(() => {
+      const unsubscribe = onAuthStateChanged(auth, (u) => {
+        clearTimeout(timeout);
+        setUser(u);
+        setIsAdmin(u?.email === 'patengel85@gmail.com');
         setLoading(false);
-      }
-    }).catch(() => {});
-    const timeout = setTimeout(() => setLoading(false), 5000);
+        unsubscribe();
+      });
+    });
+
+    // Also subscribe immediately for desktop popup flow
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       clearTimeout(timeout);
       setUser(u);
       setIsAdmin(u?.email === 'patengel85@gmail.com');
       setLoading(false);
     });
+
     return () => { clearTimeout(timeout); unsubscribe(); };
   }, []);
 
