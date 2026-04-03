@@ -1,7 +1,7 @@
 import { Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import { useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth, signIn, signOut } from './firebase';
+import { auth, signIn, signOut, getRedirectResult } from './firebase';
 import { LayoutDashboard, ShoppingBag, PlusCircle, CheckCircle, TrendingUp, LogIn, LogOut, Menu, X, Zap, Gavel, Sparkles, ClipboardList, User as UserIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -89,6 +89,7 @@ export default function App() {
   const location = useLocation();
 
   useEffect(() => {
+    getRedirectResult(auth).catch(() => {});
     const timeout = setTimeout(() => setLoading(false), 5000);
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       clearTimeout(timeout);
