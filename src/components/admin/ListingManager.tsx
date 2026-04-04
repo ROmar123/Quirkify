@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { collection, onSnapshot, doc, updateDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, deleteDoc, addDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../../firebase';
 import { Product, ProductCondition } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -94,11 +94,13 @@ export default function ListingManager() {
       let imageUrls: string[] = imageUrl ? [imageUrl] : [];
       let confidenceScore = editingProduct.confidenceScore ?? 0;
 
+      // Pre-generate ID so storage path matches Firestore doc
+      const productDocRef = isNew ? doc(collection(db, 'products')) : doc(db, 'products', editingProduct.id);
+
       // Upload new images if provided
       if (imageFiles.length > 0) {
         setSavingMsg('Uploading images…');
-        const productId = isNew ? doc(collection(db, 'products')).id : editingProduct.id;
-        imageUrls = await Promise.all(imageFiles.map(f => uploadProductImage(productId, f)));
+        imageUrls = await Promise.all(imageFiles.map(f => uploadProductImage(productDocRef.id, f)));
         imageUrl = imageUrls[0];
 
         // Run AI confidence on first image
@@ -133,9 +135,9 @@ export default function ListingManager() {
         status: editingProduct.status,
       };
       if (isNew) {
-        await addDoc(collection(db, 'products'), { ...payload, createdAt: serverTimestamp(), authorUid: auth.currentUser?.uid });
+        await setDoc(productDocRef, { ...payload, id: productDocRef.id, createdAt: serverTimestamp(), authorUid: auth.currentUser?.uid });
       } else {
-        await updateDoc(doc(db, 'products', editingProduct.id), payload);
+        await updateDoc(productDocRef, payload);
       }
       closeModal();
     } catch (err) {
