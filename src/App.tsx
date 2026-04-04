@@ -205,43 +205,30 @@ function AppInner() {
 
   // Desktop nav items
   const customerNav = [
-    {
-      type: 'dropdown' as const,
-      label: 'Store',
-      items: [
-        { to: '/', label: 'All Products', icon: ShoppingBag },
-        { to: '/?filter=sale', label: 'Sale', icon: Sparkles },
-        { to: '/?filter=new', label: 'New Arrivals', icon: Zap },
-        { to: '/?filter=packs', label: 'Mystery Packs', icon: Sparkles },
-      ],
-    },
+    { type: 'link' as const, to: '/', label: 'Store', icon: ShoppingBag },
     { type: 'link' as const, to: '/auctions', label: 'Auctions', icon: Gavel },
-    {
-      type: 'dropdown' as const,
-      label: 'Account',
-      items: [
-        { to: '/collection', label: 'My Collection', icon: UserIcon },
-        { to: '/orders', label: 'Orders', icon: ClipboardList },
-        { to: '/seller/onboarding', label: 'Become a Seller', icon: TrendingUp },
-      ],
-    },
+    { type: 'link' as const, to: '/orders', label: 'Orders', icon: ClipboardList },
+    { type: 'link' as const, to: '/collection', label: 'Account', icon: UserIcon },
   ];
 
   const employeeNav = [
     { type: 'link' as const, to: '/admin', label: 'Dashboard', icon: LayoutDashboard },
     {
       type: 'dropdown' as const,
-      label: 'Products',
+      label: 'Product Management',
       items: [
         { to: '/admin/intake', label: 'Intake', icon: PlusCircle },
         { to: '/admin/reviews', label: 'Review Queue', icon: CheckCircle },
+        { to: '/admin/listings', label: 'Listings', icon: ShoppingBag },
       ],
     },
     {
       type: 'dropdown' as const,
-      label: 'Commerce',
+      label: 'E-Commerce',
       items: [
-        { to: '/admin/auctions', label: 'Auction Manager', icon: Gavel },
+        { to: '/admin/orders', label: 'Orders', icon: ClipboardList },
+        { to: '/admin/auctions', label: 'Auctions', icon: Gavel },
+        { to: '/admin/packs', label: 'Mystery Packs', icon: Sparkles },
       ],
     },
     {
@@ -250,6 +237,7 @@ function AppInner() {
       items: [
         { to: '/admin/campaigns', label: 'Campaigns', icon: Megaphone },
         { to: '/admin/social', label: 'Social', icon: Zap },
+        { to: '/admin/streams', label: 'Live Streams', icon: TrendingUp },
       ],
     },
   ];
