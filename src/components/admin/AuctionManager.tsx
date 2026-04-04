@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, addDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../../firebase';
-
 import { Product, Auction } from '../../types';
 import { createAuction } from '../../services/auctionService';
 import { motion, AnimatePresence } from 'motion/react';
-import { Gavel, Plus, Clock, ShoppingBag, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Gavel, Plus, Clock, AlertCircle, CheckCircle2, ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/utils';
+
+const inputCls = 'w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-800 focus:outline-none focus:border-purple-400 transition-colors';
+const labelCls = 'block text-xs font-bold text-purple-400 mb-1';
 
 export default function AuctionManager() {
   const [approvedProducts, setApprovedProducts] = useState<Product[]>([]);
@@ -17,191 +19,187 @@ export default function AuctionManager() {
   const [durationHours, setDurationHours] = useState<number>(24);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const qProducts = query(collection(db, 'products'), where('status', '==', 'approved'));
-    const unsubscribeProducts = onSnapshot(qProducts, (snapshot) => {
-      setApprovedProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'products');
-    });
+    const unsubProducts = onSnapshot(qProducts, snap => {
+      setApprovedProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
+    }, err => handleFirestoreError(err, OperationType.GET, 'products'));
 
     const qAuctions = query(collection(db, 'auctions'), where('status', '==', 'active'));
-    const unsubscribeAuctions = onSnapshot(qAuctions, (snapshot) => {
-      setActiveAuctions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Auction)));
+    const unsubAuctions = onSnapshot(qAuctions, snap => {
+      setActiveAuctions(snap.docs.map(d => ({ id: d.id, ...d.data() } as Auction)));
       setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'auctions');
-      setLoading(false);
-    });
+    }, err => { handleFirestoreError(err, OperationType.GET, 'auctions'); setLoading(false); });
 
-    return () => {
-      unsubscribeProducts();
-      unsubscribeAuctions();
-    };
+    return () => { unsubProducts(); unsubAuctions(); };
   }, []);
 
   const handleStartAuction = async () => {
-    if (!selectedProduct) return;
-    if (startPrice <= 0) {
-      setError('Start price must be greater than 0');
+    if (!selectedProduct || startPrice <= 0) {
+      setError('Select a product and set a start price > 0');
       return;
     }
-
+    setSaving(true);
+    setError(null);
     try {
-      setError(null);
-      const startTime = new Date().toISOString();
-      const endTime = new Date(new Date().getTime() + durationHours * 60 * 60 * 1000).toISOString();
-
+      const now = new Date();
       await createAuction({
         productId: selectedProduct.id,
         sellerId: auth.currentUser?.uid || 'admin',
         startPrice,
-        startTime,
-        endTime,
+        startTime: now.toISOString(),
+        endTime: new Date(now.getTime() + durationHours * 3600000).toISOString(),
       });
-
-      setSuccess('Auction started successfully!');
+      setSuccess('Auction launched!');
       setSelectedProduct(null);
       setStartPrice(0);
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
       setError(err.message || 'Failed to start auction');
+    } finally {
+      setSaving(false);
     }
   };
 
+  const timeLeft = (endTime: string) => {
+    const diff = new Date(endTime).getTime() - Date.now();
+    if (diff <= 0) return 'Ended';
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    return `${h}h ${m}m`;
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12">
-      <div className="mb-12">
-        <h1 className="text-4xl font-bold tracking-tight mb-2 text-black">Auction Manager</h1>
-        <p className="text-zinc-500 text-sm uppercase tracking-widest font-bold">Launch and monitor exclusive product auctions.</p>
+    <div className="px-4 py-6 max-w-7xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl font-black gradient-text">Auction Manager</h1>
+        <p className="text-purple-400 text-xs font-semibold mt-1">Launch and monitor product auctions</p>
       </div>
 
       <AnimatePresence>
         {error && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="mb-8 p-4 bg-red-50 border border-red-100 text-red-600 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2"
-          >
-            <AlertCircle className="w-4 h-4" />
-            {error}
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="mb-4 p-3 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-xs font-bold flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />{error}
           </motion.div>
         )}
         {success && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="mb-8 p-4 bg-green-50 border border-green-100 text-green-600 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2"
-          >
-            <CheckCircle2 className="w-4 h-4" />
-            {success}
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="mb-4 p-3 bg-green-50 border border-green-100 rounded-2xl text-green-600 text-xs font-bold flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />{success}
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-        <div className="lg:col-span-1 space-y-8">
-          <section>
-            <h2 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-4">Launch New Auction</h2>
-            <div className="p-6 bg-white border border-zinc-100 rounded-none shadow-sm space-y-6">
-              <div>
-                <label className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest mb-2 block">Select Product</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {approvedProducts.map(product => (
-                    <button
-                      key={product.id}
-                      onClick={() => setSelectedProduct(product)}
-                      className={cn(
-                        "p-2 border transition-all text-left flex items-center gap-2",
-                        selectedProduct?.id === product.id ? "border-black bg-zinc-50" : "border-zinc-100 hover:border-zinc-300"
-                      )}
-                    >
-                      <div className="w-8 h-8 bg-zinc-100 flex-shrink-0 relative">
-                        <img src={product.imageUrl} className="w-full h-full object-cover" alt="" />
-                        <div className={cn(
-                          "absolute inset-0 border-2",
-                          product.rarity === 'Unique' ? 'border-cyber' : 
-                          product.rarity === 'Super Rare' ? 'border-hot' : 
-                          product.rarity === 'Rare' ? 'border-quirky' : 'border-transparent'
-                        )} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-[8px] font-bold uppercase tracking-tight truncate block">{product.name}</span>
-                        <span className="text-[6px] text-zinc-400 uppercase font-bold">{product.rarity}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Launch panel */}
+        <div className="bg-white rounded-3xl border border-purple-100 p-5 shadow-sm space-y-5">
+          <h2 className="text-sm font-black text-purple-900">Launch New Auction</h2>
 
-              {selectedProduct && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-                  <div>
-                    <label className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest mb-2 block">Start Price (R)</label>
-                    <input 
-                      type="number" 
-                      value={startPrice || ''}
-                      onChange={(e) => setStartPrice(Number(e.target.value))}
-                      className="w-full px-4 py-3 bg-zinc-50 border border-zinc-100 text-xs font-bold focus:outline-none focus:border-black transition-colors"
-                      placeholder="e.g. 500"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest mb-2 block">Duration (Hours)</label>
-                    <select 
-                      value={durationHours}
-                      onChange={(e) => setDurationHours(Number(e.target.value))}
-                      className="w-full px-4 py-3 bg-zinc-50 border border-zinc-100 text-xs font-bold focus:outline-none focus:border-black transition-colors"
-                    >
-                      <option value={1}>1 Hour</option>
-                      <option value={12}>12 Hours</option>
-                      <option value={24}>24 Hours</option>
-                      <option value={48}>48 Hours</option>
-                      <option value={168}>1 Week</option>
-                    </select>
-                  </div>
-                  <button 
-                    onClick={handleStartAuction}
-                    className="w-full py-4 bg-black text-white text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-800 transition-all flex items-center justify-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Launch Auction
+          <div>
+            <label className={labelCls}>Select Product</label>
+            {approvedProducts.length === 0 ? (
+              <p className="text-xs text-purple-400 font-semibold py-3 text-center bg-purple-50 rounded-2xl">No approved products yet</p>
+            ) : (
+              <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                {approvedProducts.map(p => (
+                  <button key={p.id} onClick={() => setSelectedProduct(p)}
+                    className={cn(
+                      'w-full flex items-center gap-3 p-2.5 rounded-2xl border-2 text-left transition-all',
+                      selectedProduct?.id === p.id
+                        ? 'border-purple-400 bg-purple-50'
+                        : 'border-purple-100 hover:border-purple-300 bg-white'
+                    )}>
+                    <img src={p.imageUrl} className="w-10 h-10 rounded-xl object-cover flex-shrink-0" alt="" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-purple-900 truncate">{p.name}</p>
+                      <p className="text-[10px] text-purple-400 font-semibold">{p.rarity} · {p.condition}</p>
+                    </div>
+                    {selectedProduct?.id === p.id && (
+                      <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }} />
+                    )}
                   </button>
-                </motion.div>
-              )}
-            </div>
-          </section>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <AnimatePresence>
+            {selectedProduct && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }} className="space-y-4 overflow-hidden">
+                <div>
+                  <label className={labelCls}>Start Price (R)</label>
+                  <input type="number" value={startPrice || ''} onChange={e => setStartPrice(Number(e.target.value))}
+                    className={inputCls} placeholder="e.g. 500" />
+                </div>
+                <div>
+                  <label className={labelCls}>Duration</label>
+                  <select value={durationHours} onChange={e => setDurationHours(Number(e.target.value))} className={inputCls}>
+                    <option value={1}>1 Hour</option>
+                    <option value={12}>12 Hours</option>
+                    <option value={24}>24 Hours</option>
+                    <option value={48}>48 Hours</option>
+                    <option value={168}>1 Week</option>
+                  </select>
+                </div>
+                <button onClick={handleStartAuction} disabled={saving}
+                  className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-50 transition-all hover:opacity-90 flex items-center justify-center gap-2"
+                  style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
+                  <Plus className="w-4 h-4" />
+                  {saving ? 'Launching…' : 'Launch Auction'}
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        <div className="lg:col-span-2">
-          <h2 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-4">Active Auctions ({activeAuctions.length})</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {activeAuctions.map(auction => (
-              <div key={auction.id} className="p-6 bg-white border border-zinc-100 rounded-none shadow-sm flex gap-4">
-                <div className="w-20 h-20 bg-zinc-50 flex-shrink-0 border border-zinc-100">
-                  {/* We'd need to fetch product data or denormalize it */}
-                  <div className="w-full h-full flex items-center justify-center text-zinc-300">
-                    <ShoppingBag className="w-8 h-8" />
+        {/* Active auctions */}
+        <div className="lg:col-span-2 space-y-4">
+          <h2 className="text-sm font-black text-purple-900">Active Auctions ({activeAuctions.length})</h2>
+
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2].map(i => <div key={i} className="h-24 bg-purple-50 animate-pulse rounded-3xl" />)}
+            </div>
+          ) : activeAuctions.length === 0 ? (
+            <div className="text-center py-14 bg-white rounded-3xl border border-purple-100">
+              <Gavel className="w-8 h-8 mx-auto mb-2 text-purple-200" />
+              <p className="text-xs font-bold text-purple-400">No active auctions</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {activeAuctions.map(auction => (
+                <div key={auction.id} className="bg-white rounded-3xl border border-purple-100 p-4 flex gap-3 shadow-sm">
+                  {auction.product ? (
+                    <img src={(auction.product as any).imageUrl} className="w-16 h-16 rounded-2xl object-cover flex-shrink-0" alt="" />
+                  ) : (
+                    <div className="w-16 h-16 rounded-2xl bg-purple-50 flex items-center justify-center flex-shrink-0">
+                      <Gavel className="w-6 h-6 text-purple-300" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black text-purple-900 truncate">
+                      {(auction.product as any)?.name || `Auction #${auction.id.slice(-6)}`}
+                    </p>
+                    <p className="text-[10px] font-bold text-purple-400 mt-0.5">{auction.bidCount} bids · R{auction.currentBid}</p>
+                    <div className="flex items-center gap-1 mt-2">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 border border-green-100 rounded-full text-[10px] font-bold text-green-600">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                        Live
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 border border-purple-100 rounded-full text-[10px] font-bold text-purple-600">
+                        <Clock className="w-2.5 h-2.5" />
+                        {timeLeft(auction.endTime)}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[8px] font-bold px-2 py-1 bg-black text-white uppercase tracking-widest">ACTIVE</span>
-                    <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      Ends {new Date(auction.endTime).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <h4 className="font-bold text-xs uppercase tracking-tight truncate mb-1">Auction #{auction.id.slice(-6)}</h4>
-                  <p className="text-[10px] font-bold text-black">Current Bid: R{auction.currentBid}</p>
-                  <p className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest mt-2">{auction.bidCount} Bids Placed</p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
