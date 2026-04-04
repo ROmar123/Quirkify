@@ -43,7 +43,14 @@ export default function Checkout() {
 
   const handleNext = async () => {
     if (step === 'cart') setStep('shipping');
-    else if (step === 'shipping') setStep('payment');
+    else if (step === 'shipping') {
+      // Validate shipping form
+      if (!formData.email || !formData.address || !formData.city || !formData.zip || !formData.phone) {
+        alert('Please fill in all delivery details');
+        return;
+      }
+      setStep('payment');
+    }
     else if (step === 'payment') {
       if (!auth.currentUser) return;
       setIsProcessing(true);
@@ -181,26 +188,28 @@ export default function Checkout() {
             {step === 'shipping' && (
               <motion.div key="shipping" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
                 <h2 className="text-2xl font-black gradient-text mb-6">Delivery Details</h2>
-                <div className="bg-white rounded-3xl border border-purple-100 p-6 space-y-4 shadow-sm">
-                  {[
-                    { key: 'email' as const, label: 'Email Address', type: 'email', placeholder: 'you@example.com', span: 2 },
-                    { key: 'address' as const, label: 'Street Address', type: 'text', placeholder: '12 Main Road', span: 2 },
-                    { key: 'city' as const, label: 'City', type: 'text', placeholder: 'Cape Town', span: 1 },
-                    { key: 'zip' as const, label: 'ZIP / Postal Code', type: 'text', placeholder: '8001', span: 1 },
-                    { key: 'phone' as const, label: 'Phone (for delivery)', type: 'tel', placeholder: '082 000 0000', span: 2 },
-                  ].map(({ key, label, type, placeholder, span }) => (
-                    <div key={key} className={span === 2 ? 'col-span-2' : ''} style={span === 1 ? {} : {}}>
-                      <label className="text-[9px] font-bold text-purple-400 uppercase tracking-widest block mb-1.5">{label}</label>
-                      <input
-                        type={type}
-                        placeholder={placeholder}
-                        {...field(key)}
-                        className="w-full p-3 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-800 focus:outline-none focus:border-purple-400 transition-colors"
-                      />
-                    </div>
-                  ))}
+                <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm">
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { key: 'email' as const, label: 'Email Address', type: 'email', placeholder: 'you@example.com', span: 2 },
+                      { key: 'address' as const, label: 'Street Address', type: 'text', placeholder: '12 Main Road', span: 2 },
+                      { key: 'city' as const, label: 'City', type: 'text', placeholder: 'Cape Town', span: 1 },
+                      { key: 'zip' as const, label: 'ZIP / Postal Code', type: 'text', placeholder: '8001', span: 1 },
+                      { key: 'phone' as const, label: 'Phone (for delivery)', type: 'tel', placeholder: '082 000 0000', span: 2 },
+                    ].map(({ key, label, type, placeholder, span }) => (
+                      <div key={key} className={span === 2 ? 'col-span-2' : ''}>
+                        <label className="text-[9px] font-bold text-purple-400 uppercase tracking-widest block mb-1.5">{label}</label>
+                        <input
+                          type={type}
+                          placeholder={placeholder}
+                          {...field(key)}
+                          className="w-full p-3 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-800 focus:outline-none focus:border-purple-400 transition-colors"
+                        />
+                      </div>
+                    ))}
+                  </div>
 
-                  <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-2xl border border-purple-100 mt-2">
+                  <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-2xl border border-purple-100 mt-6">
                     <Truck className="w-5 h-5 text-purple-500 flex-shrink-0" />
                     <div>
                       <p className="text-sm font-bold text-purple-700">The Courier Guy — Economy</p>
