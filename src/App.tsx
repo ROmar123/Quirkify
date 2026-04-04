@@ -13,17 +13,11 @@ import { cn } from './lib/utils';
 import Logo from './components/layout/Logo';
 import StoreFront from './components/store/StoreFront';
 import AdminDashboard from './components/admin/AdminDashboard';
-import ProductIntake from './components/admin/ProductIntake';
-import ReviewQueue from './components/admin/ReviewQueue';
-import CampaignManager from './components/admin/CampaignManager';
-import SocialIntegration from './components/admin/SocialIntegration';
-import ListingManager from './components/admin/ListingManager';
-import OrderManager from './components/admin/OrderManager';
-import PackManager from './components/admin/PackManager';
-import LiveStreamManager from './components/admin/LiveStreamManager';
+import ProductsPage from './components/admin/ProductsPage';
+import CommercePage from './components/admin/CommercePage';
+import GrowthPage from './components/admin/GrowthPage';
 import ResourceMonitor from './components/admin/ResourceMonitor';
 import AuctionList from './components/store/AuctionList';
-import AuctionManager from './components/admin/AuctionManager';
 import LiveStreamRoom from './components/live/LiveStreamRoom';
 import Collection from './components/profile/Collection';
 import PublicProfile from './components/profile/PublicProfile';
@@ -158,15 +152,15 @@ function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: User | null
           <Route path="/orders" element={<Orders />} />
           <Route path="/seller/onboarding" element={<SellerOnboarding />} />
           <Route path="/admin" element={isAdmin ? <AdminDashboard /> : <Navigate to="/" />} />
-          <Route path="/admin/intake" element={isAdmin ? <ProductIntake /> : <Navigate to="/" />} />
-          <Route path="/admin/reviews" element={isAdmin ? <ReviewQueue /> : <Navigate to="/" />} />
-          <Route path="/admin/campaigns" element={isAdmin ? <CampaignManager /> : <Navigate to="/" />} />
-          <Route path="/admin/auctions" element={isAdmin ? <AuctionManager /> : <Navigate to="/" />} />
-          <Route path="/admin/social" element={isAdmin ? <SocialIntegration /> : <Navigate to="/" />} />
-          <Route path="/admin/listings" element={isAdmin ? <ListingManager /> : <Navigate to="/" />} />
-          <Route path="/admin/orders" element={isAdmin ? <OrderManager /> : <Navigate to="/" />} />
-          <Route path="/admin/packs" element={isAdmin ? <PackManager /> : <Navigate to="/" />} />
-          <Route path="/admin/streams" element={isAdmin ? <LiveStreamManager /> : <Navigate to="/" />} />
+          <Route path="/admin/listings" element={isAdmin ? <ProductsPage /> : <Navigate to="/" />} />
+          <Route path="/admin/intake"   element={isAdmin ? <ProductsPage /> : <Navigate to="/" />} />
+          <Route path="/admin/reviews"  element={isAdmin ? <ProductsPage /> : <Navigate to="/" />} />
+          <Route path="/admin/orders"   element={isAdmin ? <CommercePage /> : <Navigate to="/" />} />
+          <Route path="/admin/auctions" element={isAdmin ? <CommercePage /> : <Navigate to="/" />} />
+          <Route path="/admin/packs"    element={isAdmin ? <CommercePage /> : <Navigate to="/" />} />
+          <Route path="/admin/campaigns" element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
+          <Route path="/admin/social"   element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
+          <Route path="/admin/streams"  element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
           <Route path="/admin/resources" element={isAdmin ? <ResourceMonitor /> : <Navigate to="/" />} />
         </Routes>
       </motion.div>

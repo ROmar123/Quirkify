@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../../firebase';
 import { Product, ProductCondition } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Edit3, Trash2, Save, X, Plus, ShoppingBag, Gavel, Package, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { Search, Edit3, Trash2, Save, X, Plus, ShoppingBag, Camera, Loader2, Package, Gavel, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { PRODUCT_CATEGORIES } from '../../lib/categories';
+import { uploadProductImage } from '../../services/storageService';
+import { identifyProduct } from '../../services/gemini';
 
 type StatusFilter = 'all' | 'approved' | 'pending' | 'rejected';
 
@@ -35,7 +37,11 @@ export default function ListingManager() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingMsg, setSavingMsg] = useState('Saving…');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'products'), (snap) => {
@@ -61,17 +67,62 @@ export default function ListingManager() {
     setIsNew(false);
   };
 
-  const closeModal = () => { setEditingProduct(null); setIsNew(false); };
+  const closeModal = () => {
+    setEditingProduct(null);
+    setIsNew(false);
+    setImageFiles([]);
+    setImagePreviews([]);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []).slice(0, 3);
+    setImageFiles(files);
+    setImagePreviews(files.map(f => URL.createObjectURL(f)));
+  };
+
+  const removeImage = (i: number) => {
+    const files = imageFiles.filter((_, idx) => idx !== i);
+    setImageFiles(files);
+    setImagePreviews(files.map(f => URL.createObjectURL(f)));
+  };
 
   const handleSave = async () => {
     if (!editingProduct) return;
     setSaving(true);
     try {
+      let imageUrl = editingProduct.imageUrl;
+      let imageUrls: string[] = imageUrl ? [imageUrl] : [];
+      let confidenceScore = editingProduct.confidenceScore ?? 0;
+
+      // Upload new images if provided
+      if (imageFiles.length > 0) {
+        setSavingMsg('Uploading images…');
+        const productId = isNew ? doc(collection(db, 'products')).id : editingProduct.id;
+        imageUrls = await Promise.all(imageFiles.map(f => uploadProductImage(productId, f)));
+        imageUrl = imageUrls[0];
+
+        // Run AI confidence on first image
+        setSavingMsg('Getting AI confidence…');
+        try {
+          const reader = new FileReader();
+          const base64 = await new Promise<string>((res, rej) => {
+            reader.onload = () => res((reader.result as string).split(',')[1]);
+            reader.onerror = rej;
+            reader.readAsDataURL(imageFiles[0]);
+          });
+          const ai = await identifyProduct(base64);
+          confidenceScore = ai.confidenceScore ?? 0;
+        } catch { /* non-fatal */ }
+      }
+
+      setSavingMsg('Saving…');
       const payload = {
         name: editingProduct.name,
         description: editingProduct.description,
         category: editingProduct.category,
-        imageUrl: editingProduct.imageUrl,
+        imageUrl,
+        imageUrls,
+        confidenceScore,
         priceRange: { min: editingProduct.retailPrice || editingProduct.priceRange?.min, max: editingProduct.retailPrice || editingProduct.priceRange?.max },
         retailPrice: editingProduct.retailPrice,
         markdownPercentage: editingProduct.markdownPercentage,
@@ -91,6 +142,7 @@ export default function ListingManager() {
       handleFirestoreError(err, OperationType.WRITE, 'products');
     } finally {
       setSaving(false);
+      setSavingMsg('Saving…');
     }
   };
 
@@ -201,7 +253,7 @@ export default function ListingManager() {
       {/* Delete confirm inline */}
       <AnimatePresence>
         {deleteConfirm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setDeleteConfirm(null)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
@@ -224,7 +276,7 @@ export default function ListingManager() {
       {/* Edit / Create Modal */}
       <AnimatePresence>
         {editingProduct && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={closeModal} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
             <motion.div initial={{ y: '100%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '100%', opacity: 0 }}
@@ -260,9 +312,44 @@ export default function ListingManager() {
                 </div>
 
                 <div>
-                  <label className={labelCls}>Image URL</label>
-                  <input value={editingProduct.imageUrl} onChange={e => setField('imageUrl', e.target.value)} className={inputCls} placeholder="https://…" />
-                  {editingProduct.imageUrl && <img src={editingProduct.imageUrl} className="mt-2 h-24 rounded-xl object-cover" alt="" referrerPolicy="no-referrer" />}
+                  <label className={labelCls}>Photos (up to 3)</label>
+                  <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
+                    onChange={handleFileChange} />
+                  {imagePreviews.length > 0 ? (
+                    <div className="flex gap-2 mt-1">
+                      {imagePreviews.map((src, i) => (
+                        <div key={i} className="relative w-20 h-20 flex-shrink-0">
+                          <img src={src} className="w-full h-full object-cover rounded-2xl" alt="" />
+                          <button onClick={() => removeImage(i)}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      {imagePreviews.length < 3 && (
+                        <button onClick={() => fileInputRef.current?.click()}
+                          className="w-20 h-20 rounded-2xl border-2 border-dashed border-purple-200 flex items-center justify-center text-purple-300 hover:border-purple-400 transition-colors">
+                          <Plus className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
+                  ) : editingProduct.imageUrl ? (
+                    <div className="flex gap-2 mt-1">
+                      <div className="relative w-20 h-20 flex-shrink-0">
+                        <img src={editingProduct.imageUrl} className="w-full h-full object-cover rounded-2xl" alt="" referrerPolicy="no-referrer" />
+                      </div>
+                      <button onClick={() => fileInputRef.current?.click()}
+                        className="w-20 h-20 rounded-2xl border-2 border-dashed border-purple-200 flex flex-col items-center justify-center text-purple-300 hover:border-purple-400 transition-colors text-xs font-bold gap-1">
+                        <Camera className="w-5 h-5" />Replace
+                      </button>
+                    </div>
+                  ) : (
+                    <button onClick={() => fileInputRef.current?.click()}
+                      className="w-full h-24 rounded-2xl border-2 border-dashed border-purple-200 flex flex-col items-center justify-center gap-2 text-purple-300 hover:border-purple-400 transition-colors">
+                      <Camera className="w-6 h-6" />
+                      <span className="text-xs font-bold">Upload photos</span>
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
@@ -319,7 +406,7 @@ export default function ListingManager() {
                 <div className="sticky bottom-0 bg-white pt-4 pb-2 flex gap-3 border-t border-purple-100 -mx-6 px-6">
                   <button onClick={closeModal} className="btn-secondary flex-1 py-3 text-sm justify-center">Cancel</button>
                   <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 py-3 text-sm justify-center disabled:opacity-50">
-                    {saving ? 'Saving…' : <><Save className="w-4 h-4" />{isNew ? 'Create Product' : 'Save Changes'}</>}
+                    {saving ? <><Loader2 className="w-4 h-4 animate-spin" />{savingMsg}</> : <><Save className="w-4 h-4" />{isNew ? 'Create Product' : 'Save Changes'}</>}
                   </button>
                 </div>
               </div>
@@ -328,7 +415,7 @@ export default function ListingManager() {
               <div className="hidden sm:flex p-6 border-t border-purple-100 gap-3">
                 <button onClick={closeModal} className="btn-secondary flex-1 py-3 text-sm justify-center">Cancel</button>
                 <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 py-3 text-sm justify-center disabled:opacity-50">
-                  {saving ? 'Saving…' : <><Save className="w-4 h-4" />{isNew ? 'Create Product' : 'Save Changes'}</>}
+                  {saving ? <><Loader2 className="w-4 h-4 animate-spin" />{savingMsg}</> : <><Save className="w-4 h-4" />{isNew ? 'Create Product' : 'Save Changes'}</>}
                 </button>
               </div>
             </motion.div>
