@@ -8,7 +8,7 @@ export async function identifyProduct(base64Image: string) {
     contents: [
       {
         parts: [
-          { text: "Identify this product for Quirkify, a gamified social commerce platform. Provide a name, a detailed description, a suggested category, and an estimated price range in ZAR (South African Rand) specifically for the Cape Town market. Also assign a Rarity (Common, Limited, Rare, Super Rare, Unique) and four stats (quirkiness, rarity, utility, hype) from 1 to 100 based on the product's appeal. Provide a confidence score from 0 to 1." },
+          { text: "Identify this product for Quirkify, a gamified social commerce platform. Provide a name, a detailed description, a suggested category (must be one of: Sneakers, Clothing, Accessories, Electronics, Collectibles, Toys & Games, Books & Media, Beauty & Health, Home & Decor, Sports & Outdoors, Art & Crafts, Vintage & Retro, Other), and an estimated price range in ZAR (South African Rand) specifically for the Cape Town market. Also assign a Rarity (Common, Limited, Rare, Super Rare, Unique) and four stats (quirkiness, rarity, utility, hype) from 1 to 100 based on the product's appeal. Provide a confidence score from 0 to 1." },
           { inlineData: { data: base64Image, mimeType: "image/jpeg" } }
         ]
       }

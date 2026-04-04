@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Camera, Upload, Loader2, CheckCircle2, AlertCircle, Sparkles, X, PlusCircle, Edit3, Trash2, Save } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { ProductCondition, Rarity } from '../../types';
+import { mapToStandardCategory } from '../../lib/categories';
 
 interface ProductIntakeProps {
   onSuccess?: () => void;
@@ -84,11 +85,12 @@ export default function ProductIntake({ onSuccess }: ProductIntakeProps) {
       const analysis: any = await analysisPromise;
       console.log('Analysis complete:', analysis);
       setResult(analysis);
-      
-      // Initialize edited result with default 40% markdown
+
+      // Initialize edited result with default 40% markdown + standardized category
       const retailPrice = analysis.retailPrice || analysis.priceRange.max;
       setEditedResult({
         ...analysis,
+        category: mapToStandardCategory(analysis.category || ''),
         retailPrice,
         discountPrice: Math.round(retailPrice * 0.6),
         markdownPercentage: 40,

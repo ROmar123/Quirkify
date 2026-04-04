@@ -1,16 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
-import { db, auth, handleFirestoreError, OperationType } from '../../firebase';
-import { useNavigate } from 'react-router-dom';
+import { db, handleFirestoreError, OperationType } from '../../firebase';
 import { Product, LiveSession, Pack } from '../../types';
-import { motion, AnimatePresence } from 'motion/react';
-import { ShoppingBag, Zap, Play, Users, Search, X, Tag, TrendingUp, Shield, Truck, Sparkles } from 'lucide-react';
+import { motion } from 'motion/react';
+import { ShoppingBag, Play, Users, Search, X, Tag, Shield, Truck, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useCart } from '../../context/CartContext';
-import { ensureUserProgress } from '../../services/gamificationService';
+import { PRODUCT_CATEGORIES } from '../../lib/categories';
 
-const FILTERS = [
+const CONDITION_FILTERS = [
   { key: null,        label: 'All' },
   { key: 'sale',      label: '🔥 Sale' },
   { key: 'New',       label: '✨ New' },
@@ -34,6 +33,7 @@ export default function StoreFront() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'products'), where('status', '==', 'approved'));
@@ -60,9 +60,10 @@ export default function StoreFront() {
     if (activeFilter === 'sale') list = list.filter(p => p.discountPrice && p.discountPrice < p.priceRange.min);
     else if (activeFilter === 'packs') list = [];
     else if (activeFilter) list = list.filter(p => p.condition === activeFilter);
+    if (activeCategory) list = list.filter(p => p.category === activeCategory);
     if (search.trim()) list = list.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.category?.toLowerCase().includes(search.toLowerCase()));
     return list;
-  }, [products, activeFilter, search]);
+  }, [products, activeFilter, activeCategory, search]);
 
   const showPacks = activeFilter === 'packs' || activeFilter === null;
 
@@ -108,7 +109,7 @@ export default function StoreFront() {
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-          {FILTERS.map(f => (
+          {CONDITION_FILTERS.map(f => (
             <button key={String(f.key)} onClick={() => setActiveFilter(f.key)}
               className={cn(
                 'px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap border-2 transition-all flex-shrink-0',
@@ -119,6 +120,33 @@ export default function StoreFront() {
               style={activeFilter === f.key ? { background: 'linear-gradient(135deg, #F472B6, #A855F7)' } : {}}
             >
               {f.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+          <button onClick={() => setActiveCategory(null)}
+            className={cn(
+              'px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border transition-all flex-shrink-0',
+              activeCategory === null
+                ? 'text-white border-transparent'
+                : 'bg-white text-purple-400 border-purple-100 hover:border-purple-300'
+            )}
+            style={activeCategory === null ? { background: 'linear-gradient(135deg, #A855F7, #6366F1)' } : {}}
+          >
+            All Categories
+          </button>
+          {PRODUCT_CATEGORIES.map(cat => (
+            <button key={cat} onClick={() => setActiveCategory(cat)}
+              className={cn(
+                'px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border transition-all flex-shrink-0',
+                activeCategory === cat
+                  ? 'text-white border-transparent'
+                  : 'bg-white text-purple-400 border-purple-100 hover:border-purple-300'
+              )}
+              style={activeCategory === cat ? { background: 'linear-gradient(135deg, #A855F7, #6366F1)' } : {}}
+            >
+              {cat}
             </button>
           ))}
         </div>

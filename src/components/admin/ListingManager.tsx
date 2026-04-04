@@ -5,6 +5,7 @@ import { Product, ProductCondition } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Edit3, Trash2, Save, X, Plus, ShoppingBag, Gavel, Package, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { PRODUCT_CATEGORIES } from '../../lib/categories';
 
 type StatusFilter = 'all' | 'approved' | 'pending' | 'rejected';
 
@@ -247,7 +248,10 @@ export default function ListingManager() {
                   </div>
                   <div>
                     <label className={labelCls}>Category</label>
-                    <input value={editingProduct.category} onChange={e => setField('category', e.target.value)} className={inputCls} placeholder="e.g. Clothing" />
+                    <select value={editingProduct.category} onChange={e => setField('category', e.target.value)} className={inputCls}>
+                      <option value="">Select category…</option>
+                      {PRODUCT_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    </select>
                   </div>
                 </div>
 
