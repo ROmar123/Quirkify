@@ -17,6 +17,11 @@ import ProductIntake from './components/admin/ProductIntake';
 import ReviewQueue from './components/admin/ReviewQueue';
 import CampaignManager from './components/admin/CampaignManager';
 import SocialIntegration from './components/admin/SocialIntegration';
+import ListingManager from './components/admin/ListingManager';
+import OrderManager from './components/admin/OrderManager';
+import PackManager from './components/admin/PackManager';
+import LiveStreamManager from './components/admin/LiveStreamManager';
+import ResourceMonitor from './components/admin/ResourceMonitor';
 import AuctionList from './components/store/AuctionList';
 import AuctionManager from './components/admin/AuctionManager';
 import LiveStreamRoom from './components/live/LiveStreamRoom';
@@ -158,6 +163,11 @@ function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: User | null
           <Route path="/admin/campaigns" element={isAdmin ? <CampaignManager /> : <Navigate to="/" />} />
           <Route path="/admin/auctions" element={isAdmin ? <AuctionManager /> : <Navigate to="/" />} />
           <Route path="/admin/social" element={isAdmin ? <SocialIntegration /> : <Navigate to="/" />} />
+          <Route path="/admin/listings" element={isAdmin ? <ListingManager /> : <Navigate to="/" />} />
+          <Route path="/admin/orders" element={isAdmin ? <OrderManager /> : <Navigate to="/" />} />
+          <Route path="/admin/packs" element={isAdmin ? <PackManager /> : <Navigate to="/" />} />
+          <Route path="/admin/streams" element={isAdmin ? <LiveStreamManager /> : <Navigate to="/" />} />
+          <Route path="/admin/resources" element={isAdmin ? <ResourceMonitor /> : <Navigate to="/" />} />
         </Routes>
       </motion.div>
     </AnimatePresence>
@@ -173,25 +183,20 @@ function AppInner() {
 
   useEffect(() => {
     const timeout = setTimeout(() => setLoading(false), 8000);
+    let unsub: (() => void) | undefined;
 
-    getRedirectResult(auth).catch(() => {}).finally(() => {
-      const unsubscribe = onAuthStateChanged(auth, (u) => {
-        clearTimeout(timeout);
-        setUser(u);
-        setIsAdmin(u?.email === 'patengel85@gmail.com');
-        setLoading(false);
-        unsubscribe();
+    getRedirectResult(auth)
+      .catch(() => {})
+      .finally(() => {
+        unsub = onAuthStateChanged(auth, (u) => {
+          clearTimeout(timeout);
+          setUser(u);
+          setIsAdmin(u?.email === 'patengel85@gmail.com');
+          setLoading(false);
+        });
       });
-    });
 
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      clearTimeout(timeout);
-      setUser(u);
-      setIsAdmin(u?.email === 'patengel85@gmail.com');
-      setLoading(false);
-    });
-
-    return () => { clearTimeout(timeout); unsubscribe(); };
+    return () => { clearTimeout(timeout); unsub?.(); };
   }, []);
 
   // Desktop nav items
@@ -302,16 +307,22 @@ function AppInner() {
             <CartButton />
             {isAdmin && <ModeToggle />}
             {user ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-purple-300 hidden sm:inline truncate max-w-[120px]">{user.email}</span>
-                <button onClick={signOut} className="p-2 hover:bg-purple-50 rounded-full transition-colors">
-                  <LogOut className="w-4 h-4 text-purple-400" />
-                </button>
-              </div>
+              <button
+                onClick={signOut}
+                title={`Sign out (${user.email})`}
+                className="w-8 h-8 rounded-full text-white text-xs font-black flex items-center justify-center shadow-md hover:opacity-80 transition-opacity flex-shrink-0"
+                style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
+              >
+                {user.email?.[0].toUpperCase()}
+              </button>
             ) : (
-              <button onClick={signIn} className="btn-primary text-sm px-5 py-2">
+              <button
+                onClick={signIn}
+                className="flex items-center justify-center gap-1.5 rounded-full font-bold text-white text-sm transition-all hover:opacity-90 flex-shrink-0 w-8 h-8 md:w-auto md:h-auto md:px-5 md:py-2"
+                style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
+              >
                 <LogIn className="w-4 h-4" />
-                Sign In
+                <span className="hidden md:inline">Sign In</span>
               </button>
             )}
 
@@ -349,6 +360,26 @@ function AppInner() {
                     </Link>
                   );
                 })}
+                <div className="border-t border-purple-100 mt-2 pt-2">
+                  {user ? (
+                    <button
+                      onClick={() => { signOut(); setIsMenuOpen(false); }}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-red-50 text-sm font-bold text-red-400 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Sign Out
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => { signIn(); setIsMenuOpen(false); }}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-white transition-colors"
+                      style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
+                    >
+                      <LogIn className="w-4 h-4" />
+                      Sign In with Google
+                    </button>
+                  )}
+                </div>
               </div>
             </motion.div>
           )}
