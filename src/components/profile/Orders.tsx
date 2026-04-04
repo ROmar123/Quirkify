@@ -33,7 +33,7 @@ interface TrackingInfo {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; icon: React.ElementType }> = {
-  pending:    { label: 'Pending',    bg: 'bg-zinc-100',    text: 'text-zinc-500',  icon: Package },
+  pending:    { label: 'Pending',    bg: 'bg-purple-100',  text: 'text-purple-500', icon: Package },
   processing: { label: 'Processing', bg: 'bg-amber-50',    text: 'text-amber-600', icon: Clock },
   shipped:    { label: 'Shipped',    bg: 'bg-blue-50',     text: 'text-blue-600',  icon: Truck },
   delivered:  { label: 'Delivered',  bg: 'bg-green-50',    text: 'text-green-600', icon: CheckCircle2 },

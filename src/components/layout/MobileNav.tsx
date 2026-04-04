@@ -34,7 +34,7 @@ export default function MobileNav() {
             to={item.path}
             className={cn(
               'flex flex-col items-center gap-1 transition-colors',
-              isActive ? 'text-purple-500' : 'text-zinc-400 hover:text-purple-400'
+              isActive ? 'text-purple-500' : 'text-purple-300 hover:text-purple-400'
             )}
           >
             <div className={cn(

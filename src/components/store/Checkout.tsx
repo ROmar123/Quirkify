@@ -200,11 +200,11 @@ export default function Checkout() {
                     </div>
                   ))}
 
-                  <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-2xl border border-blue-100 mt-2">
-                    <Truck className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                  <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-2xl border border-purple-100 mt-2">
+                    <Truck className="w-5 h-5 text-purple-500 flex-shrink-0" />
                     <div>
-                      <p className="text-sm font-bold text-blue-700">The Courier Guy — Economy</p>
-                      <p className="text-[9px] font-bold text-blue-400">3–5 business days · R{SHIPPING_FEE}</p>
+                      <p className="text-sm font-bold text-purple-700">The Courier Guy — Economy</p>
+                      <p className="text-[9px] font-bold text-purple-400">3–5 business days · R{SHIPPING_FEE}</p>
                     </div>
                   </div>
                 </div>

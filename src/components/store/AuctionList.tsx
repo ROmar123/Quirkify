@@ -158,7 +158,7 @@ function AuctionCard({ auction, onBid, bidValue, setBidValue }: {
         {/* Timer badge */}
         <div className={cn(
           'absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black text-white backdrop-blur-sm',
-          ended ? 'bg-gray-500/80' : 'bg-black/70'
+          ended ? 'bg-purple-300/80' : 'bg-purple-900/70'
         )}>
           <Clock className="w-3 h-3" />
           {timeLeft || '…'}
@@ -237,7 +237,7 @@ function AuctionCard({ auction, onBid, bidValue, setBidValue }: {
           </div>
         )}
         {ended && (
-          <div className="text-center py-2 text-xs font-bold text-gray-400 bg-gray-50 rounded-2xl">
+          <div className="text-center py-2 text-xs font-bold text-purple-400 bg-purple-50 rounded-2xl">
             Auction ended
           </div>
         )}

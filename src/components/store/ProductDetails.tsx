@@ -189,7 +189,7 @@ export default function ProductDetails() {
                 <span className="text-xl text-purple-200 line-through font-bold">R{product.priceRange.max}</span>
               )}
               {isSoldOut && (
-                <span className="badge-pill bg-gray-100 text-gray-400 text-xs">Sold Out</span>
+                <span className="badge-pill bg-purple-100 text-purple-400 text-xs">Sold Out</span>
               )}
             </div>
 
@@ -255,7 +255,7 @@ export default function ProductDetails() {
                   </button>
                 </>
               ) : (
-                <button disabled className="w-full bg-gray-100 text-gray-400 py-4 rounded-full font-bold cursor-not-allowed">
+                <button disabled className="w-full bg-purple-100 text-purple-400 py-4 rounded-full font-bold cursor-not-allowed">
                   Currently Unavailable
                 </button>
               )}

@@ -20,7 +20,7 @@ const RARITY_STYLE: Record<string, string> = {
   Unique:     'bg-yellow-400 text-black',
   'Super Rare': 'bg-pink-500 text-white',
   Rare:       'bg-purple-500 text-white',
-  Common:     'bg-zinc-700 text-white',
+  Common:     'bg-purple-700 text-white',
 };
 
 export default function StoreFront() {
@@ -191,13 +191,13 @@ export default function StoreFront() {
                     {/* Badges */}
                     <div className="absolute top-2 left-2 flex flex-col gap-1">
                       {product.rarity && (
-                        <span className={cn('text-[8px] font-bold px-2 py-0.5 rounded-full', RARITY_STYLE[product.rarity] ?? 'bg-zinc-700 text-white')}>
+                        <span className={cn('text-[8px] font-bold px-2 py-0.5 rounded-full', RARITY_STYLE[product.rarity] ?? 'bg-purple-700 text-white')}>
                           {product.rarity}
                         </span>
                       )}
                       {hasDiscount && <span className="text-[8px] font-bold px-2 py-0.5 rounded-full bg-red-500 text-white flex items-center gap-0.5"><Tag className="w-2 h-2" />Sale</span>}
                       {isLowStock && <span className="text-[8px] font-bold px-2 py-0.5 rounded-full bg-orange-400 text-white">Last {product.stock}!</span>}
-                      {isSoldOut && <span className="text-[8px] font-bold px-2 py-0.5 rounded-full bg-zinc-400 text-white">Sold Out</span>}
+                      {isSoldOut && <span className="text-[8px] font-bold px-2 py-0.5 rounded-full bg-purple-300 text-white">Sold Out</span>}
                     </div>
                   </Link>
 
