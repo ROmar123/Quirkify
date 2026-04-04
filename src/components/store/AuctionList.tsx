@@ -4,6 +4,7 @@ import { subscribeToAuctions, placeBid, subscribeToBids, concludeAuction } from 
 import { motion, AnimatePresence } from 'motion/react';
 import { Clock, Gavel, ChevronDown, ChevronUp, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import PageHeader from '../layout/PageHeader';
 
 export default function AuctionList() {
   const [auctions, setAuctions] = useState<Auction[]>([]);
@@ -56,6 +57,7 @@ export default function AuctionList() {
 
   return (
     <div className="px-4 py-6 max-w-7xl mx-auto">
+      <PageHeader />
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-black gradient-text">Live Auctions 🔴</h1>

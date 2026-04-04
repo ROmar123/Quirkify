@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
+import PageHeader from '../layout/PageHeader';
 import OrderManager from './OrderManager';
 import AuctionManager from './AuctionManager';
 import PackManager from './PackManager';
@@ -20,7 +21,8 @@ export default function CommercePage() {
 
   return (
     <div>
-      <div className="sticky top-20 z-40 bg-white/90 backdrop-blur-md border-b border-purple-100 px-4 py-3">
+      <PageHeader />
+      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-purple-100 px-4 py-3">
         <div className="flex gap-2 max-w-7xl mx-auto">
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}

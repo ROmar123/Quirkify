@@ -8,6 +8,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useCart } from '../../context/CartContext';
 import { PRODUCT_CATEGORIES } from '../../lib/categories';
+import PageHeader from '../layout/PageHeader';
 
 const CONDITION_FILTERS = [
   { key: null,        label: 'All' },
@@ -68,8 +69,14 @@ export default function StoreFront() {
   const showPacks = activeFilter === 'packs' || activeFilter === null;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto">
+      <PageHeader extraLinks={[
+        { to: '/?filter=sale', label: '🔥 Sale Items' },
+        { to: '/auctions', label: '🔨 Auctions' },
+        { to: '/seller/onboarding', label: '🛍️ Become a Seller' },
+      ]} />
 
+      <div className="px-4 py-4">
       {/* Live banner */}
       {liveSessions.length > 0 && (
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
@@ -254,6 +261,7 @@ export default function StoreFront() {
             <p className="text-[9px] text-purple-400">{sub}</p>
           </div>
         ))}
+      </div>
       </div>
     </div>
   );

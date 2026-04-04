@@ -5,6 +5,7 @@ import { Product } from '../../types';
 import { TrendingUp, ShoppingBag, Zap, ClipboardList, ArrowUpRight, ArrowDownRight, Package, PlusCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../../lib/utils';
+import PageHeader from '../layout/PageHeader';
 
 export default function AdminDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -40,7 +41,9 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="px-4 py-6 max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto">
+      <PageHeader />
+      <div className="px-4 py-4">
       <div className="mb-6">
         <h1 className="text-2xl font-black gradient-text">Dashboard</h1>
         <p className="text-purple-400 text-xs font-semibold mt-1">
@@ -142,6 +145,7 @@ export default function AdminDashboard() {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

@@ -1,16 +1,10 @@
 import { Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth, signIn, signOut, getRedirectResult } from './firebase';
-import {
-  LayoutDashboard, ShoppingBag, PlusCircle, CheckCircle, TrendingUp,
-  LogIn, LogOut, Menu, X, Gavel, Sparkles, ClipboardList, User as UserIcon,
-  ChevronDown, Briefcase, Megaphone, Zap, Bell
-} from 'lucide-react';
+import { auth, signIn, getRedirectResult } from './firebase';
+import { Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from './lib/utils';
 
-import Logo from './components/layout/Logo';
 import StoreFront from './components/store/StoreFront';
 import AdminDashboard from './components/admin/AdminDashboard';
 import ProductsPage from './components/admin/ProductsPage';
@@ -28,166 +22,8 @@ import PaymentResult from './components/store/PaymentResult';
 import ProductDetails from './components/store/ProductDetails';
 import MobileNav from './components/layout/MobileNav';
 
-import { CartProvider, useCart } from './context/CartContext';
-import { subscribeToNotifications, markAsRead, Notification } from './services/notificationService';
+import { CartProvider } from './context/CartContext';
 import { ModeProvider, useMode } from './context/ModeContext';
-
-function CartButton() {
-  const { items } = useCart();
-  const count = items.reduce((sum, item) => sum + item.quantity, 0);
-
-  return (
-    <Link to="/checkout" className="relative p-2 hover:bg-purple-50 rounded-full transition-colors">
-      <ShoppingBag className="w-5 h-5 text-purple-400" />
-      {count > 0 && (
-        <span className="absolute -top-1 -right-1 w-5 h-5 text-white text-[9px] font-bold flex items-center justify-center rounded-full shadow-md" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
-          {count}
-        </span>
-      )}
-    </Link>
-  );
-}
-
-function BellButton({ user }: { user: User | null }) {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (!user) return;
-    const unsub = subscribeToNotifications(user.uid, setNotifications);
-    return unsub;
-  }, [user]);
-
-  const unread = notifications.filter(n => !n.read).length;
-
-  if (!user) return null;
-
-  return (
-    <div className="relative">
-      <button onClick={() => setOpen(v => !v)}
-        className="relative p-2 hover:bg-purple-50 rounded-full transition-colors">
-        <Bell className="w-5 h-5 text-purple-400" />
-        {unread > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 text-white text-[9px] font-bold flex items-center justify-center rounded-full shadow-md"
-            style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
-            {unread}
-          </span>
-        )}
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-3xl shadow-2xl border border-purple-100 z-50 overflow-hidden">
-            <div className="px-4 py-3 border-b border-purple-50 flex items-center justify-between">
-              <span className="text-sm font-black text-purple-900">Alerts</span>
-              {unread > 0 && (
-                <button onClick={() => notifications.filter(n => !n.read).forEach(n => markAsRead(n.id))}
-                  className="text-xs font-bold text-purple-400 hover:text-purple-600">Mark all read</button>
-              )}
-            </div>
-            <div className="max-h-64 overflow-y-auto">
-              {notifications.length === 0 ? (
-                <p className="text-xs text-purple-300 font-semibold text-center py-8">No alerts yet</p>
-              ) : notifications.map(n => (
-                <div key={n.id} onClick={() => markAsRead(n.id)}
-                  className={cn('px-4 py-3 border-b border-purple-50 cursor-pointer hover:bg-purple-50 transition-colors', !n.read && 'bg-purple-50/50')}>
-                  {!n.read && <div className="w-2 h-2 rounded-full mb-1" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }} />}
-                  <p className="text-xs font-bold text-purple-900">{n.title}</p>
-                  <p className="text-[10px] text-purple-400 font-semibold mt-0.5">{n.message}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function ModeToggle() {
-  const { mode, setMode } = useMode();
-  const navigate = useNavigate();
-  const isEmployee = mode === 'employee';
-
-  return (
-    <button
-      onClick={() => {
-        const next = isEmployee ? 'customer' : 'employee';
-        setMode(next);
-        navigate(next === 'employee' ? '/admin' : '/');
-      }}
-      title={isEmployee ? 'Switch to Customer View' : 'Switch to Employee View'}
-      className={cn(
-        'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all border',
-        isEmployee
-          ? 'bg-purple-600 text-white border-purple-600'
-          : 'bg-white text-purple-500 border-purple-200 hover:border-purple-400'
-      )}
-    >
-      {isEmployee ? <ShoppingBag className="w-3.5 h-3.5" /> : <Briefcase className="w-3.5 h-3.5" />}
-      <span className="hidden sm:inline">{isEmployee ? 'Customer' : 'Employee'}</span>
-    </button>
-  );
-}
-
-function NavDropdown({ label, items }: {
-  label: string;
-  items: { to: string; label: string; icon: React.ElementType }[];
-}) {
-  const [open, setOpen] = useState(false);
-  const location = useLocation();
-  const isActive = items.some(item => location.pathname === item.to || location.pathname + location.search === item.to);
-
-  return (
-    <div
-      className="relative"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <button
-        className={cn(
-          'px-4 py-2 rounded-full text-sm font-bold flex items-center gap-1 transition-all',
-          isActive
-            ? 'text-white shadow-md'
-            : 'text-purple-400 hover:text-purple-600 hover:bg-purple-50'
-        )}
-        style={isActive ? { background: 'linear-gradient(135deg, #F472B6, #A855F7)' } : {}}
-      >
-        {label}
-        <ChevronDown className={cn('w-3 h-3 transition-transform', open && 'rotate-180')} />
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.15 }}
-            className="absolute top-full left-0 mt-2 bg-white rounded-2xl shadow-xl border border-purple-100 p-2 min-w-[200px] z-50"
-          >
-            {items.map(item => {
-              const Icon = item.icon;
-              const active = location.pathname === item.to || location.pathname + location.search === item.to;
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={cn(
-                    'flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors',
-                    active ? 'bg-purple-50 text-purple-700' : 'text-purple-600 hover:bg-purple-50'
-                  )}
-                >
-                  <Icon className="w-4 h-4 text-purple-400" />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
 
 function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: User | null }) {
   const location = useLocation();
@@ -233,10 +69,8 @@ function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: User | null
 function AppInner() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const location = useLocation();
   const navigate = useNavigate();
-  const { mode, isAdmin, setIsAdmin } = useMode();
+  const { isAdmin, setIsAdmin } = useMode();
 
   useEffect(() => {
     const timeout = setTimeout(() => setLoading(false), 8000);
@@ -261,41 +95,6 @@ function AppInner() {
     return () => { clearTimeout(timeout); unsubscribe(); };
   }, []);
 
-  // Desktop nav items
-  const customerNav = [
-    { type: 'link' as const, to: '/', label: 'Store', icon: ShoppingBag },
-    { type: 'link' as const, to: '/auctions', label: 'Auctions', icon: Gavel },
-    { type: 'link' as const, to: '/orders', label: 'Orders', icon: ClipboardList },
-    { type: 'link' as const, to: '/collection', label: 'Account', icon: UserIcon },
-  ];
-
-  const employeeNav = [
-    { type: 'link' as const, to: '/admin',           label: 'Dashboard', icon: LayoutDashboard },
-    { type: 'link' as const, to: '/admin/listings',  label: 'Products',  icon: ShoppingBag },
-    { type: 'link' as const, to: '/admin/orders',    label: 'Commerce',  icon: ClipboardList },
-    { type: 'link' as const, to: '/admin/campaigns', label: 'Growth',    icon: Megaphone },
-  ];
-
-  const activeNav = (isAdmin && mode === 'employee') ? employeeNav : customerNav;
-
-  // Mobile menu flat links
-  // Hamburger shows secondary links only — bottom nav already covers the main tabs
-  const customerSecondary = [
-    { to: '/?filter=sale', label: 'Sale Items', icon: Sparkles },
-    { to: '/?filter=new', label: 'New Arrivals', icon: Zap },
-    { to: '/?filter=packs', label: 'Mystery Packs', icon: ShoppingBag },
-    { to: '/seller/onboarding', label: 'Become a Seller', icon: TrendingUp },
-  ];
-  const employeeSecondary = [
-    { to: '/admin/intake',   label: 'AI Intake',     icon: PlusCircle },
-    { to: '/admin/reviews',  label: 'Review Queue',  icon: CheckCircle },
-    { to: '/admin/auctions', label: 'Auctions',      icon: Gavel },
-    { to: '/admin/packs',    label: 'Mystery Packs', icon: Sparkles },
-    { to: '/admin/social',   label: 'Social',        icon: Zap },
-    { to: '/admin/streams',  label: 'Live Streams',  icon: TrendingUp },
-  ];
-  const mobileLinks = (isAdmin && mode === 'employee') ? employeeSecondary : customerSecondary;
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#FDF4FF' }}>
@@ -311,97 +110,7 @@ function AppInner() {
 
   return (
     <div className="min-h-screen font-sans" style={{ background: '#FDF4FF', color: '#2D1B69' }}>
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md shadow-sm border-b border-purple-100">
-        <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
-          <Link to="/" className="flex items-center">
-            <Logo />
-          </Link>
-
-<div className="flex items-center gap-2">
-            <BellButton user={user} />
-            <CartButton />
-            {isAdmin && <ModeToggle />}
-            {user ? (
-              <button
-                onClick={signOut}
-                title={`Sign out (${user.email})`}
-                className="w-8 h-8 rounded-full text-white text-xs font-black flex items-center justify-center shadow-md hover:opacity-80 transition-opacity flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
-              >
-                {user.email?.[0].toUpperCase()}
-              </button>
-            ) : (
-              <button
-                onClick={signIn}
-                className="flex items-center justify-center gap-1.5 rounded-full font-bold text-white text-sm transition-all hover:opacity-90 flex-shrink-0 w-8 h-8 md:w-auto md:h-auto md:px-5 md:py-2"
-                style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
-              >
-                <LogIn className="w-4 h-4" />
-                <span className="hidden md:inline">Sign In</span>
-              </button>
-            )}
-
-            {/* Mobile Menu Toggle */}
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden p-2 hover:bg-purple-50 rounded-full transition-colors"
-            >
-              {isMenuOpen ? <X className="w-6 h-6 text-purple-500" /> : <Menu className="w-6 h-6 text-purple-500" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Navigation Menu */}
-        <AnimatePresence>
-          {isMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="md:hidden absolute top-20 left-4 right-4 bg-white rounded-3xl shadow-2xl border border-purple-100 p-4 overflow-hidden"
-            >
-              <div className="flex flex-col gap-1">
-                {mobileLinks.map(link => {
-                  const Icon = link.icon;
-                  return (
-                    <Link
-                      key={link.to}
-                      to={link.to}
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-purple-50 text-sm font-bold text-purple-600 transition-colors"
-                    >
-                      <Icon className="w-4 h-4" />
-                      {link.label}
-                    </Link>
-                  );
-                })}
-                <div className="border-t border-purple-100 mt-2 pt-2">
-                  {user ? (
-                    <button
-                      onClick={() => { signOut(); setIsMenuOpen(false); }}
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-red-50 text-sm font-bold text-red-400 transition-colors"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      Sign Out
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => { signIn(); setIsMenuOpen(false); }}
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-white transition-colors"
-                      style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
-                    >
-                      <LogIn className="w-4 h-4" />
-                      Sign In with Google
-                    </button>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </nav>
-
-      <main className="pt-20 pb-20">
+      <main className="pb-20">
         {!user && (
           <div className="max-w-7xl mx-auto px-4 pt-24">
             <motion.div

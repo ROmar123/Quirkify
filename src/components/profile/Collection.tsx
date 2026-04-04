@@ -13,6 +13,7 @@ import { getUserProfile, createOrUpdateProfile } from '../../services/userServic
 import { uploadProfilePicture } from '../../services/storageService';
 import { initiateYocoCheckout } from '../../services/paymentService';
 import { signIn } from '../../firebase';
+import PageHeader from '../layout/PageHeader';
 
 type CollectionTab = 'vault' | 'bids' | 'profile';
 
@@ -143,6 +144,7 @@ export default function Collection() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
+      <PageHeader />
       {/* Header */}
       <header className="mb-12">
         <motion.h1
@@ -366,6 +368,17 @@ export default function Collection() {
                     {saving ? 'Saving...' : 'Update Profile'}
                   </button>
                 </form>
+
+                {/* Seller signup */}
+                <div className="mt-6 p-5 rounded-3xl border-2 border-dashed border-purple-200 text-center">
+                  <p className="text-sm font-black text-purple-900 mb-1">Want to sell on Quirkify?</p>
+                  <p className="text-xs text-purple-400 font-semibold mb-4">Join our seller community and start listing your products.</p>
+                  <Link to="/seller/onboarding"
+                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-black text-white hover:opacity-90 transition-all"
+                    style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
+                    Become a Seller
+                  </Link>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
