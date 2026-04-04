@@ -108,47 +108,26 @@ export default function StoreFront() {
           )}
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-          {CONDITION_FILTERS.map(f => (
-            <button key={String(f.key)} onClick={() => setActiveFilter(f.key)}
-              className={cn(
-                'px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap border-2 transition-all flex-shrink-0',
-                activeFilter === f.key
-                  ? 'text-white border-transparent shadow-md'
-                  : 'bg-white text-purple-400 border-purple-100 hover:border-purple-300'
-              )}
-              style={activeFilter === f.key ? { background: 'linear-gradient(135deg, #F472B6, #A855F7)' } : {}}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-          <button onClick={() => setActiveCategory(null)}
-            className={cn(
-              'px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border transition-all flex-shrink-0',
-              activeCategory === null
-                ? 'text-white border-transparent'
-                : 'bg-white text-purple-400 border-purple-100 hover:border-purple-300'
-            )}
-            style={activeCategory === null ? { background: 'linear-gradient(135deg, #A855F7, #6366F1)' } : {}}
+        <div className="flex gap-3">
+          <select
+            value={activeFilter ?? ''}
+            onChange={e => setActiveFilter(e.target.value || null)}
+            className="flex-1 px-4 py-2.5 bg-white border-2 border-purple-100 rounded-2xl text-sm font-bold text-purple-800 focus:outline-none focus:border-purple-400 transition-colors appearance-none cursor-pointer"
           >
-            All Categories
-          </button>
-          {PRODUCT_CATEGORIES.map(cat => (
-            <button key={cat} onClick={() => setActiveCategory(cat)}
-              className={cn(
-                'px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border transition-all flex-shrink-0',
-                activeCategory === cat
-                  ? 'text-white border-transparent'
-                  : 'bg-white text-purple-400 border-purple-100 hover:border-purple-300'
-              )}
-              style={activeCategory === cat ? { background: 'linear-gradient(135deg, #A855F7, #6366F1)' } : {}}
-            >
-              {cat}
-            </button>
-          ))}
+            {CONDITION_FILTERS.map(f => (
+              <option key={String(f.key)} value={f.key ?? ''}>{f.label}</option>
+            ))}
+          </select>
+          <select
+            value={activeCategory ?? ''}
+            onChange={e => setActiveCategory(e.target.value || null)}
+            className="flex-1 px-4 py-2.5 bg-white border-2 border-purple-100 rounded-2xl text-sm font-bold text-purple-800 focus:outline-none focus:border-purple-400 transition-colors appearance-none cursor-pointer"
+          >
+            <option value="">All Categories</option>
+            {PRODUCT_CATEGORIES.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
         </div>
       </div>
 
