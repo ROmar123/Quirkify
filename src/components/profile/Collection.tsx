@@ -13,8 +13,6 @@ import { getUserProfile, createOrUpdateProfile } from '../../services/userServic
 import { uploadProfilePicture } from '../../services/storageService';
 import { initiateYocoCheckout } from '../../services/paymentService';
 import { signIn } from '../../firebase';
-import PageHeader from '../layout/PageHeader';
-
 type CollectionTab = 'vault' | 'bids' | 'profile';
 
 const TABS: { id: CollectionTab; label: string; icon: React.ElementType }[] = [
@@ -144,7 +142,6 @@ export default function Collection() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
-      <PageHeader />
       {/* Header */}
       <header className="mb-12">
         <motion.h1

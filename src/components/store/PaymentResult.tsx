@@ -6,8 +6,6 @@ import { useCart } from '../../context/CartContext';
 import { doc, updateDoc, getDoc, increment } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 import { addXP } from '../../services/gamificationService';
-import PageHeader from '../layout/PageHeader';
-
 export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -65,8 +63,6 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
   }
 
   return (
-    <div>
-      <PageHeader />
     <div className="max-w-lg mx-auto px-4 py-24 text-center">
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -126,7 +122,6 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
           </>
         )}
       </motion.div>
-    </div>
     </div>
   );
 }

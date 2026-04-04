@@ -1,4 +1,4 @@
-import { Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, signIn, getRedirectResult } from './firebase';
@@ -21,6 +21,7 @@ import Checkout from './components/store/Checkout';
 import PaymentResult from './components/store/PaymentResult';
 import ProductDetails from './components/store/ProductDetails';
 import MobileNav from './components/layout/MobileNav';
+import PageHeader from './components/layout/PageHeader';
 
 import { CartProvider } from './context/CartContext';
 import { ModeProvider, useMode } from './context/ModeContext';
@@ -110,9 +111,12 @@ function AppInner() {
 
   return (
     <div className="min-h-screen font-sans" style={{ background: '#FDF4FF', color: '#2D1B69' }}>
+      {/* Single sticky header — never re-mounts on navigation */}
+      <PageHeader />
+
       <main className="pb-20">
         {!user && (
-          <div className="max-w-7xl mx-auto px-4 pt-24">
+          <div className="max-w-7xl mx-auto px-4 py-12">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}

@@ -4,8 +4,6 @@ import { cn } from '../../lib/utils';
 import ListingManager from './ListingManager';
 import ProductIntake from './ProductIntake';
 import ReviewQueue from './ReviewQueue';
-import PageHeader from '../layout/PageHeader';
-
 type Tab = 'listings' | 'intake' | 'review';
 
 export default function ProductsPage() {
@@ -25,8 +23,7 @@ export default function ProductsPage() {
 
   return (
     <div>
-      <PageHeader />
-      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-purple-100 px-4 py-3">
+      <div className="sticky top-14 z-20 bg-white/90 backdrop-blur-md border-b border-purple-100 px-4 py-3">
         <div className="flex gap-2 max-w-7xl mx-auto">
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}

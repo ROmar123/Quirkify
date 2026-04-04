@@ -6,8 +6,6 @@ import { ClipboardList, Package, Clock, CheckCircle2, Truck, Search, MapPin, X, 
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { signIn } from '../../firebase';
-import PageHeader from '../layout/PageHeader';
-
 interface OrderItem {
   id: string;
   name: string;
@@ -103,7 +101,6 @@ export default function Orders() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
-      <PageHeader />
       <header className="mb-10">
         <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-6xl md:text-8xl font-black mb-3 leading-tight gradient-text">
           My Orders

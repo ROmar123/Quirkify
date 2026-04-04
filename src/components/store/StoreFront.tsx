@@ -8,8 +8,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useCart } from '../../context/CartContext';
 import { PRODUCT_CATEGORIES } from '../../lib/categories';
-import PageHeader from '../layout/PageHeader';
-
 const CONDITION_FILTERS = [
   { key: null,        label: 'All' },
   { key: 'sale',      label: '🔥 Sale' },
@@ -70,15 +68,6 @@ export default function StoreFront() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <PageHeader
-        showLinksInline
-        extraLinks={[
-          { to: '/?filter=sale', label: '🔥 Sale' },
-          { to: '/auctions', label: '🔨 Auctions' },
-          { to: '/seller/onboarding', label: '🛍️ Become a Seller' },
-        ]}
-      />
-
       <div className="px-4 py-4">
       {/* Live banner */}
       {liveSessions.length > 0 && (

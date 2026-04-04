@@ -4,7 +4,7 @@ export default function Logo({ className = "" }: { className?: string }) {
   return (
     <motion.div
       className={`flex items-center overflow-hidden ${className}`}
-      style={{ width: 180, height: 64 }}
+      style={{ width: 120, height: 40 }}
       whileHover={{ scale: 1.03 }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
     >
@@ -12,10 +12,10 @@ export default function Logo({ className = "" }: { className?: string }) {
         src="/logo.png"
         alt="Quirkify"
         style={{
-          width: 260,
+          width: 172,
           height: 'auto',
-          marginLeft: -30,
-          marginTop: 10,
+          marginLeft: -20,
+          marginTop: 6,
         }}
         className="object-contain"
       />
