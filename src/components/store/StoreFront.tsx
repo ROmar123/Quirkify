@@ -93,19 +93,19 @@ export default function StoreFront() {
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-12 flex items-center justify-between bg-zinc-50 border border-zinc-100 p-4 rounded-none"
+          className="mb-12 flex items-center justify-between bg-white border border-purple-100 p-4 rounded-3xl shadow-sm"
         >
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-black text-white flex items-center justify-center font-bold text-xs">
-                Lvl {userProgress.level}
+              <div className="w-10 h-10 rounded-full text-white flex items-center justify-center font-black text-xs shadow-md" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
+                {userProgress.level}
               </div>
               <div>
-                <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">XP Progress</p>
-                <div className="w-32 h-1.5 bg-zinc-200 mt-1">
-                  <div 
-                    className="h-full bg-quirky transition-all duration-1000" 
-                    style={{ width: `${(userProgress.xp % 100)}%` }} 
+                <p className="text-[8px] font-bold text-purple-400 uppercase tracking-widest">XP Progress</p>
+                <div className="w-32 h-2 bg-purple-100 rounded-full mt-1 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-1000"
+                    style={{ width: `${(userProgress.xp % 100)}%`, background: 'linear-gradient(90deg, #F472B6, #A855F7)' }}
                   />
                 </div>
               </div>
@@ -114,19 +114,19 @@ export default function StoreFront() {
             <div className="flex items-center gap-3">
               <Trophy className="w-4 h-4 text-cyber" />
               <div>
-                <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Collection</p>
+                <p className="text-[8px] font-bold text-purple-400 uppercase tracking-widest">Collection</p>
                 <p className="text-xs font-bold">{userProgress.collectionCount} Items</p>
               </div>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Balance</p>
+              <p className="text-[8px] font-bold text-purple-400 uppercase tracking-widest">Balance</p>
               <p className="text-xs font-bold">R{userProgress.balance}</p>
             </div>
             <Link 
               to="/collection"
-              className="px-4 py-2 bg-black text-white text-[10px] font-bold uppercase tracking-widest hover:bg-quirky transition-colors"
+              className="btn-primary px-4 py-2 text-xs"
             >
               My Vault
             </Link>
@@ -141,55 +141,54 @@ export default function StoreFront() {
           className="flex flex-col md:flex-row md:items-end justify-between gap-8"
         >
           <div>
-            <h1 className="text-7xl md:text-[10rem] font-bold tracking-tighter mb-4 text-black leading-[0.8] font-display">
-              QUIRKY<br />
-              <span className="text-quirky italic">ESSENTIALS.</span>
+            <h1 className="text-7xl md:text-[8rem] font-black mb-4 leading-tight gradient-text">
+              Quirky<br />Essentials
             </h1>
-            <p className="text-zinc-500 max-w-md text-[10px] font-bold uppercase tracking-[0.4em] mt-8">
-              AI-curated drops for the modern eccentric.
+            <p className="text-purple-400 max-w-md text-base font-semibold mt-6">
+              AI-curated drops for the modern eccentric. 🎉
             </p>
           </div>
-          <div className="hidden lg:block w-64 h-64 bg-cyber p-8 rounded-none rotate-3 hover:rotate-0 transition-transform duration-500">
-            <Sparkles className="w-8 h-8 text-black mb-4" />
-            <p className="text-[10px] font-bold uppercase tracking-widest text-black leading-relaxed">
-              Aura AI has detected a 42% rise in demand for "Quirky Vintage" in Cape Town.
+          <div className="hidden lg:block w-64 h-64 p-8 rounded-3xl rotate-3 hover:rotate-0 transition-transform duration-500 shadow-xl" style={{ background: 'linear-gradient(135deg, #A855F7, #F472B6)' }}>
+            <Sparkles className="w-8 h-8 text-white mb-4 animate-float" />
+            <p className="text-sm font-bold text-white/90 leading-relaxed">
+              Aura AI detected a 42% rise in demand for "Quirky Vintage" in Cape Town 🔥
             </p>
           </div>
         </motion.div>
       </header>
 
       {/* Trust Bar */}
-      <div className="mb-32 grid grid-cols-1 md:grid-cols-3 gap-8 border-y border-zinc-100 py-12">
+      <div className="mb-32 grid grid-cols-1 md:grid-cols-3 gap-8 border-y border-purple-100 py-12">
         <div className="flex flex-col items-center text-center px-8">
           <ShieldCheck className="w-8 h-8 text-black mb-4" />
           <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] mb-2">Secure Payments</h3>
-          <p className="text-zinc-400 text-[8px] font-bold uppercase tracking-widest leading-relaxed">
+          <p className="text-purple-400 text-[8px] font-bold uppercase tracking-widest leading-relaxed">
             Integrated with Yoco for enterprise-grade transaction security.
           </p>
         </div>
-        <div className="flex flex-col items-center text-center px-8 border-x border-zinc-100">
+        <div className="flex flex-col items-center text-center px-8 border-x border-purple-100">
           <Sparkles className="w-8 h-8 text-cyber mb-4" />
           <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] mb-2">AI-Verified Drops</h3>
           <h4 className="text-quirky text-[8px] font-bold uppercase tracking-widest mb-2">Aura AI Certified</h4>
-          <p className="text-zinc-400 text-[8px] font-bold uppercase tracking-widest leading-relaxed">
+          <p className="text-purple-400 text-[8px] font-bold uppercase tracking-widest leading-relaxed">
             Every item is analyzed by Aura AI for authenticity and market value.
           </p>
         </div>
         <div className="flex flex-col items-center text-center px-8">
           <Zap className="w-8 h-8 text-black mb-4" />
           <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] mb-2">Express Logistics</h3>
-          <p className="text-zinc-400 text-[8px] font-bold uppercase tracking-widest leading-relaxed">
+          <p className="text-purple-400 text-[8px] font-bold uppercase tracking-widest leading-relaxed">
             Powered by The Courier Guy for reliable nationwide delivery.
           </p>
         </div>
       </div>
 
       {/* Featured Hero Section */}
-      <section className="mb-32 relative group cursor-pointer overflow-hidden border border-zinc-100">
+      <section className="mb-32 relative group cursor-pointer overflow-hidden border border-purple-100">
         <div className="aspect-[21/9] relative">
           <img 
             src="https://picsum.photos/seed/featured-drop/1920/1080" 
-            className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000 group-hover:scale-105"
+            className="w-full h-full object-cover transition-all duration-1000 group-hover:scale-105"
             alt="Featured Drop"
             referrerPolicy="no-referrer"
           />
@@ -204,9 +203,9 @@ export default function StoreFront() {
                 A masterpiece of brutalist design, curated by Quirkify AI for the boldest collectors.
               </p>
               <div className="flex items-center gap-4">
-                <button className="px-8 py-4 bg-white text-black text-[10px] font-bold uppercase tracking-widest hover:bg-quirky hover:text-white transition-all">
+                <Link to="/auctions" className="px-8 py-4 bg-white text-black text-[10px] font-bold uppercase tracking-widest hover:bg-quirky hover:text-white transition-all">
                   Bid Now
-                </button>
+                </Link>
                 <div className="text-white">
                   <p className="text-[8px] font-bold uppercase tracking-widest opacity-60">Current Bid</p>
                   <p className="text-xl font-bold">R12,450</p>
@@ -222,18 +221,18 @@ export default function StoreFront() {
         <section className="mb-32">
           <div className="flex items-center justify-between mb-12">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-black rounded-none flex items-center justify-center text-white">
+              <div className="w-10 h-10 bg-black rounded-3xl flex items-center justify-center text-white">
                 <Sparkles className="w-5 h-5" />
               </div>
               <h2 className="text-3xl font-bold uppercase tracking-tighter font-display">Recommended for You</h2>
             </div>
-            <span className="text-[8px] font-bold uppercase tracking-[0.3em] text-zinc-400">Based on your Aura</span>
+            <span className="text-[8px] font-bold uppercase tracking-[0.3em] text-purple-400">Based on your Aura</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {recommendations.map((product) => (
-              <div key={`rec-${product.id}`} className="group border border-zinc-100 p-6 hover:shadow-2xl transition-all duration-500">
-                <div className="aspect-square bg-zinc-50 mb-6 overflow-hidden relative">
-                  <img src={product.imageUrl} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" alt="" />
+              <div key={`rec-${product.id}`} className="group border border-purple-100 p-6 hover:shadow-2xl transition-all duration-500">
+                <div className="aspect-square bg-purple-50 mb-6 overflow-hidden relative">
+                  <img src={product.imageUrl} className="w-full h-full object-cover transition-all duration-700" alt="" />
                   <div className="absolute top-4 right-4 px-2 py-1 bg-cyber text-black text-[8px] font-bold uppercase tracking-widest">AI Match</div>
                 </div>
                 <h3 className="font-bold text-sm uppercase tracking-tight mb-1">{product.name}</h3>
@@ -292,25 +291,25 @@ export default function StoreFront() {
       <section className="mb-32">
         <div className="flex items-center justify-between mb-12">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-hot rounded-none flex items-center justify-center text-white">
+            <div className="w-10 h-10 bg-hot rounded-3xl flex items-center justify-center text-white">
               <TrendingUp className="w-5 h-5" />
             </div>
             <h2 className="text-3xl font-bold uppercase tracking-tighter font-display">Recently Sold</h2>
           </div>
-          <span className="text-[8px] font-bold uppercase tracking-[0.3em] text-zinc-400">Real-time Activity</span>
+          <span className="text-[8px] font-bold uppercase tracking-[0.3em] text-purple-400">Real-time Activity</span>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={`sold-${i}`} className="bg-zinc-50 p-4 border border-zinc-100 flex flex-col items-center text-center group">
-              <div className="w-16 h-16 bg-white mb-4 overflow-hidden border border-zinc-100">
+            <div key={`sold-${i}`} className="bg-purple-50 p-4 border border-purple-100 flex flex-col items-center text-center group">
+              <div className="w-16 h-16 bg-white mb-4 overflow-hidden border border-purple-100">
                 <img 
                   src={`https://picsum.photos/seed/sold-${i}/200/200`} 
-                  className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" 
+                  className="w-full h-full object-cover transition-all" 
                   alt="Sold Item"
                   referrerPolicy="no-referrer"
                 />
               </div>
-              <p className="text-[8px] font-bold uppercase tracking-widest text-zinc-400 mb-1">Sold for</p>
+              <p className="text-[8px] font-bold uppercase tracking-widest text-purple-400 mb-1">Sold for</p>
               <p className="text-xs font-bold text-hot">R{(Math.random() * 5000 + 500).toFixed(0)}</p>
               <div className="mt-2 flex items-center gap-1">
                 <CheckCircle className="w-2 h-2 text-green-500" />
@@ -329,23 +328,33 @@ export default function StoreFront() {
               <Box className="w-6 h-6 text-quirky" />
               <h2 className="text-3xl font-bold uppercase tracking-tighter font-display">Mystery Drops</h2>
             </div>
-            <span className="text-[8px] font-bold uppercase tracking-[0.3em] text-zinc-400">Limited Availability</span>
+            <span className="text-[8px] font-bold uppercase tracking-[0.3em] text-purple-400">Limited Availability</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {packs.map((pack) => (
-              <motion.div 
+              <motion.div
                 key={pack.id}
                 whileHover={{ y: -10 }}
-                className="bg-zinc-50 border border-zinc-100 p-8 text-center group cursor-pointer"
+                className="bg-purple-50 border border-purple-100 p-8 text-center group cursor-pointer"
+                onClick={() => addToCart({
+                  id: pack.id,
+                  name: pack.name,
+                  description: pack.description,
+                  category: 'Mystery Pack',
+                  priceRange: { min: pack.price, max: pack.price },
+                  imageUrl: pack.imageUrl,
+                  status: 'approved',
+                  rarity: 'Rare',
+                } as any)}
               >
                 <div className="aspect-square bg-white mb-8 flex items-center justify-center relative overflow-hidden">
                   <img src={pack.imageUrl} className="w-32 h-32 object-contain group-hover:scale-110 transition-transform duration-500" alt="" />
                   <div className="absolute inset-0 bg-quirky/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
                 <h3 className="text-sm font-bold uppercase tracking-tight mb-2">{pack.name}</h3>
-                <p className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest mb-6">{pack.description}</p>
+                <p className="text-[8px] text-purple-400 font-bold uppercase tracking-widest mb-6">{pack.description}</p>
                 <button className="w-full py-3 bg-black text-white text-[10px] font-bold uppercase tracking-widest hover:bg-quirky transition-all">
-                  OPEN PACK • R{pack.price}
+                  ADD TO CART • R{pack.price}
                 </button>
               </motion.div>
             ))}
@@ -353,12 +362,12 @@ export default function StoreFront() {
         </section>
       )}
 
-      <div className="mb-32 overflow-hidden border-y border-zinc-100 py-8">
+      <div className="mb-32 overflow-hidden border-y border-purple-100 py-8">
         <div className="flex animate-marquee whitespace-nowrap gap-12">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={`marquee-${i}`} className="flex items-center gap-4">
               <Zap className="w-4 h-4 text-quirky" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.4em] text-zinc-400">QUIRKIFY AI: Real-time market analysis active • Trending: Neon Minimalism • Next Drop in 4h 22m</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.4em] text-purple-400">QUIRKIFY AI: Real-time market analysis active • Trending: Neon Minimalism • Next Drop in 4h 22m</span>
             </div>
           ))}
         </div>
@@ -372,14 +381,14 @@ export default function StoreFront() {
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-cyber rounded-full animate-pulse" />
-            <span className="text-[8px] font-bold uppercase tracking-[0.3em] text-zinc-400">Analyzing Market Trends...</span>
+            <span className="text-[8px] font-bold uppercase tracking-[0.3em] text-purple-400">Analyzing Market Trends...</span>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-          <div className="aspect-[16/10] bg-zinc-50 relative overflow-hidden group cursor-pointer border border-zinc-100">
+          <div className="aspect-[16/10] bg-purple-50 relative overflow-hidden group cursor-pointer border border-purple-100">
             <img 
               src="https://picsum.photos/seed/curated1/1200/800" 
-              className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000 group-hover:scale-105" 
+              className="w-full h-full object-cover transition-all duration-1000 group-hover:scale-105" 
               referrerPolicy="no-referrer"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-12">
@@ -390,10 +399,10 @@ export default function StoreFront() {
               <p className="text-quirky text-[10px] font-bold uppercase tracking-[0.3em]">Curated by Quirkify AI</p>
             </div>
           </div>
-          <div className="aspect-[16/10] bg-zinc-50 relative overflow-hidden group cursor-pointer border border-zinc-100">
+          <div className="aspect-[16/10] bg-purple-50 relative overflow-hidden group cursor-pointer border border-purple-100">
             <img 
               src="https://picsum.photos/seed/curated2/1200/800" 
-              className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000 group-hover:scale-105" 
+              className="w-full h-full object-cover transition-all duration-1000 group-hover:scale-105" 
               referrerPolicy="no-referrer"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-12">
@@ -409,60 +418,39 @@ export default function StoreFront() {
 
       <div className="mb-12">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-4">
-          <h2 className="text-3xl font-bold uppercase tracking-tighter font-display">
-            {filterType === 'sale' ? 'Flash Sales' : 
-             filterType === 'New' ? 'New Arrivals' :
-             filterType === 'Pre-owned' ? 'Pre-owned Gems' : 'All Products'}
+          <h2 className="text-3xl font-black gradient-text">
+            {filterType === 'sale' ? '🔥 Flash Sales' :
+             filterType === 'New' ? '✨ New Arrivals' :
+             filterType === 'Pre-owned' ? '💎 Pre-owned Gems' : 'All Products'}
           </h2>
-          <div className="flex items-center gap-4 overflow-x-auto pb-2 md:pb-0">
-            <Link 
-              to="/" 
-              className={cn(
-                "text-[10px] font-bold uppercase tracking-widest px-4 py-2 border transition-all whitespace-nowrap",
-                !filterType ? "bg-black text-white border-black" : "bg-white text-black border-zinc-100 hover:border-black"
-              )}
-            >
-              All
-            </Link>
-            <Link 
-              to="/?filter=sale" 
-              className={cn(
-                "text-[10px] font-bold uppercase tracking-widest px-4 py-2 border transition-all whitespace-nowrap",
-                filterType === 'sale' ? "bg-hot text-white border-hot" : "bg-white text-black border-zinc-100 hover:border-hot"
-              )}
-            >
-              Sale
-            </Link>
-            <Link 
-              to="/?filter=New" 
-              className={cn(
-                "text-[10px] font-bold uppercase tracking-widest px-4 py-2 border transition-all whitespace-nowrap",
-                filterType === 'New' ? "bg-cyber text-black border-cyber" : "bg-white text-black border-zinc-100 hover:border-cyber"
-              )}
-            >
-              New
-            </Link>
-            <Link 
-              to="/?filter=Pre-owned" 
-              className={cn(
-                "text-[10px] font-bold uppercase tracking-widest px-4 py-2 border transition-all whitespace-nowrap",
-                filterType === 'Pre-owned' ? "bg-quirky text-white border-quirky" : "bg-white text-black border-zinc-100 hover:border-quirky"
-              )}
-            >
-              Pre-owned
-            </Link>
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0">
+            {[
+              { to: '/', label: 'All', active: !filterType, bg: 'linear-gradient(135deg, #F472B6, #A855F7)' },
+              { to: '/?filter=sale', label: '🔥 Sale', active: filterType === 'sale', bg: 'linear-gradient(135deg, #F43F5E, #FB923C)' },
+              { to: '/?filter=New', label: '✨ New', active: filterType === 'New', bg: 'linear-gradient(135deg, #4ADE80, #60A5FA)' },
+              { to: '/?filter=Pre-owned', label: '💎 Pre-owned', active: filterType === 'Pre-owned', bg: 'linear-gradient(135deg, #A855F7, #6366F1)' },
+            ].map(({ to, label, active, bg }) => (
+              <Link
+                key={to}
+                to={to}
+                className="px-5 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap border-2"
+                style={active ? { background: bg, color: 'white', borderColor: 'transparent' } : { background: 'white', color: '#A78BFA', borderColor: '#EDE9FE' }}
+              >
+                {label}
+              </Link>
+            ))}
           </div>
         </div>
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-12">
             {[1, 2, 3, 4].map(i => (
-              <div key={`skeleton-${i}`} className="aspect-[3/4] bg-zinc-50 animate-pulse rounded-none" />
+              <div key={`skeleton-${i}`} className="aspect-[3/4] bg-purple-50 animate-pulse rounded-3xl" />
             ))}
           </div>
         ) : products.length === 0 ? (
-          <div className="text-center py-32 border border-zinc-100 rounded-none bg-zinc-50">
+          <div className="text-center py-32 border border-purple-100 rounded-3xl bg-purple-50">
             <ShoppingBag className="w-12 h-12 mx-auto mb-4 text-zinc-300" />
-            <p className="text-zinc-400 font-bold uppercase tracking-widest text-xs">No products available yet.</p>
+            <p className="text-purple-400 font-bold uppercase tracking-widest text-xs">No products available yet.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-x-12 gap-y-16">
@@ -478,7 +466,7 @@ export default function StoreFront() {
                   transition={{ delay: idx * 0.05 }}
                   className="group"
                 >
-                  <div className="aspect-[3/4] overflow-hidden bg-zinc-50 mb-6 relative border border-zinc-100">
+                  <div className="aspect-[3/4] overflow-hidden bg-purple-50 mb-4 relative rounded-3xl border border-purple-100">
                     <Link to={`/product/${product.id}`} className="block w-full h-full">
                       <img 
                         src={product.imageUrl} 
@@ -497,7 +485,7 @@ export default function StoreFront() {
                         {product.rarity}
                       </div>
                       {product.condition && (
-                        <div className="bg-white/90 backdrop-blur-sm text-black text-[8px] font-bold px-2 py-1 uppercase tracking-widest border border-zinc-100">
+                        <div className="bg-white/90 backdrop-blur-sm text-black text-[8px] font-bold px-2 py-1 uppercase tracking-widest border border-purple-100">
                           {product.condition}
                         </div>
                       )}
@@ -507,7 +495,7 @@ export default function StoreFront() {
                         </div>
                       )}
                       {isSoldOut && (
-                        <div className="bg-zinc-100 text-zinc-400 text-[8px] font-bold px-2 py-1 uppercase tracking-widest border border-zinc-200">
+                        <div className="bg-zinc-100 text-purple-400 text-[8px] font-bold px-2 py-1 uppercase tracking-widest border border-zinc-200">
                           SOLD OUT
                         </div>
                       )}
@@ -519,7 +507,7 @@ export default function StoreFront() {
                     </div>
                     
                     {product.serialNumber && (
-                      <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm text-black text-[8px] font-bold px-2 py-1 uppercase tracking-widest border border-zinc-100 pointer-events-none">
+                      <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm text-black text-[8px] font-bold px-2 py-1 uppercase tracking-widest border border-purple-100 pointer-events-none">
                         #{product.serialNumber}
                       </div>
                     )}
@@ -534,7 +522,7 @@ export default function StoreFront() {
                               e.preventDefault();
                               addToCart(product);
                             }}
-                            className="w-40 py-4 bg-white text-black text-[10px] font-bold uppercase tracking-[0.2em] shadow-2xl hover:bg-quirky hover:text-white transition-all flex items-center justify-center gap-2"
+                            className="btn-primary w-40 py-3 text-xs justify-center rounded-full"
                           >
                             <ShoppingBag className="w-3 h-3" />
                             Add to Cart
@@ -547,7 +535,7 @@ export default function StoreFront() {
                               addToCart(product);
                               window.location.href = '/checkout';
                             }}
-                            className="w-40 py-4 bg-black text-white text-[10px] font-bold uppercase tracking-[0.2em] shadow-2xl hover:bg-cyber hover:text-black transition-all flex items-center justify-center gap-2"
+                            className="btn-secondary w-40 py-3 text-xs justify-center"
                           >
                             <Zap className="w-3 h-3" />
                             Quick Buy
@@ -556,7 +544,7 @@ export default function StoreFront() {
                       ) : (
                         <Link 
                           to={`/product/${product.id}`}
-                          className="w-40 py-4 bg-zinc-100 text-zinc-400 text-[10px] font-bold uppercase tracking-[0.2em] shadow-2xl border border-zinc-200 transition-all text-center"
+                          className="w-40 py-4 bg-zinc-100 text-purple-400 text-[10px] font-bold uppercase tracking-[0.2em] shadow-2xl border border-zinc-200 transition-all text-center"
                         >
                           View Details
                         </Link>
@@ -584,7 +572,7 @@ export default function StoreFront() {
                       <div className="text-right">
                         {product.discountPrice && product.discountPrice < product.priceRange.min ? (
                           <div className="flex items-center gap-2">
-                            <p className="font-bold text-zinc-400 text-[10px] line-through">R{product.priceRange.min}</p>
+                            <p className="font-bold text-purple-400 text-[10px] line-through">R{product.priceRange.min}</p>
                             <p className="font-bold text-hot text-xs">R{product.discountPrice}</p>
                           </div>
                         ) : (
@@ -594,8 +582,8 @@ export default function StoreFront() {
                     </div>
                     <div className="grid grid-cols-4 gap-1">
                       {Object.entries(product.stats || {}).map(([key, val]) => (
-                        <div key={key} className="bg-zinc-50 p-1 text-center border border-zinc-100">
-                          <p className="text-[6px] text-zinc-400 uppercase font-bold">{key[0]}</p>
+                        <div key={key} className="bg-purple-50 p-1 text-center border border-purple-100">
+                          <p className="text-[6px] text-purple-400 uppercase font-bold">{key[0]}</p>
                           <p className="text-[8px] font-bold">{val}</p>
                         </div>
                       ))}

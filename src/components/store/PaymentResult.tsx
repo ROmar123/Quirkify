@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { CheckCircle2, XCircle, ArrowRight, ShoppingBag } from 'lucide-react';
+import { CheckCircle2, XCircle, ArrowRight, ShoppingBag, Sparkles } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { doc, updateDoc, getDoc, increment } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
@@ -17,23 +17,17 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
       if (type === 'success') {
         const orderId = searchParams.get('orderId');
         const amount = Number(searchParams.get('amount'));
-        
+
         if (orderId) {
           try {
-            // 1. Update order status to 'paid'
             const orderRef = doc(db, 'orders', orderId);
             const orderSnap = await getDoc(orderRef);
-            
             if (orderSnap.exists()) {
               const orderData = orderSnap.data();
               await updateDoc(orderRef, { status: 'paid' });
-              
-              // 2. If it's a top-up, update user balance
               if (orderData.orderType === 'topup' && auth.currentUser) {
                 const userProgressRef = doc(db, 'users', auth.currentUser.uid, 'progress', 'stats');
-                await updateDoc(userProgressRef, {
-                  balance: increment(amount)
-                });
+                await updateDoc(userProgressRef, { balance: increment(amount) });
               }
             }
           } catch (error) {
@@ -50,56 +44,74 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
 
   if (isProcessing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="w-8 h-8 border-2 border-quirky border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#FDF4FF' }}>
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+          className="w-10 h-10 border-4 border-t-transparent rounded-full"
+          style={{ borderColor: '#A855F7', borderTopColor: 'transparent' }}
+        />
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-32 text-center">
+    <div className="max-w-lg mx-auto px-4 py-32 text-center">
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="max-w-md mx-auto"
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+        className="bg-white rounded-3xl border border-purple-100 p-12 shadow-xl"
       >
         {type === 'success' ? (
           <>
-            <div className="w-20 h-20 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-green-200">
-              <CheckCircle2 className="w-10 h-10" />
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 20, delay: 0.2 }}
+              className="w-24 h-24 rounded-full mx-auto mb-8 flex items-center justify-center shadow-xl"
+              style={{ background: 'linear-gradient(135deg, #4ADE80, #60A5FA)' }}
+            >
+              <CheckCircle2 className="w-12 h-12 text-white" />
+            </motion.div>
+            <h2 className="text-4xl font-black mb-3 gradient-text">Payment Successful!</h2>
+            <p className="text-purple-400 font-semibold mb-2">Your quirkiness is officially secured.</p>
+            <div className="flex items-center justify-center gap-2 mb-10 p-3 rounded-2xl" style={{ background: 'linear-gradient(135deg, #ede9fe, #fce7f3)' }}>
+              <Sparkles className="w-4 h-4 text-purple-500" />
+              <p className="text-sm font-bold text-purple-600">You earned 250 XP! 🎉</p>
             </div>
-            <h2 className="text-5xl font-bold tracking-tighter uppercase mb-4">Payment Successful</h2>
-            <p className="text-zinc-400 text-xs uppercase tracking-widest mb-12">Your quirkiness is officially secured.</p>
-            <div className="flex flex-col gap-4">
-              <button 
-                onClick={() => navigate('/orders')}
-                className="w-full py-4 bg-black text-white text-[10px] font-bold uppercase tracking-widest hover:bg-quirky transition-all flex items-center justify-center gap-2"
-              >
+            <div className="flex flex-col gap-3">
+              <button onClick={() => navigate('/orders')} className="btn-primary w-full py-4 text-sm justify-center">
                 View My Orders
                 <ArrowRight className="w-4 h-4" />
               </button>
-              <button 
-                onClick={() => navigate('/')}
-                className="w-full py-4 bg-white text-zinc-400 text-[10px] font-bold uppercase tracking-widest hover:text-black transition-all"
-              >
+              <button onClick={() => navigate('/')} className="btn-secondary w-full py-3 text-sm justify-center">
                 Continue Shopping
               </button>
             </div>
           </>
         ) : (
           <>
-            <div className="w-20 h-20 bg-hot text-white rounded-full flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-hot/20">
-              <XCircle className="w-10 h-10" />
-            </div>
-            <h2 className="text-5xl font-bold tracking-tighter uppercase mb-4">Payment Cancelled</h2>
-            <p className="text-zinc-400 text-xs uppercase tracking-widest mb-12">No worries, your cart is still waiting for you.</p>
-            <button 
-              onClick={() => navigate('/checkout')}
-              className="w-full py-4 bg-black text-white text-[10px] font-bold uppercase tracking-widest hover:bg-quirky transition-all flex items-center justify-center gap-2"
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 20, delay: 0.2 }}
+              className="w-24 h-24 rounded-full mx-auto mb-8 flex items-center justify-center shadow-xl"
+              style={{ background: 'linear-gradient(135deg, #FB923C, #F43F5E)' }}
             >
-              Back to Checkout
-              <ShoppingBag className="w-4 h-4" />
-            </button>
+              <XCircle className="w-12 h-12 text-white" />
+            </motion.div>
+            <h2 className="text-4xl font-black mb-3" style={{ color: '#2D1B69' }}>Payment Cancelled</h2>
+            <p className="text-purple-400 font-semibold mb-10">No worries — your cart is still waiting for you.</p>
+            <div className="flex flex-col gap-3">
+              <button onClick={() => navigate('/checkout')} className="btn-primary w-full py-4 text-sm justify-center">
+                <ShoppingBag className="w-4 h-4" />
+                Back to Checkout
+              </button>
+              <button onClick={() => navigate('/')} className="btn-secondary w-full py-3 text-sm justify-center">
+                Continue Shopping
+              </button>
+            </div>
           </>
         )}
       </motion.div>
