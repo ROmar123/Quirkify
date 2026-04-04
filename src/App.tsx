@@ -245,11 +245,23 @@ function AppInner() {
   const activeNav = (isAdmin && mode === 'employee') ? employeeNav : customerNav;
 
   // Mobile menu flat links
-  const mobileLinks = activeNav.flatMap(item =>
-    item.type === 'link'
-      ? [{ to: item.to, label: item.label, icon: item.icon }]
-      : item.items
-  );
+  // Hamburger shows secondary links only — bottom nav already covers the main tabs
+  const customerSecondary = [
+    { to: '/?filter=sale', label: 'Sale Items', icon: Sparkles },
+    { to: '/?filter=new', label: 'New Arrivals', icon: Zap },
+    { to: '/?filter=packs', label: 'Mystery Packs', icon: ShoppingBag },
+    { to: '/seller/onboarding', label: 'Become a Seller', icon: TrendingUp },
+  ];
+  const employeeSecondary = [
+    { to: '/admin/intake', label: 'Intake', icon: PlusCircle },
+    { to: '/admin/reviews', label: 'Review Queue', icon: CheckCircle },
+    { to: '/admin/listings', label: 'Listings', icon: ShoppingBag },
+    { to: '/admin/orders', label: 'Orders', icon: ClipboardList },
+    { to: '/admin/auctions', label: 'Auctions', icon: Gavel },
+    { to: '/admin/campaigns', label: 'Campaigns', icon: Megaphone },
+    { to: '/admin/social', label: 'Social', icon: Zap },
+  ];
+  const mobileLinks = (isAdmin && mode === 'employee') ? employeeSecondary : customerSecondary;
 
   if (loading) {
     return (
