@@ -212,34 +212,10 @@ function AppInner() {
   ];
 
   const employeeNav = [
-    { type: 'link' as const, to: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-    {
-      type: 'dropdown' as const,
-      label: 'Product Management',
-      items: [
-        { to: '/admin/intake', label: 'Intake', icon: PlusCircle },
-        { to: '/admin/reviews', label: 'Review Queue', icon: CheckCircle },
-        { to: '/admin/listings', label: 'Listings', icon: ShoppingBag },
-      ],
-    },
-    {
-      type: 'dropdown' as const,
-      label: 'E-Commerce',
-      items: [
-        { to: '/admin/orders', label: 'Orders', icon: ClipboardList },
-        { to: '/admin/auctions', label: 'Auctions', icon: Gavel },
-        { to: '/admin/packs', label: 'Mystery Packs', icon: Sparkles },
-      ],
-    },
-    {
-      type: 'dropdown' as const,
-      label: 'Marketing',
-      items: [
-        { to: '/admin/campaigns', label: 'Campaigns', icon: Megaphone },
-        { to: '/admin/social', label: 'Social', icon: Zap },
-        { to: '/admin/streams', label: 'Live Streams', icon: TrendingUp },
-      ],
-    },
+    { type: 'link' as const, to: '/admin',           label: 'Dashboard', icon: LayoutDashboard },
+    { type: 'link' as const, to: '/admin/listings',  label: 'Products',  icon: ShoppingBag },
+    { type: 'link' as const, to: '/admin/orders',    label: 'Commerce',  icon: ClipboardList },
+    { type: 'link' as const, to: '/admin/campaigns', label: 'Growth',    icon: Megaphone },
   ];
 
   const activeNav = (isAdmin && mode === 'employee') ? employeeNav : customerNav;
@@ -253,13 +229,12 @@ function AppInner() {
     { to: '/seller/onboarding', label: 'Become a Seller', icon: TrendingUp },
   ];
   const employeeSecondary = [
-    { to: '/admin/intake', label: 'Intake', icon: PlusCircle },
-    { to: '/admin/reviews', label: 'Review Queue', icon: CheckCircle },
-    { to: '/admin/listings', label: 'Listings', icon: ShoppingBag },
-    { to: '/admin/orders', label: 'Orders', icon: ClipboardList },
-    { to: '/admin/auctions', label: 'Auctions', icon: Gavel },
-    { to: '/admin/campaigns', label: 'Campaigns', icon: Megaphone },
-    { to: '/admin/social', label: 'Social', icon: Zap },
+    { to: '/admin/intake',   label: 'AI Intake',     icon: PlusCircle },
+    { to: '/admin/reviews',  label: 'Review Queue',  icon: CheckCircle },
+    { to: '/admin/auctions', label: 'Auctions',      icon: Gavel },
+    { to: '/admin/packs',    label: 'Mystery Packs', icon: Sparkles },
+    { to: '/admin/social',   label: 'Social',        icon: Zap },
+    { to: '/admin/streams',  label: 'Live Streams',  icon: TrendingUp },
   ];
   const mobileLinks = (isAdmin && mode === 'employee') ? employeeSecondary : customerSecondary;
 
@@ -301,13 +276,19 @@ function AppInner() {
                 >
                   {item.label}
                 </Link>
-              ) : (
-                <NavDropdown key={i} label={item.label} items={item.items} />
-              )
+              ) : null
             )}
           </div>
 
           <div className="flex items-center gap-2">
+            {isAdmin && mode === 'employee' && (
+              <Link to="/admin/intake"
+                className="hidden md:flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-black text-white hover:opacity-90 transition-all"
+                style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
+                <PlusCircle className="w-4 h-4" />
+                Add Product
+              </Link>
+            )}
             <CartButton />
             {isAdmin && <ModeToggle />}
             {user ? (
@@ -350,6 +331,14 @@ function AppInner() {
               className="md:hidden absolute top-20 left-4 right-4 bg-white rounded-3xl shadow-2xl border border-purple-100 p-4 overflow-hidden"
             >
               <div className="flex flex-col gap-1">
+                {isAdmin && mode === 'employee' && (
+                  <Link to="/admin/intake" onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-black text-white mb-1"
+                    style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
+                    <PlusCircle className="w-4 h-4" />
+                    Add Product (AI)
+                  </Link>
+                )}
                 {mobileLinks.map(link => {
                   const Icon = link.icon;
                   return (
