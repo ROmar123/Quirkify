@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, LogOut, Bell, ShoppingBag, Menu, X } from 'lucide-react';
+import { LogIn, LogOut, Bell, ShoppingBag, Briefcase, Menu, X } from 'lucide-react';
 import { auth, signIn, signOut } from '../../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useCart } from '../../context/CartContext';
@@ -13,6 +13,8 @@ import Logo from './Logo';
 interface Props {
   user?: User | null;
   extraLinks?: { to: string; label: string }[];
+  /** Show extra links as a visible pill row instead of a hamburger menu */
+  showLinksInline?: boolean;
 }
 
 function BellDropdown({ user }: { user: User | null }) {
@@ -64,7 +66,7 @@ function BellDropdown({ user }: { user: User | null }) {
   );
 }
 
-export default function PageHeader({ user: userProp, extraLinks = [] }: Props) {
+export default function PageHeader({ user: userProp, extraLinks = [], showLinksInline = false }: Props) {
   const [user, setUser] = useState<User | null>(userProp ?? auth.currentUser);
   useEffect(() => {
     if (userProp !== undefined) return;
@@ -98,13 +100,15 @@ export default function PageHeader({ user: userProp, extraLinks = [] }: Props) {
             </Link>
           )}
 
-          {/* Mode toggle */}
+          {/* Mode toggle — icon only */}
           {isAdmin && (
-            <button onClick={() => { const next = isEmployee ? 'customer' : 'employee'; setMode(next); navigate(next === 'employee' ? '/admin' : '/'); }}
-              className={cn('px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-all',
-                isEmployee ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-500 border-purple-200'
+            <button
+              onClick={() => { const next = isEmployee ? 'customer' : 'employee'; setMode(next); navigate(next === 'employee' ? '/admin' : '/'); }}
+              title={isEmployee ? 'Switch to Customer View' : 'Switch to Employee View'}
+              className={cn('p-2 rounded-full border transition-all',
+                isEmployee ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-500 border-purple-200 hover:border-purple-400'
               )}>
-              {isEmployee ? 'Employee' : 'Customer'}
+              {isEmployee ? <ShoppingBag className="w-4 h-4" /> : <Briefcase className="w-4 h-4" />}
             </button>
           )}
 
@@ -124,8 +128,8 @@ export default function PageHeader({ user: userProp, extraLinks = [] }: Props) {
             </button>
           )}
 
-          {/* Hamburger for extra links */}
-          {extraLinks.length > 0 && (
+          {/* Hamburger for extra links — only when not inline */}
+          {!showLinksInline && extraLinks.length > 0 && (
             <button onClick={() => setMenuOpen(v => !v)} className="p-2 hover:bg-white/60 rounded-full transition-colors">
               {menuOpen ? <X className="w-5 h-5 text-purple-500" /> : <Menu className="w-5 h-5 text-purple-500" />}
             </button>
@@ -133,8 +137,20 @@ export default function PageHeader({ user: userProp, extraLinks = [] }: Props) {
         </div>
       </div>
 
-      {/* Extra links dropdown */}
-      {menuOpen && extraLinks.length > 0 && (
+      {/* Inline pill banner row */}
+      {showLinksInline && extraLinks.length > 0 && (
+        <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {extraLinks.map(l => (
+            <Link key={l.to} to={l.to}
+              className="flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold text-purple-700 bg-white border border-purple-100 hover:border-purple-300 hover:bg-purple-50 transition-colors whitespace-nowrap shadow-sm">
+              {l.label}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* Hamburger dropdown */}
+      {!showLinksInline && menuOpen && extraLinks.length > 0 && (
         <div className="mt-2 bg-white rounded-3xl border border-purple-100 shadow-xl p-3 space-y-1">
           {extraLinks.map(l => (
             <Link key={l.to} to={l.to} onClick={() => setMenuOpen(false)}

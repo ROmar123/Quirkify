@@ -18,6 +18,7 @@ import {
   Heart
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import PageHeader from '../layout/PageHeader';
 
 export default function ProductDetails() {
   const { id } = useParams<{ id: string }>();
@@ -83,7 +84,8 @@ export default function ProductDetails() {
 
   return (
     <div className="min-h-screen" style={{ background: '#FDF4FF' }}>
-      <div className="max-w-7xl mx-auto px-4 py-12">
+      <PageHeader />
+      <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Breadcrumbs */}
         <nav className="flex items-center gap-2 text-xs font-semibold text-purple-300 mb-10">
           <Link to="/" className="hover:text-purple-500 transition-colors">Store</Link>

@@ -70,11 +70,14 @@ export default function StoreFront() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <PageHeader extraLinks={[
-        { to: '/?filter=sale', label: '🔥 Sale Items' },
-        { to: '/auctions', label: '🔨 Auctions' },
-        { to: '/seller/onboarding', label: '🛍️ Become a Seller' },
-      ]} />
+      <PageHeader
+        showLinksInline
+        extraLinks={[
+          { to: '/?filter=sale', label: '🔥 Sale' },
+          { to: '/auctions', label: '🔨 Auctions' },
+          { to: '/seller/onboarding', label: '🛍️ Become a Seller' },
+        ]}
+      />
 
       <div className="px-4 py-4">
       {/* Live banner */}

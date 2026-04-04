@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { db, auth, handleFirestoreError, OperationType, signIn } from '../../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { initiateYocoCheckout } from '../../services/paymentService';
+import PageHeader from '../layout/PageHeader';
 
 type CheckoutStep = 'cart' | 'shipping' | 'payment';
 
@@ -89,26 +90,32 @@ export default function Checkout() {
 
   if (!auth.currentUser) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-32 text-center">
-        <div className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
-          <LogIn className="w-8 h-8 text-white" />
+      <div>
+        <PageHeader />
+        <div className="max-w-lg mx-auto px-4 py-32 text-center">
+          <div className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
+            <LogIn className="w-8 h-8 text-white" />
+          </div>
+          <h2 className="text-3xl font-black mb-3 gradient-text">Sign in to checkout</h2>
+          <p className="text-purple-400 text-sm font-semibold mb-8">Your quirkiness needs an owner.</p>
+          <button onClick={signIn} className="btn-primary px-10 py-4 text-base">Sign In with Google</button>
         </div>
-        <h2 className="text-3xl font-black mb-3 gradient-text">Sign in to checkout</h2>
-        <p className="text-purple-400 text-sm font-semibold mb-8">Your quirkiness needs an owner.</p>
-        <button onClick={signIn} className="btn-primary px-10 py-4 text-base">Sign In with Google</button>
       </div>
     );
   }
 
   if (items.length === 0) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-32 text-center">
-        <div className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #A855F7, #6366F1)' }}>
-          <ShoppingBag className="w-8 h-8 text-white" />
+      <div>
+        <PageHeader />
+        <div className="max-w-lg mx-auto px-4 py-32 text-center">
+          <div className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #A855F7, #6366F1)' }}>
+            <ShoppingBag className="w-8 h-8 text-white" />
+          </div>
+          <h2 className="text-3xl font-black mb-3 gradient-text">Your cart is empty</h2>
+          <p className="text-purple-400 text-sm font-semibold mb-8">Fill it with some quirkiness.</p>
+          <button onClick={() => navigate('/')} className="btn-primary px-10 py-4 text-base">Browse the Store</button>
         </div>
-        <h2 className="text-3xl font-black mb-3 gradient-text">Your cart is empty</h2>
-        <p className="text-purple-400 text-sm font-semibold mb-8">Fill it with some quirkiness.</p>
-        <button onClick={() => navigate('/')} className="btn-primary px-10 py-4 text-base">Browse the Store</button>
       </div>
     );
   }
@@ -116,6 +123,8 @@ export default function Checkout() {
   const currentStepIdx = STEPS.findIndex(s => s.id === step);
 
   return (
+    <div>
+      <PageHeader />
     <div className="max-w-5xl mx-auto px-4 py-12">
       {/* Step Indicator */}
       <div className="flex items-center justify-center gap-4 mb-12">
@@ -302,6 +311,7 @@ export default function Checkout() {
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }
