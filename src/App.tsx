@@ -49,11 +49,16 @@ function CartButton() {
 
 function ModeToggle() {
   const { mode, setMode } = useMode();
+  const navigate = useNavigate();
   const isEmployee = mode === 'employee';
 
   return (
     <button
-      onClick={() => setMode(isEmployee ? 'customer' : 'employee')}
+      onClick={() => {
+        const next = isEmployee ? 'customer' : 'employee';
+        setMode(next);
+        navigate(next === 'employee' ? '/admin' : '/');
+      }}
       title={isEmployee ? 'Switch to Customer View' : 'Switch to Employee View'}
       className={cn(
         'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all border',
