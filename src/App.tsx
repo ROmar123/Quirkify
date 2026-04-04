@@ -187,15 +187,17 @@ function AppInner() {
 
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       clearTimeout(timeout);
-      const justSignedIn = !prevUser && !!u;
+      const isFirstLoad = !prevUser;
       prevUser = u;
       setUser(u);
       const admin = u?.email === 'patengel85@gmail.com';
       setIsAdmin(admin);
       setLoading(false);
-      // Navigate to the right landing page on fresh sign-in
-      if (justSignedIn) {
-        navigate(admin ? '/admin' : '/');
+      // On page load or sign-in: send admin to dashboard, new customer sign-in to store
+      if (isFirstLoad && u && admin) {
+        navigate('/admin');
+      } else if (isFirstLoad && u && !admin) {
+        navigate('/');
       }
     });
 

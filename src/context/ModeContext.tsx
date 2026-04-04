@@ -20,8 +20,13 @@ export function ModeProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<Mode>('customer');
   const [isAdmin, setIsAdmin] = useState(false);
 
+  const handleSetIsAdmin = (val: boolean) => {
+    setIsAdmin(val);
+    if (val) setMode('employee');
+  };
+
   return (
-    <ModeContext.Provider value={{ mode, setMode, isAdmin, setIsAdmin }}>
+    <ModeContext.Provider value={{ mode, setMode, isAdmin, setIsAdmin: handleSetIsAdmin }}>
       {children}
     </ModeContext.Provider>
   );
