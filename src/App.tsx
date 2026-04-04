@@ -183,20 +183,22 @@ function AppInner() {
 
   useEffect(() => {
     const timeout = setTimeout(() => setLoading(false), 8000);
-    let unsub: (() => void) | undefined;
 
-    getRedirectResult(auth)
-      .catch(() => {})
-      .finally(() => {
-        unsub = onAuthStateChanged(auth, (u) => {
-          clearTimeout(timeout);
-          setUser(u);
-          setIsAdmin(u?.email === 'patengel85@gmail.com');
-          setLoading(false);
-        });
-      });
+    // Process any pending redirect result (mobile Google sign-in flow).
+    // Fire-and-forget — Firebase updates auth state internally, which
+    // onAuthStateChanged picks up below.
+    getRedirectResult(auth).catch(() => {});
 
-    return () => { clearTimeout(timeout); unsub?.(); };
+    // Subscribe immediately — fires right away with current auth state,
+    // and again whenever it changes (popup sign-in, redirect sign-in, sign-out).
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      clearTimeout(timeout);
+      setUser(u);
+      setIsAdmin(u?.email === 'patengel85@gmail.com');
+      setLoading(false);
+    });
+
+    return () => { clearTimeout(timeout); unsubscribe(); };
   }, []);
 
   // Desktop nav items
