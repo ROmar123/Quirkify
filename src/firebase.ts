@@ -11,10 +11,9 @@ export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
 const isMobile = () => /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-export const signIn = () =>
-  isMobile() ? signInWithRedirect(auth, googleProvider) : signInWithPopup(auth, googleProvider);
-export { getRedirectResult };
+export const signIn = () => isMobile() ? signInWithRedirect(auth, googleProvider) : signInWithPopup(auth, googleProvider);
 export const signOut = () => auth.signOut();
+export { getRedirectResult };
 
 export enum OperationType {
   CREATE = 'create',

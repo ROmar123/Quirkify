@@ -78,25 +78,26 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-zinc-50">
+    <div className="flex flex-col lg:flex-row min-h-screen" style={{ background: '#FDF4FF' }}>
       {/* Sidebar */}
-      <aside className="w-full lg:w-64 bg-white border-r border-zinc-100 flex-shrink-0 sticky top-0 h-fit lg:h-screen z-20">
-        <div className="p-8 border-b border-zinc-100">
-          <h1 className="text-2xl font-bold tracking-tight text-black font-display uppercase">Admin Portal</h1>
-          <p className="text-zinc-400 text-[8px] uppercase tracking-widest font-bold mt-1">Quirkify Control Center</p>
+      <aside className="w-full lg:w-64 bg-white border-r border-purple-100 flex-shrink-0 sticky top-0 h-fit lg:h-screen z-20">
+        <div className="p-6 border-b border-purple-100">
+          <h1 className="text-lg font-black gradient-text">Admin Portal</h1>
+          <p className="text-purple-400 text-[8px] uppercase tracking-widest font-bold mt-1">Quirkify Control Center</p>
         </div>
-        
-        <nav className="p-4 space-y-1 max-h-[calc(100vh-200px)] overflow-y-auto">
+
+        <nav className="p-3 space-y-1 max-h-[calc(100vh-200px)] overflow-y-auto">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "w-full flex items-center gap-3 px-4 py-3 text-[10px] font-bold uppercase tracking-widest transition-all text-left",
-                activeTab === tab.id 
-                  ? "bg-black text-white shadow-lg" 
-                  : "text-zinc-400 hover:text-black hover:bg-zinc-50"
+                "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all text-left",
+                activeTab === tab.id
+                  ? "text-white shadow-md"
+                  : "text-purple-400 hover:text-purple-600 hover:bg-purple-50"
               )}
+              style={activeTab === tab.id ? { background: 'linear-gradient(135deg, #F472B6, #A855F7)' } : {}}
             >
               <tab.icon className="w-4 h-4" />
               {tab.label}
@@ -104,14 +105,14 @@ export default function AdminDashboard() {
           ))}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-8 border-t border-zinc-100 bg-zinc-50/50">
+        <div className="absolute bottom-0 left-0 right-0 p-5 border-t border-purple-100">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-black rounded-none flex items-center justify-center text-white text-[10px] font-bold">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
               {auth.currentUser?.email?.[0].toUpperCase()}
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase truncate max-w-[120px]">{auth.currentUser?.email?.split('@')[0]}</p>
-              <p className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest">Administrator</p>
+              <p className="text-[10px] font-bold truncate max-w-[120px]">{auth.currentUser?.email?.split('@')[0]}</p>
+              <p className="text-[8px] text-purple-400 font-bold uppercase tracking-widest">Administrator</p>
             </div>
           </div>
         </div>
@@ -128,32 +129,40 @@ export default function AdminDashboard() {
             exit={{ opacity: 0, y: -10 }}
           >
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-              {stats.map((stat, i) => (
-                <div
-                  key={stat.label}
-                  className="p-6 bg-white rounded-none border border-zinc-100 shadow-sm"
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="p-2 bg-zinc-50 rounded-none border border-zinc-100">
-                      <stat.icon className="w-5 h-5 text-black" />
-                    </div>
-                    <div className={cn(
-                      "flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest",
-                      stat.up ? "text-green-600" : "text-red-600"
-                    )}>
-                      {stat.trend}
-                      {stat.up ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+              {stats.map((stat, i) => {
+                const gradients = [
+                  'linear-gradient(135deg, #F472B6, #A855F7)',
+                  'linear-gradient(135deg, #4ADE80, #60A5FA)',
+                  'linear-gradient(135deg, #FBBF24, #FB923C)',
+                  'linear-gradient(135deg, #A855F7, #6366F1)',
+                ];
+                return (
+                  <div key={stat.label} className="bg-white rounded-3xl border border-purple-100 shadow-sm overflow-hidden">
+                    <div className="h-1.5 w-full" style={{ background: gradients[i % gradients.length] }} />
+                    <div className="p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="p-2 bg-purple-50 rounded-xl border border-purple-100">
+                          <stat.icon className="w-5 h-5 text-purple-500" />
+                        </div>
+                        <div className={cn(
+                          "flex items-center gap-1 text-[10px] font-bold",
+                          stat.up ? "text-green-600" : "text-red-500"
+                        )}>
+                          {stat.trend}
+                          {stat.up ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                        </div>
+                      </div>
+                      <span className="text-[9px] text-purple-400 uppercase tracking-widest font-bold">{stat.label}</span>
+                      <p className="text-3xl font-black mt-1 text-purple-900">{stat.value}</p>
                     </div>
                   </div>
-                  <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold">{stat.label}</span>
-                  <p className="text-3xl font-bold mt-1 text-black">{stat.value}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 mb-12">
               <div className="lg:col-span-2">
-                <div className="p-8 bg-black text-white rounded-none relative overflow-hidden group">
+                <div className="p-8 bg-black text-white rounded-3xl relative overflow-hidden group">
                   <div className="absolute top-0 right-0 p-12 opacity-10 group-hover:opacity-20 transition-opacity">
                     <Zap className="w-32 h-32" />
                   </div>
@@ -180,7 +189,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
               <div className="lg:col-span-1">
-                <div className="p-8 bg-white border border-zinc-100 rounded-none shadow-sm h-full">
+                <div className="p-8 bg-white border border-purple-100 rounded-3xl shadow-sm h-full">
                   <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] mb-8 text-zinc-400">Live Market Feed</h3>
                   <div className="space-y-6">
                     {[
@@ -189,7 +198,7 @@ export default function AdminDashboard() {
                       { time: '1h ago', event: 'Inventory Verified', value: '12 Items' },
                       { time: '3h ago', event: 'Campaign Launched', value: 'Social' },
                     ].map((item, i) => (
-                      <div key={`feed-${i}`} className="flex items-center justify-between border-b border-zinc-50 pb-4 last:border-0">
+                      <div key={`feed-${i}`} className="flex items-center justify-between border-b border-purple-50 pb-4 last:border-0">
                         <div>
                           <p className="text-[10px] font-bold uppercase tracking-tight">{item.event}</p>
                           <p className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest">{item.time}</p>
@@ -210,14 +219,14 @@ export default function AdminDashboard() {
                 </div>
                 <div className="space-y-2">
                   {recentOrders.length === 0 ? (
-                    <div className="p-12 text-center border border-zinc-100 rounded-none bg-zinc-50">
-                      <p className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest">No orders yet.</p>
+                    <div className="p-12 text-center border border-purple-100 rounded-2xl bg-purple-50">
+                      <p className="text-purple-400 text-[10px] font-bold uppercase tracking-widest">No orders yet.</p>
                     </div>
                   ) : (
                     recentOrders.map((order) => (
-                      <div key={order.id} className="p-4 bg-white rounded-none border border-zinc-100 flex items-center gap-4 hover:border-zinc-300 transition-colors">
-                        <div className="w-10 h-10 bg-zinc-50 flex items-center justify-center border border-zinc-100">
-                          <ClipboardList className="w-4 h-4 text-zinc-400" />
+                      <div key={order.id} className="p-4 bg-white rounded-2xl border border-purple-100 flex items-center gap-4 hover:border-purple-300 transition-colors">
+                        <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center border border-purple-100">
+                          <ClipboardList className="w-4 h-4 text-purple-400" />
                         </div>
                         <div className="flex-1">
                           <h4 className="font-bold text-[10px] uppercase tracking-tight">#{order.id.slice(-8)}</h4>
@@ -243,8 +252,8 @@ export default function AdminDashboard() {
                 </div>
                 <div className="space-y-2">
                   {products.map((product) => (
-                    <div key={product.id} className="p-4 bg-white rounded-none border border-zinc-100 flex items-center gap-4 hover:border-zinc-300 transition-colors">
-                      <div className="w-10 h-10 rounded-none bg-zinc-50 overflow-hidden border border-zinc-100">
+                    <div key={product.id} className="p-4 bg-white rounded-2xl border border-purple-100 flex items-center gap-4 hover:border-purple-300 transition-colors">
+                      <div className="w-10 h-10 rounded-xl bg-purple-50 overflow-hidden border border-purple-100">
                         <img src={product.imageUrl} className="w-full h-full object-cover" alt="" />
                       </div>
                       <div className="flex-1">
@@ -252,7 +261,7 @@ export default function AdminDashboard() {
                         <p className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest">{product.category}</p>
                       </div>
                       <div className={cn(
-                        "px-2 py-1 rounded-none text-[8px] font-bold uppercase tracking-widest border",
+                        "px-2 py-1 rounded-full text-[8px] font-bold uppercase tracking-widest border",
                         product.status === 'approved' ? "bg-green-50 border-green-100 text-green-600" : 
                         product.status === 'pending' ? "bg-yellow-50 border-yellow-100 text-yellow-600" : "bg-red-50 border-red-100 text-red-600"
                       )}>

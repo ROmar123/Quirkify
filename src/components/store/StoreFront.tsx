@@ -203,9 +203,9 @@ export default function StoreFront() {
                 A masterpiece of brutalist design, curated by Quirkify AI for the boldest collectors.
               </p>
               <div className="flex items-center gap-4">
-                <button className="px-8 py-4 bg-white text-black text-[10px] font-bold uppercase tracking-widest hover:bg-quirky hover:text-white transition-all">
+                <Link to="/auctions" className="px-8 py-4 bg-white text-black text-[10px] font-bold uppercase tracking-widest hover:bg-quirky hover:text-white transition-all">
                   Bid Now
-                </button>
+                </Link>
                 <div className="text-white">
                   <p className="text-[8px] font-bold uppercase tracking-widest opacity-60">Current Bid</p>
                   <p className="text-xl font-bold">R12,450</p>
@@ -332,10 +332,20 @@ export default function StoreFront() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {packs.map((pack) => (
-              <motion.div 
+              <motion.div
                 key={pack.id}
                 whileHover={{ y: -10 }}
                 className="bg-purple-50 border border-purple-100 p-8 text-center group cursor-pointer"
+                onClick={() => addToCart({
+                  id: pack.id,
+                  name: pack.name,
+                  description: pack.description,
+                  category: 'Mystery Pack',
+                  priceRange: { min: pack.price, max: pack.price },
+                  imageUrl: pack.imageUrl,
+                  status: 'approved',
+                  rarity: 'Rare',
+                } as any)}
               >
                 <div className="aspect-square bg-white mb-8 flex items-center justify-center relative overflow-hidden">
                   <img src={pack.imageUrl} className="w-32 h-32 object-contain group-hover:scale-110 transition-transform duration-500" alt="" />
@@ -344,7 +354,7 @@ export default function StoreFront() {
                 <h3 className="text-sm font-bold uppercase tracking-tight mb-2">{pack.name}</h3>
                 <p className="text-[8px] text-purple-400 font-bold uppercase tracking-widest mb-6">{pack.description}</p>
                 <button className="w-full py-3 bg-black text-white text-[10px] font-bold uppercase tracking-widest hover:bg-quirky transition-all">
-                  OPEN PACK • R{pack.price}
+                  ADD TO CART • R{pack.price}
                 </button>
               </motion.div>
             ))}
