@@ -314,10 +314,18 @@ export default function ListingManager() {
                     ))}
                   </div>
                 </div>
+
+                {/* Sticky save footer inside scroll area */}
+                <div className="sticky bottom-0 bg-white pt-4 pb-2 flex gap-3 border-t border-purple-100 -mx-6 px-6">
+                  <button onClick={closeModal} className="btn-secondary flex-1 py-3 text-sm justify-center">Cancel</button>
+                  <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 py-3 text-sm justify-center disabled:opacity-50">
+                    {saving ? 'Saving…' : <><Save className="w-4 h-4" />{isNew ? 'Create Product' : 'Save Changes'}</>}
+                  </button>
+                </div>
               </div>
 
-              {/* Modal footer */}
-              <div className="p-6 border-t border-purple-100 flex gap-3">
+              {/* Modal footer — desktop fallback (hidden on mobile since sticky above handles it) */}
+              <div className="hidden sm:flex p-6 border-t border-purple-100 gap-3">
                 <button onClick={closeModal} className="btn-secondary flex-1 py-3 text-sm justify-center">Cancel</button>
                 <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 py-3 text-sm justify-center disabled:opacity-50">
                   {saving ? 'Saving…' : <><Save className="w-4 h-4" />{isNew ? 'Create Product' : 'Save Changes'}</>}
