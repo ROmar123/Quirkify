@@ -317,28 +317,7 @@ function AppInner() {
             <Logo />
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-1">
-            {activeNav.map((item, i) =>
-              item.type === 'link' ? (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={cn(
-                    'px-4 py-2 rounded-full text-sm font-bold transition-all',
-                    location.pathname === item.to
-                      ? 'text-white shadow-md'
-                      : 'text-purple-400 hover:text-purple-600 hover:bg-purple-50'
-                  )}
-                  style={location.pathname === item.to ? { background: 'linear-gradient(135deg, #F472B6, #A855F7)' } : {}}
-                >
-                  {item.label}
-                </Link>
-              ) : null
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
+<div className="flex items-center gap-2">
             <BellButton user={user} />
             <CartButton />
             {isAdmin && <ModeToggle />}

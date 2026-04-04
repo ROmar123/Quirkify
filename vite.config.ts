@@ -9,6 +9,8 @@ export default defineConfig(({mode}) => {
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+      'process.env.YOCO_PUBLIC_KEY': JSON.stringify(env.YOCO_PUBLIC_KEY),
+      'process.env.YOCO_SECRET_KEY': JSON.stringify(env.YOCO_SECRET_KEY),
     },
     resolve: {
       alias: {
