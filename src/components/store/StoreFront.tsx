@@ -4,7 +4,7 @@ import { db, handleFirestoreError, OperationType } from '../../firebase';
 import { Product, LiveSession, Pack } from '../../types';
 import { motion } from 'motion/react';
 import { ShoppingBag, Play, Users, Search, X, Tag, Shield, Truck, Sparkles } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useCart } from '../../context/CartContext';
 import { PRODUCT_CATEGORIES } from '../../lib/categories';
