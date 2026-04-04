@@ -1,4 +1,4 @@
-import { Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, signIn, signOut, getRedirectResult } from './firebase';
@@ -179,23 +179,25 @@ function AppInner() {
   const [loading, setLoading] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { mode, isAdmin, setIsAdmin } = useMode();
 
   useEffect(() => {
     const timeout = setTimeout(() => setLoading(false), 8000);
+    let prevUser: User | null = null;
 
-    // Process any pending redirect result (mobile Google sign-in flow).
-    // Fire-and-forget — Firebase updates auth state internally, which
-    // onAuthStateChanged picks up below.
-    getRedirectResult(auth).catch(() => {});
-
-    // Subscribe immediately — fires right away with current auth state,
-    // and again whenever it changes (popup sign-in, redirect sign-in, sign-out).
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       clearTimeout(timeout);
+      const justSignedIn = !prevUser && !!u;
+      prevUser = u;
       setUser(u);
-      setIsAdmin(u?.email === 'patengel85@gmail.com');
+      const admin = u?.email === 'patengel85@gmail.com';
+      setIsAdmin(admin);
       setLoading(false);
+      // Navigate to the right landing page on fresh sign-in
+      if (justSignedIn) {
+        navigate(admin ? '/admin' : '/');
+      }
     });
 
     return () => { clearTimeout(timeout); unsubscribe(); };
