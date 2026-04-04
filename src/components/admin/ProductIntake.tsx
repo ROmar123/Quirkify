@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Camera, Upload, Loader2, CheckCircle2, AlertCircle, Sparkles, X, PlusCircle, Edit3, Trash2, Save } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { ProductCondition, Rarity } from '../../types';
+import { ProductCondition } from '../../types';
 import { mapToStandardCategory } from '../../lib/categories';
 
 interface ProductIntakeProps {
@@ -184,279 +184,203 @@ export default function ProductIntake({ onSuccess }: ProductIntakeProps) {
     }
   };
 
+  const inputCls = 'w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-800 focus:outline-none focus:border-purple-400 transition-colors';
+  const labelCls = 'block text-xs font-bold text-purple-400 mb-1';
   const conditions: ProductCondition[] = ['New', 'Like New', 'Pre-owned', 'Refurbished'];
-  const rarities: Rarity[] = ['Common', 'Limited', 'Rare', 'Super Rare', 'Unique'];
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <div className="mb-12">
-        <h1 className="text-4xl font-bold tracking-tight mb-2 text-black">Product Intake</h1>
-        <p className="text-zinc-500 text-sm uppercase tracking-widest font-bold">AI-powered product identification and market analysis.</p>
+    <div className="px-4 py-6 max-w-4xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl font-black gradient-text">AI Product Intake</h1>
+        <p className="text-purple-400 text-xs font-semibold mt-1">Upload photos — AI identifies the product, you review and approve</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-        <div className="space-y-6">
-          <div 
-            {...getRootProps()} 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Left: upload */}
+        <div className="space-y-4">
+          <div
+            {...getRootProps()}
             className={cn(
-              "aspect-square border-2 border-dashed rounded-none flex flex-col items-center justify-center p-8 transition-all cursor-pointer overflow-hidden relative",
-              isDragActive ? "border-black bg-zinc-50" : "border-zinc-100 hover:border-zinc-200",
-              previews.length > 0 && "border-none"
+              'aspect-square border-2 border-dashed rounded-3xl flex flex-col items-center justify-center p-6 transition-all cursor-pointer overflow-hidden relative bg-white',
+              isDragActive ? 'border-purple-400 bg-purple-50' : 'border-purple-100 hover:border-purple-300',
+              previews.length > 0 && 'border-transparent p-0'
             )}
           >
             <input {...getInputProps()} />
             {previews.length > 0 ? (
-              <div className="grid grid-cols-2 grid-rows-2 gap-2 w-full h-full">
+              <div className="grid grid-cols-2 gap-1 w-full h-full">
                 {previews.map((p, i) => (
-                  <div key={i} className={cn(
-                    "relative group",
-                    i === 0 && previews.length === 1 ? "col-span-2 row-span-2" : 
-                    i === 0 && previews.length > 1 ? "col-span-2 row-span-1" : ""
-                  )}>
-                    <img src={p} className="w-full h-full object-cover" alt={`Preview ${i}`} />
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); removeFile(i); }}
-                      className="absolute top-2 right-2 p-1 bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="w-4 h-4" />
+                  <div key={i} className={cn('relative group', i === 0 && previews.length === 1 ? 'col-span-2 row-span-2' : i === 0 ? 'col-span-2' : '')}>
+                    <img src={p} className="w-full h-full object-cover rounded-2xl" alt="" />
+                    <button onClick={e => { e.stopPropagation(); removeFile(i); }}
+                      className="absolute top-2 right-2 p-1 bg-black/60 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                      <X className="w-3 h-3" />
                     </button>
                   </div>
                 ))}
                 {previews.length < 3 && (
-                  <div className="flex items-center justify-center bg-zinc-50 border border-zinc-100 border-dashed">
-                    <PlusCircle className="w-6 h-6 text-zinc-300" />
+                  <div className="flex items-center justify-center bg-purple-50 border-2 border-dashed border-purple-100 rounded-2xl">
+                    <PlusCircle className="w-6 h-6 text-purple-300" />
                   </div>
                 )}
               </div>
             ) : (
               <>
-                <div className="w-16 h-16 bg-zinc-50 rounded-none flex items-center justify-center mb-4 border border-zinc-100">
-                  <Camera className="w-8 h-8 text-zinc-300" />
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-3"
+                  style={{ background: 'linear-gradient(135deg, #FDF4FF, #EDE9FE)' }}>
+                  <Camera className="w-8 h-8 text-purple-400" />
                 </div>
-                <p className="text-zinc-400 text-center text-[10px] font-bold uppercase tracking-widest">
-                  Drag & drop product images <br />
-                  <span className="text-zinc-300">Up to 3 photos</span>
-                </p>
+                <p className="text-purple-400 text-center text-xs font-bold">Drag & drop photos</p>
+                <p className="text-purple-300 text-xs mt-1">Up to 3 images</p>
               </>
             )}
           </div>
 
           {error && (
-            <div className="p-4 bg-red-50 border border-red-100 flex items-center gap-3 text-red-600">
-              <AlertCircle className="w-5 h-5 shrink-0" />
-              <p className="text-[10px] font-bold uppercase tracking-widest">{error}</p>
+            <div className="p-3 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-2 text-red-600 text-xs font-bold">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />{error}
             </div>
           )}
 
           {files.length > 0 && !result && (
-            <button
-              onClick={handleAnalyze}
-              disabled={loading}
-              className="w-full py-4 bg-black text-white rounded-none font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-zinc-800 transition-all disabled:opacity-50"
-            >
+            <button onClick={handleAnalyze} disabled={loading}
+              className="w-full py-3 rounded-2xl font-black text-sm text-white disabled:opacity-50 flex items-center justify-center gap-2 hover:opacity-90 transition-all"
+              style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-              {loading ? 'Analyzing...' : 'Identify Product'}
+              {loading ? 'Analysing…' : 'Identify with AI'}
             </button>
           )}
         </div>
 
-        <div className="space-y-6">
+        {/* Right: result */}
+        <div>
           <AnimatePresence mode="wait">
             {success ? (
-              <motion.div
-                key="success"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="h-full flex flex-col items-center justify-center text-center p-8 bg-green-50 rounded-none border border-green-100"
-              >
-                <CheckCircle2 className="w-16 h-16 text-green-500 mb-6" />
-                <h3 className="text-sm font-bold uppercase tracking-widest mb-2 text-green-800">Success!</h3>
-                <p className="text-green-600 text-[10px] uppercase tracking-widest leading-relaxed mb-8">
-                  Product sent to review queue and images stored safely.
-                </p>
+              <motion.div key="success" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                className="h-full flex flex-col items-center justify-center text-center p-8 bg-green-50 rounded-3xl border border-green-100">
+                <CheckCircle2 className="w-14 h-14 text-green-500 mb-4" />
+                <h3 className="text-sm font-black text-green-800 mb-1">Sent to Review Queue!</h3>
+                <p className="text-green-600 text-xs font-semibold mb-6">Product saved and awaiting approval.</p>
                 <div className="flex flex-col gap-3 w-full">
-                  <button
-                    onClick={() => {
-                      if (onSuccess) {
-                        onSuccess();
-                      } else {
-                        navigate('/admin/reviews');
-                      }
-                    }}
-                    className="w-full py-3 bg-black text-white text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-800 transition-all"
-                  >
+                  <button onClick={() => onSuccess ? onSuccess() : navigate('/admin/reviews')}
+                    className="w-full py-3 rounded-2xl text-sm font-black text-white hover:opacity-90 transition-all"
+                    style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
                     View Review Queue
                   </button>
-                  <button
-                    onClick={() => setSuccess(false)}
-                    className="w-full py-3 bg-white border border-green-200 text-green-600 text-[10px] font-bold uppercase tracking-widest hover:bg-green-100 transition-all"
-                  >
+                  <button onClick={() => setSuccess(false)}
+                    className="w-full py-3 rounded-2xl text-sm font-black text-purple-600 bg-purple-50 border-2 border-purple-100 hover:border-purple-300 transition-all">
                     Intake Another
                   </button>
                 </div>
               </motion.div>
             ) : loading ? (
-              <motion.div 
-                key="loading"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="h-full flex flex-col items-center justify-center text-center p-8 bg-zinc-50 rounded-none border border-zinc-100"
-              >
-                <div className="relative w-16 h-16 mb-6">
-                  <motion.div 
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                    className="absolute inset-0 border-2 border-zinc-100 border-t-black rounded-full"
-                  />
-                  <Sparkles className="absolute inset-0 m-auto w-6 h-6 text-black" />
+              <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="h-full flex flex-col items-center justify-center text-center p-8 bg-white rounded-3xl border border-purple-100">
+                <div className="relative w-16 h-16 mb-4">
+                  <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                    className="absolute inset-0 border-4 border-purple-100 border-t-purple-500 rounded-full" />
+                  <Sparkles className="absolute inset-0 m-auto w-6 h-6 text-purple-500" />
                 </div>
-                <h3 className="text-xs font-bold uppercase tracking-widest mb-2">Aura Vision is Thinking</h3>
-                <p className="text-zinc-400 text-[10px] uppercase tracking-widest leading-relaxed">Scanning Cape Town market trends...</p>
+                <p className="text-sm font-black text-purple-900">AI is thinking…</p>
+                <p className="text-xs text-purple-400 font-semibold mt-1">Scanning Cape Town market trends</p>
               </motion.div>
             ) : editedResult ? (
-              <motion.div
-                key="result"
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="space-y-6"
-              >
-                <div className="p-8 bg-white rounded-none border border-zinc-100 shadow-sm">
-                  <div className="flex items-center justify-between mb-6">
-                    <span className="text-[8px] font-bold tracking-widest text-zinc-400 uppercase">AI Analysis Result</span>
-                    <div className={cn(
-                      "px-2 py-1 rounded-none text-[8px] font-bold uppercase tracking-widest border",
-                      (result?.confidenceScore || 0) > 0.8 ? "bg-green-50 border-green-100 text-green-600" : "bg-yellow-50 border-yellow-100 text-yellow-600"
-                    )}>
-                      {Math.round((result?.confidenceScore || 0) * 100)}% CONFIDENCE
-                    </div>
+              <motion.div key="result" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
+                <div className="bg-white rounded-3xl border border-purple-100 p-5 shadow-sm">
+                  {/* Confidence */}
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-xs font-black text-purple-900">AI Result</span>
+                    <span className={cn('px-3 py-1 rounded-full text-xs font-black border',
+                      (result?.confidenceScore || 0) > 0.8
+                        ? 'bg-green-50 border-green-200 text-green-700'
+                        : 'bg-amber-50 border-amber-200 text-amber-700')}>
+                      {Math.round((result?.confidenceScore || 0) * 100)}% confidence
+                    </span>
                   </div>
 
                   {isEditing ? (
-                    <div className="space-y-4 mb-8">
+                    <div className="space-y-3">
                       <div>
-                        <label className="text-[8px] font-bold uppercase tracking-widest text-zinc-400 block mb-1">Product Name</label>
-                        <input 
-                          type="text" 
-                          value={editedResult.name}
-                          onChange={(e) => setEditedResult({ ...editedResult, name: e.target.value })}
-                          className="w-full p-3 bg-zinc-50 border border-zinc-100 text-xs font-bold uppercase tracking-tight focus:outline-none focus:border-black"
-                        />
+                        <label className={labelCls}>Product Name</label>
+                        <input value={editedResult.name} onChange={e => setEditedResult({ ...editedResult, name: e.target.value })} className={inputCls} />
                       </div>
                       <div>
-                        <label className="text-[8px] font-bold uppercase tracking-widest text-zinc-400 block mb-1">Description</label>
-                        <textarea 
-                          value={editedResult.description}
-                          onChange={(e) => setEditedResult({ ...editedResult, description: e.target.value })}
-                          className="w-full p-3 bg-zinc-50 border border-zinc-100 text-xs leading-relaxed focus:outline-none focus:border-black h-24"
-                        />
+                        <label className={labelCls}>Description</label>
+                        <textarea value={editedResult.description} onChange={e => setEditedResult({ ...editedResult, description: e.target.value })}
+                          rows={3} className={cn(inputCls, 'resize-none')} />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[8px] font-bold uppercase tracking-widest text-zinc-400 block mb-1">Retail Price (ZAR)</label>
-                          <input 
-                            type="number" 
-                            value={editedResult.retailPrice}
-                            onChange={(e) => handleRetailPriceChange(Number(e.target.value))}
-                            className="w-full p-3 bg-zinc-50 border border-zinc-100 text-xs font-bold focus:outline-none focus:border-black"
-                          />
+                          <label className={labelCls}>Retail Price (R)</label>
+                          <input type="number" value={editedResult.retailPrice} onChange={e => handleRetailPriceChange(Number(e.target.value))} className={inputCls} />
                         </div>
                         <div>
-                          <label className="text-[8px] font-bold uppercase tracking-widest text-zinc-400 block mb-1">Markdown %</label>
-                          <input 
-                            type="number" 
-                            value={editedResult.markdownPercentage}
-                            onChange={(e) => handleMarkdownChange(Number(e.target.value))}
-                            className="w-full p-3 bg-zinc-50 border border-zinc-100 text-xs font-bold focus:outline-none focus:border-black"
-                          />
+                          <label className={labelCls}>Markdown %</label>
+                          <input type="number" value={editedResult.markdownPercentage} onChange={e => handleMarkdownChange(Number(e.target.value))} className={inputCls} />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[8px] font-bold uppercase tracking-widest text-zinc-400 block mb-1">Condition</label>
-                          <select 
-                            value={editedResult.condition}
-                            onChange={(e) => setEditedResult({ ...editedResult, condition: e.target.value as ProductCondition })}
-                            className="w-full p-3 bg-zinc-50 border border-zinc-100 text-xs font-bold uppercase tracking-widest focus:outline-none focus:border-black appearance-none"
-                          >
+                          <label className={labelCls}>Condition</label>
+                          <select value={editedResult.condition} onChange={e => setEditedResult({ ...editedResult, condition: e.target.value as ProductCondition })} className={inputCls}>
                             {conditions.map(c => <option key={c} value={c}>{c}</option>)}
                           </select>
                         </div>
                         <div>
-                          <label className="text-[8px] font-bold uppercase tracking-widest text-zinc-400 block mb-1">Quantity</label>
-                          <input 
-                            type="number" 
-                            value={editedResult.stock}
-                            onChange={(e) => setEditedResult({ ...editedResult, stock: Number(e.target.value) })}
-                            className="w-full p-3 bg-zinc-50 border border-zinc-100 text-xs font-bold focus:outline-none focus:border-black"
-                          />
+                          <label className={labelCls}>Stock</label>
+                          <input type="number" value={editedResult.stock} onChange={e => setEditedResult({ ...editedResult, stock: Number(e.target.value) })} className={inputCls} />
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <>
-                      <h2 className="text-2xl font-bold mb-2 uppercase tracking-tight">{editedResult.name}</h2>
-                      <p className="text-zinc-500 text-xs mb-6 leading-relaxed">{editedResult.description}</p>
-                      
-                      <div className="grid grid-cols-2 gap-4 mb-8">
-                        <div className="p-4 bg-zinc-50 rounded-none border border-zinc-100">
-                          <span className="text-[8px] text-zinc-400 block mb-1 uppercase tracking-widest font-bold">RETAIL PRICE</span>
-                          <span className="font-bold text-sm text-zinc-400 line-through">R{editedResult.retailPrice}</span>
-                          <span className="text-[8px] text-quirky ml-2">-{editedResult.markdownPercentage}%</span>
+                    <div className="space-y-3">
+                      <h2 className="text-lg font-black text-purple-900">{editedResult.name}</h2>
+                      <p className="text-xs text-purple-400 font-semibold leading-relaxed">{editedResult.description}</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100">
+                          <p className="text-[10px] font-bold text-purple-400 mb-0.5">Retail</p>
+                          <p className="text-sm font-black text-purple-400 line-through">R{editedResult.retailPrice}</p>
+                          <p className="text-[10px] text-pink-500 font-bold">-{editedResult.markdownPercentage}%</p>
                         </div>
-                        <div className="p-4 bg-black text-white rounded-none border border-black">
-                          <span className="text-[8px] text-zinc-500 block mb-1 uppercase tracking-widest font-bold">QUIRKIFY PRICE</span>
-                          <span className="font-bold text-sm">R{editedResult.discountPrice}</span>
+                        <div className="p-3 rounded-2xl text-white" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
+                          <p className="text-[10px] font-bold opacity-80 mb-0.5">Sale Price</p>
+                          <p className="text-lg font-black">R{editedResult.discountPrice}</p>
                         </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4 mb-8">
-                        <div className="p-4 bg-zinc-50 rounded-none border border-zinc-100">
-                          <span className="text-[8px] text-zinc-400 block mb-1 uppercase tracking-widest font-bold">CONDITION</span>
-                          <span className="font-bold text-xs uppercase">{editedResult.condition}</span>
+                        <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100">
+                          <p className="text-[10px] font-bold text-purple-400 mb-0.5">Condition</p>
+                          <p className="text-xs font-black text-purple-900">{editedResult.condition}</p>
                         </div>
-                        <div className="p-4 bg-zinc-50 rounded-none border border-zinc-100">
-                          <span className="text-[8px] text-zinc-400 block mb-1 uppercase tracking-widest font-bold">STOCK</span>
-                          <span className="font-bold text-xs">{editedResult.stock} UNITS</span>
+                        <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100">
+                          <p className="text-[10px] font-bold text-purple-400 mb-0.5">Stock</p>
+                          <p className="text-xs font-black text-purple-900">{editedResult.stock} units</p>
                         </div>
                       </div>
-                    </>
-                  )}
-                  
-                  <div className="flex flex-col gap-3">
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => setIsEditing(!isEditing)}
-                        className="flex-1 py-4 bg-zinc-100 text-black rounded-none font-bold uppercase tracking-widest text-[10px] hover:bg-zinc-200 transition-all flex items-center justify-center gap-2"
-                      >
-                        {isEditing ? <Save className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
-                        {isEditing ? 'Save Changes' : 'Edit Details'}
-                      </button>
-                      <button
-                        onClick={() => handleSave('rejected')}
-                        disabled={loading}
-                        className="px-6 py-4 bg-red-50 text-red-600 rounded-none font-bold uppercase tracking-widest text-[10px] hover:bg-red-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Reject
-                      </button>
                     </div>
-                    
-                    <button
-                      onClick={() => handleSave('pending')}
-                      disabled={loading}
-                      className="w-full py-4 bg-black text-white rounded-none font-bold uppercase tracking-widest text-xs hover:bg-zinc-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-                      Approve & Send to Review
+                  )}
+
+                  <div className="flex gap-2 mt-4">
+                    <button onClick={() => setIsEditing(!isEditing)}
+                      className="flex-1 py-2.5 rounded-2xl text-xs font-black text-purple-700 bg-purple-50 border-2 border-purple-100 hover:border-purple-300 transition-all flex items-center justify-center gap-1.5">
+                      {isEditing ? <><Save className="w-3.5 h-3.5" />Done</> : <><Edit3 className="w-3.5 h-3.5" />Edit</>}
+                    </button>
+                    <button onClick={() => handleSave('rejected')} disabled={loading}
+                      className="px-4 py-2.5 rounded-2xl text-xs font-black text-red-500 bg-red-50 border-2 border-red-100 hover:border-red-300 transition-all disabled:opacity-50 flex items-center gap-1.5">
+                      <Trash2 className="w-3.5 h-3.5" />Reject
                     </button>
                   </div>
+
+                  <button onClick={() => handleSave('pending')} disabled={loading}
+                    className="w-full mt-2 py-3 rounded-2xl text-sm font-black text-white disabled:opacity-50 hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                    style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+                    Send to Review Queue
+                  </button>
                 </div>
               </motion.div>
             ) : (
-              <div key="empty" className="h-full flex flex-col items-center justify-center text-center p-8 border border-zinc-100 rounded-none border-dashed bg-zinc-50">
-                <Upload className="w-10 h-10 text-zinc-200 mb-4" />
-                <p className="text-zinc-300 text-[10px] font-bold uppercase tracking-widest">Upload image for AI analysis</p>
+              <div key="empty" className="h-full flex flex-col items-center justify-center text-center p-8 bg-white rounded-3xl border-2 border-dashed border-purple-100">
+                <Upload className="w-10 h-10 text-purple-200 mb-3" />
+                <p className="text-xs font-bold text-purple-400">Upload photos to start AI analysis</p>
               </div>
             )}
           </AnimatePresence>

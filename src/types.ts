@@ -28,8 +28,8 @@ export interface Product {
   isPaused?: boolean;
   isReserved?: boolean;
   createdAt: string;
-  rarity: Rarity;
-  stats: ItemStats;
+  rarity?: Rarity; // legacy, kept for Pack compatibility
+  stats?: ItemStats;
   serialNumber?: string;
   maxSupply?: number;
   stock?: number;

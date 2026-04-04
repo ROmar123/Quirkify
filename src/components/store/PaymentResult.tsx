@@ -5,12 +5,14 @@ import { CheckCircle2, XCircle, ArrowRight, ShoppingBag, Sparkles } from 'lucide
 import { useCart } from '../../context/CartContext';
 import { doc, updateDoc, getDoc, increment } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
+import { addXP } from '../../services/gamificationService';
 
 export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { clearCart } = useCart();
   const [isProcessing, setIsProcessing] = useState(true);
+  const [xpEarned, setXpEarned] = useState(0);
 
   useEffect(() => {
     const processPayment = async () => {
@@ -25,6 +27,12 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
             if (orderSnap.exists()) {
               const orderData = orderSnap.data();
               await updateDoc(orderRef, { status: 'paid' });
+              if (auth.currentUser) {
+                // Award XP: 1 XP per R10 spent, minimum 10 XP
+                const xp = Math.max(10, Math.floor(amount / 10));
+                await addXP(auth.currentUser.uid, xp);
+                setXpEarned(xp);
+              }
               if (orderData.orderType === 'topup' && auth.currentUser) {
                 const userProgressRef = doc(db, 'users', auth.currentUser.uid, 'progress', 'stats');
                 await updateDoc(userProgressRef, { balance: increment(amount) });
@@ -78,7 +86,7 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
             <p className="text-purple-400 font-semibold mb-2">Your quirkiness is officially secured.</p>
             <div className="flex items-center justify-center gap-2 mb-10 p-3 rounded-2xl" style={{ background: 'linear-gradient(135deg, #ede9fe, #fce7f3)' }}>
               <Sparkles className="w-4 h-4 text-purple-500" />
-              <p className="text-sm font-bold text-purple-600">You earned 250 XP! 🎉</p>
+              <p className="text-sm font-bold text-purple-600">You earned {xpEarned} XP! 🎉</p>
             </div>
             <div className="flex flex-col gap-3">
               <button onClick={() => navigate('/orders')} className="btn-primary w-full py-4 text-sm justify-center">

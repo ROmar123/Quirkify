@@ -10,7 +10,6 @@ import { PRODUCT_CATEGORIES } from '../../lib/categories';
 type StatusFilter = 'all' | 'approved' | 'pending' | 'rejected';
 
 const CONDITIONS: ProductCondition[] = ['New', 'Like New', 'Pre-owned', 'Refurbished'];
-const RARITIES = ['Common', 'Rare', 'Super Rare', 'Unique'];
 const LISTING_TYPES = ['store', 'auction', 'both'] as const;
 
 const STATUS_STYLE: Record<string, string> = {
@@ -23,7 +22,7 @@ const BLANK_PRODUCT = {
   name: '', description: '', category: '', imageUrl: '',
   priceRange: { min: 0, max: 0 },
   retailPrice: 0, markdownPercentage: 40, discountPrice: 0,
-  condition: 'New' as ProductCondition, rarity: 'Common',
+  condition: 'New' as ProductCondition,
   stock: 1, listingType: 'store' as typeof LISTING_TYPES[number],
   status: 'approved',
 };
@@ -78,7 +77,6 @@ export default function ListingManager() {
         markdownPercentage: editingProduct.markdownPercentage,
         discountPrice: editingProduct.discountPrice,
         condition: editingProduct.condition,
-        rarity: editingProduct.rarity,
         stock: editingProduct.stock,
         listingType: editingProduct.listingType,
         status: editingProduct.status,
@@ -287,12 +285,6 @@ export default function ListingManager() {
                     <label className={labelCls}>Condition</label>
                     <select value={editingProduct.condition} onChange={e => setField('condition', e.target.value)} className={inputCls}>
                       {CONDITIONS.map(c => <option key={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={labelCls}>Rarity</label>
-                    <select value={editingProduct.rarity} onChange={e => setField('rarity', e.target.value)} className={inputCls}>
-                      {RARITIES.map(r => <option key={r}>{r}</option>)}
                     </select>
                   </div>
                   <div>
