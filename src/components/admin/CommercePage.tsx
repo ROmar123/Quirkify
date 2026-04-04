@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import OrderManager from './OrderManager';
 import AuctionManager from './AuctionManager';
@@ -7,7 +8,9 @@ import PackManager from './PackManager';
 type Tab = 'orders' | 'auctions' | 'packs';
 
 export default function CommercePage() {
-  const [tab, setTab] = useState<Tab>('orders');
+  const { pathname } = useLocation();
+  const initial: Tab = pathname === '/admin/auctions' ? 'auctions' : pathname === '/admin/packs' ? 'packs' : 'orders';
+  const [tab, setTab] = useState<Tab>(initial);
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'orders',   label: 'Orders' },

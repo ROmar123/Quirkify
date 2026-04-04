@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import CampaignManager from './CampaignManager';
 import SocialIntegration from './SocialIntegration';
@@ -7,7 +8,9 @@ import LiveStreamManager from './LiveStreamManager';
 type Tab = 'campaigns' | 'social' | 'streams';
 
 export default function GrowthPage() {
-  const [tab, setTab] = useState<Tab>('campaigns');
+  const { pathname } = useLocation();
+  const initial: Tab = pathname === '/admin/social' ? 'social' : pathname === '/admin/streams' ? 'streams' : 'campaigns';
+  const [tab, setTab] = useState<Tab>(initial);
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'campaigns', label: 'Campaigns' },

@@ -5,7 +5,7 @@ import { auth, signIn, signOut, getRedirectResult } from './firebase';
 import {
   LayoutDashboard, ShoppingBag, PlusCircle, CheckCircle, TrendingUp,
   LogIn, LogOut, Menu, X, Gavel, Sparkles, ClipboardList, User as UserIcon,
-  ChevronDown, Briefcase, Megaphone, Zap
+  ChevronDown, Briefcase, Megaphone, Zap, Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -29,6 +29,7 @@ import ProductDetails from './components/store/ProductDetails';
 import MobileNav from './components/layout/MobileNav';
 
 import { CartProvider, useCart } from './context/CartContext';
+import { subscribeToNotifications, markAsRead, Notification } from './services/notificationService';
 import { ModeProvider, useMode } from './context/ModeContext';
 
 function CartButton() {
@@ -44,6 +45,62 @@ function CartButton() {
         </span>
       )}
     </Link>
+  );
+}
+
+function BellButton({ user }: { user: User | null }) {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsub = subscribeToNotifications(user.uid, setNotifications);
+    return unsub;
+  }, [user]);
+
+  const unread = notifications.filter(n => !n.read).length;
+
+  if (!user) return null;
+
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen(v => !v)}
+        className="relative p-2 hover:bg-purple-50 rounded-full transition-colors">
+        <Bell className="w-5 h-5 text-purple-400" />
+        {unread > 0 && (
+          <span className="absolute -top-1 -right-1 w-5 h-5 text-white text-[9px] font-bold flex items-center justify-center rounded-full shadow-md"
+            style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
+            {unread}
+          </span>
+        )}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-3xl shadow-2xl border border-purple-100 z-50 overflow-hidden">
+            <div className="px-4 py-3 border-b border-purple-50 flex items-center justify-between">
+              <span className="text-sm font-black text-purple-900">Alerts</span>
+              {unread > 0 && (
+                <button onClick={() => notifications.filter(n => !n.read).forEach(n => markAsRead(n.id))}
+                  className="text-xs font-bold text-purple-400 hover:text-purple-600">Mark all read</button>
+              )}
+            </div>
+            <div className="max-h-64 overflow-y-auto">
+              {notifications.length === 0 ? (
+                <p className="text-xs text-purple-300 font-semibold text-center py-8">No alerts yet</p>
+              ) : notifications.map(n => (
+                <div key={n.id} onClick={() => markAsRead(n.id)}
+                  className={cn('px-4 py-3 border-b border-purple-50 cursor-pointer hover:bg-purple-50 transition-colors', !n.read && 'bg-purple-50/50')}>
+                  {!n.read && <div className="w-2 h-2 rounded-full mb-1" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }} />}
+                  <p className="text-xs font-bold text-purple-900">{n.title}</p>
+                  <p className="text-[10px] text-purple-400 font-semibold mt-0.5">{n.message}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -282,14 +339,7 @@ function AppInner() {
           </div>
 
           <div className="flex items-center gap-2">
-            {isAdmin && mode === 'employee' && (
-              <Link to="/admin/intake"
-                className="hidden md:flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-black text-white hover:opacity-90 transition-all"
-                style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
-                <PlusCircle className="w-4 h-4" />
-                Add Product
-              </Link>
-            )}
+            <BellButton user={user} />
             <CartButton />
             {isAdmin && <ModeToggle />}
             {user ? (
@@ -332,14 +382,6 @@ function AppInner() {
               className="md:hidden absolute top-20 left-4 right-4 bg-white rounded-3xl shadow-2xl border border-purple-100 p-4 overflow-hidden"
             >
               <div className="flex flex-col gap-1">
-                {isAdmin && mode === 'employee' && (
-                  <Link to="/admin/intake" onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-black text-white mb-1"
-                    style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
-                    <PlusCircle className="w-4 h-4" />
-                    Add Product (AI)
-                  </Link>
-                )}
                 {mobileLinks.map(link => {
                   const Icon = link.icon;
                   return (

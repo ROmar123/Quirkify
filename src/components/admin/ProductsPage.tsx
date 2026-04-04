@@ -18,9 +18,9 @@ export default function ProductsPage() {
   const [tab, setTab] = useState<Tab>(pathTab);
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'intake',   label: '✨ Intake' },
-    { id: 'review',   label: '🔍 Review' },
-    { id: 'listings', label: '📦 Products' },
+    { id: 'intake',   label: 'Intake' },
+    { id: 'review',   label: 'Review' },
+    { id: 'listings', label: 'Products' },
   ];
 
   return (

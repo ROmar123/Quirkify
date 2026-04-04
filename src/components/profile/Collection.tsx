@@ -14,12 +14,11 @@ import { uploadProfilePicture } from '../../services/storageService';
 import { initiateYocoCheckout } from '../../services/paymentService';
 import { signIn } from '../../firebase';
 
-type CollectionTab = 'vault' | 'bids' | 'notifications' | 'profile';
+type CollectionTab = 'vault' | 'bids' | 'profile';
 
 const TABS: { id: CollectionTab; label: string; icon: React.ElementType }[] = [
   { id: 'vault', label: 'Vault', icon: Box },
   { id: 'bids', label: 'Bids', icon: Gavel },
-  { id: 'notifications', label: 'Alerts', icon: Bell },
   { id: 'profile', label: 'Profile', icon: Settings },
 ];
 
@@ -161,7 +160,7 @@ export default function Collection() {
         {TABS.map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
-          const badge = tab.id === 'notifications' ? unreadCount : tab.id === 'vault' ? items.length : tab.id === 'bids' ? activeBids.length : 0;
+          const badge = tab.id === 'vault' ? items.length : tab.id === 'bids' ? activeBids.length : 0;
           return (
             <button
               key={tab.id}
@@ -304,53 +303,6 @@ export default function Collection() {
                       </div>
                     ))}
                   </div>
-                )}
-              </motion.div>
-            )}
-
-            {activeTab === 'notifications' && (
-              <motion.div key="notifications" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-3">
-                {notifications.length === 0 ? (
-                  <div className="text-center py-32 rounded-3xl border border-purple-100 bg-purple-50">
-                    <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #60A5FA, #A855F7)' }}>
-                      <Bell className="w-8 h-8 text-white" />
-                    </div>
-                    <p className="text-purple-400 font-bold text-sm">No alerts yet</p>
-                  </div>
-                ) : (
-                  notifications.map((n) => (
-                    <div key={n.id} className={cn(
-                      'bg-white rounded-3xl border p-5 flex items-start justify-between group transition-all',
-                      n.read ? 'border-purple-100' : 'border-purple-300 bg-purple-50'
-                    )}>
-                      <div className="flex items-start gap-4">
-                        <div className={cn(
-                          'w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0',
-                          n.type === 'outbid' ? 'bg-orange-100 text-orange-500' : 'bg-purple-100 text-purple-500'
-                        )}>
-                          {n.type === 'outbid' ? <Zap className="w-5 h-5" /> : <Bell className="w-5 h-5" />}
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-sm mb-0.5">{n.title}</h4>
-                          <p className="text-purple-400 text-xs leading-relaxed mb-2">{n.message}</p>
-                          <div className="flex items-center gap-3">
-                            <span className="text-[8px] font-bold text-purple-300">{new Date(n.createdAt?.seconds * 1000).toLocaleString()}</span>
-                            {n.link && <Link to={n.link} className="text-[9px] font-bold text-purple-500 hover:underline">View Details</Link>}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {!n.read && (
-                          <button onClick={() => markAsRead(n.id)} className="p-2 rounded-xl hover:bg-purple-50 text-purple-400 transition-colors">
-                            <Star className="w-4 h-4" />
-                          </button>
-                        )}
-                        <button onClick={() => deleteNotification(n.id)} className="p-2 rounded-xl hover:bg-red-50 text-purple-300 hover:text-red-400 transition-colors">
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))
                 )}
               </motion.div>
             )}
