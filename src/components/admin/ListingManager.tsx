@@ -1,338 +1,330 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../../firebase';
+import { collection, onSnapshot, doc, updateDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db, auth, handleFirestoreError, OperationType } from '../../firebase';
 import { Product, ProductCondition } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Filter, Edit3, Pause, Play, Lock, Unlock, Trash2, Save, ShoppingBag, Gavel, LayoutGrid, X } from 'lucide-react';
+import { Search, Edit3, Trash2, Save, X, Plus, ShoppingBag, Gavel, Package, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
+
+type StatusFilter = 'all' | 'approved' | 'pending' | 'rejected';
+
+const CONDITIONS: ProductCondition[] = ['New', 'Like New', 'Pre-owned', 'Refurbished'];
+const RARITIES = ['Common', 'Rare', 'Super Rare', 'Unique'];
+const LISTING_TYPES = ['store', 'auction', 'both'] as const;
+
+const STATUS_STYLE: Record<string, string> = {
+  approved: 'bg-green-50 text-green-700 border-green-200',
+  pending:  'bg-amber-50 text-amber-700 border-amber-200',
+  rejected: 'bg-red-50 text-red-600 border-red-200',
+};
+
+const BLANK_PRODUCT = {
+  name: '', description: '', category: '', imageUrl: '',
+  priceRange: { min: 0, max: 0 },
+  retailPrice: 0, markdownPercentage: 40, discountPrice: 0,
+  condition: 'New' as ProductCondition, rarity: 'Common',
+  stock: 1, listingType: 'store' as typeof LISTING_TYPES[number],
+  status: 'approved',
+};
 
 export default function ListingManager() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filter, setFilter] = useState<'all' | 'store' | 'auction' | 'both'>('all');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isNew, setIsNew] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   useEffect(() => {
-    const q = query(collection(db, 'products'), where('status', '==', 'approved'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-      setProducts(docs);
+    const unsub = onSnapshot(collection(db, 'products'), (snap) => {
+      setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
       setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'products');
-      setLoading(false);
-    });
-    return unsubscribe;
+    }, (err) => { handleFirestoreError(err, OperationType.GET, 'products'); setLoading(false); });
+    return unsub;
   }, []);
 
-  const handleTogglePause = async (product: Product) => {
-    try {
-      await updateDoc(doc(db, 'products', product.id), { isPaused: !product.isPaused });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `products/${product.id}`);
-    }
+  const filtered = products.filter(p => {
+    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.category?.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = statusFilter === 'all' || p.status === statusFilter;
+    return matchSearch && matchStatus;
+  });
+
+  const openNew = () => {
+    setEditingProduct({ id: '', ...BLANK_PRODUCT } as any);
+    setIsNew(true);
   };
 
-  const handleToggleReserve = async (product: Product) => {
-    try {
-      await updateDoc(doc(db, 'products', product.id), { isReserved: !product.isReserved });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `products/${product.id}`);
-    }
+  const openEdit = (p: Product) => {
+    setEditingProduct({ ...p });
+    setIsNew(false);
   };
 
-  const handleUpdateProduct = async () => {
+  const closeModal = () => { setEditingProduct(null); setIsNew(false); };
+
+  const handleSave = async () => {
     if (!editingProduct) return;
+    setSaving(true);
     try {
-      await updateDoc(doc(db, 'products', editingProduct.id), {
+      const payload = {
         name: editingProduct.name,
         description: editingProduct.description,
+        category: editingProduct.category,
+        imageUrl: editingProduct.imageUrl,
+        priceRange: { min: editingProduct.retailPrice || editingProduct.priceRange?.min, max: editingProduct.retailPrice || editingProduct.priceRange?.max },
         retailPrice: editingProduct.retailPrice,
         markdownPercentage: editingProduct.markdownPercentage,
         discountPrice: editingProduct.discountPrice,
         condition: editingProduct.condition,
+        rarity: editingProduct.rarity,
         stock: editingProduct.stock,
-        listingType: editingProduct.listingType
-      });
-      setEditingProduct(null);
+        listingType: editingProduct.listingType,
+        status: editingProduct.status,
+      };
+      if (isNew) {
+        await addDoc(collection(db, 'products'), { ...payload, createdAt: serverTimestamp(), authorUid: auth.currentUser?.uid });
+      } else {
+        await updateDoc(doc(db, 'products', editingProduct.id), payload);
+      }
+      closeModal();
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `products/${editingProduct.id}`);
+      handleFirestoreError(err, OperationType.WRITE, 'products');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this listing?')) return;
     try {
       await deleteDoc(doc(db, 'products', id));
+      setDeleteConfirm(null);
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, `products/${id}`);
     }
   };
 
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         p.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = filter === 'all' || p.listingType === filter;
-    return matchesSearch && matchesFilter;
-  });
+  const setField = (key: string, value: any) => {
+    if (!editingProduct) return;
+    const updated = { ...editingProduct, [key]: value };
+    // Auto-calculate discount price when retail or markdown changes
+    if (key === 'retailPrice' || key === 'markdownPercentage') {
+      const retail = key === 'retailPrice' ? value : updated.retailPrice;
+      const pct = key === 'markdownPercentage' ? value : updated.markdownPercentage;
+      updated.discountPrice = Math.round(retail * (1 - pct / 100));
+      updated.priceRange = { min: updated.discountPrice, max: retail };
+    }
+    setEditingProduct(updated);
+  };
 
-  const conditions: ProductCondition[] = ['New', 'Like New', 'Pre-owned', 'Refurbished'];
+  const inputCls = 'w-full p-3 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-800 focus:outline-none focus:border-purple-400 transition-colors';
+  const labelCls = 'text-[9px] font-bold text-purple-400 uppercase tracking-widest block mb-1.5';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-6">
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-4xl font-bold tracking-tight mb-2 text-black">E-commerce Listings</h1>
-          <p className="text-zinc-500 text-sm uppercase tracking-widest font-bold">Manage your active store and auction inventory.</p>
+          <h1 className="text-2xl font-black gradient-text">Product Listings</h1>
+          <p className="text-purple-400 text-sm font-semibold">{products.length} total products</p>
         </div>
-        
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-            <input 
-              type="text"
-              placeholder="Search listings..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-white border border-zinc-100 rounded-none text-[10px] font-bold uppercase tracking-widest focus:outline-none focus:border-black w-full sm:w-64"
-            />
-          </div>
-          <div className="flex border border-zinc-100 bg-white">
-            {(['all', 'store', 'auction', 'both'] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={cn(
-                  "px-4 py-2 text-[8px] font-bold uppercase tracking-widest transition-all border-r last:border-r-0",
-                  filter === f ? "bg-black text-white" : "text-zinc-400 hover:text-black hover:bg-zinc-50"
-                )}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
+        <button onClick={openNew} className="btn-primary px-5 py-2.5 text-sm">
+          <Plus className="w-4 h-4" /> Add Product
+        </button>
+      </div>
+
+      {/* Search + status filter */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-300" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search products…"
+            className={cn(inputCls, 'pl-10')} />
+        </div>
+        <div className="flex gap-2">
+          {(['all', 'approved', 'pending', 'rejected'] as StatusFilter[]).map(s => (
+            <button key={s} onClick={() => setStatusFilter(s)}
+              className={cn('px-4 py-2 rounded-full text-xs font-bold capitalize border-2 transition-all',
+                statusFilter === s ? 'text-white border-transparent' : 'bg-white text-purple-400 border-purple-100 hover:border-purple-300')}
+              style={statusFilter === s ? { background: 'linear-gradient(135deg, #F472B6, #A855F7)' } : {}}>
+              {s}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {loading ? (
-          [1, 2, 3, 4, 5, 6].map(i => <div key={`skeleton-${i}`} className="aspect-[4/5] bg-zinc-50 animate-pulse rounded-none" />)
-        ) : filteredProducts.length === 0 ? (
-          <div className="col-span-full p-24 text-center border border-zinc-100 rounded-none bg-zinc-50 border-dashed">
-            <ShoppingBag className="w-12 h-12 text-zinc-200 mx-auto mb-4" />
-            <p className="text-zinc-300 text-[10px] font-bold uppercase tracking-widest">No listings found.</p>
-          </div>
-        ) : (
-          filteredProducts.map((product) => (
-            <motion.div
-              key={product.id}
-              layout
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className={cn(
-                "group bg-white border border-zinc-100 rounded-none overflow-hidden hover:shadow-xl transition-all relative",
-                product.isPaused && "opacity-60 grayscale",
-                product.isReserved && "border-quirky/30"
-              )}
-            >
-              <div className="aspect-square relative overflow-hidden bg-zinc-50">
-                <img src={product.imageUrl} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="" />
-                
-                <div className="absolute top-4 left-4 flex flex-col gap-2">
-                  <div className={cn(
-                    "px-2 py-1 text-[8px] font-bold uppercase tracking-widest border",
-                    product.listingType === 'auction' ? "bg-amber-50 border-amber-100 text-amber-600" :
-                    product.listingType === 'both' ? "bg-purple-50 border-purple-100 text-purple-600" :
-                    "bg-green-50 border-green-100 text-green-600"
-                  )}>
-                    {product.listingType || 'store'}
-                  </div>
-                  {product.isPaused && (
-                    <div className="px-2 py-1 bg-zinc-800 text-white text-[8px] font-bold uppercase tracking-widest">Paused</div>
-                  )}
-                  {product.isReserved && (
-                    <div className="px-2 py-1 bg-quirky text-white text-[8px] font-bold uppercase tracking-widest">Reserved</div>
-                  )}
-                </div>
-
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                  <button 
-                    onClick={() => setEditingProduct(product)}
-                    className="p-3 bg-white text-black hover:bg-zinc-100 transition-colors"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                  </button>
-                  <button 
-                    onClick={() => handleTogglePause(product)}
-                    className="p-3 bg-white text-black hover:bg-zinc-100 transition-colors"
-                  >
-                    {product.isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                  </button>
-                  <button 
-                    onClick={() => handleToggleReserve(product)}
-                    className="p-3 bg-white text-black hover:bg-zinc-100 transition-colors"
-                  >
-                    {product.isReserved ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(product.id)}
-                    className="p-3 bg-red-600 text-white hover:bg-red-700 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+      {/* Table */}
+      {loading ? (
+        <div className="space-y-3">{[...Array(5)].map((_, i) => <div key={i} className="h-16 bg-purple-50 rounded-2xl animate-pulse" />)}</div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-24 rounded-3xl border border-purple-100 bg-purple-50">
+          <ShoppingBag className="w-10 h-10 mx-auto mb-3 text-purple-200" />
+          <p className="text-purple-400 font-bold text-sm">No products found</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(p => (
+            <motion.div key={p.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              className="bg-white rounded-2xl border border-purple-100 p-4 flex items-center gap-4 hover:shadow-md transition-all">
+              {/* Image */}
+              <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-purple-50">
+                {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" alt="" /> : <Package className="w-6 h-6 text-purple-200 m-auto mt-4" />}
               </div>
-
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-xs uppercase tracking-tight truncate flex-1">{product.name}</h3>
-                  <span className="text-[10px] font-bold ml-4">R{product.discountPrice}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest">{product.category}</span>
-                  <span className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest">{product.stock} IN STOCK</span>
-                </div>
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-sm truncate">{p.name || '(no name)'}</p>
+                <p className="text-[9px] text-purple-400 font-semibold">{p.category} · {p.condition} · Stock: {p.stock ?? '—'}</p>
+              </div>
+              {/* Listing type */}
+              <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
+                {(p.listingType === 'store' || p.listingType === 'both') && <span className="flex items-center gap-1 text-[8px] font-bold px-2 py-1 rounded-full bg-blue-50 text-blue-600"><ShoppingBag className="w-3 h-3" />Store</span>}
+                {(p.listingType === 'auction' || p.listingType === 'both') && <span className="flex items-center gap-1 text-[8px] font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-600"><Gavel className="w-3 h-3" />Auction</span>}
+              </div>
+              {/* Price */}
+              <p className="font-black text-sm flex-shrink-0 gradient-text">R{p.discountPrice || p.priceRange?.min || 0}</p>
+              {/* Status */}
+              <span className={cn('text-[8px] font-bold px-2 py-1 rounded-full border flex-shrink-0', STATUS_STYLE[p.status] ?? STATUS_STYLE.pending)}>
+                {p.status}
+              </span>
+              {/* Actions */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button onClick={() => openEdit(p)} className="p-2 rounded-xl hover:bg-purple-50 text-purple-500 transition-colors" title="Edit">
+                  <Edit3 className="w-4 h-4" />
+                </button>
+                <button onClick={() => setDeleteConfirm(p.id)} className="p-2 rounded-xl hover:bg-red-50 text-red-400 transition-colors" title="Delete">
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             </motion.div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {/* Edit Modal */}
+      {/* Delete confirm inline */}
+      <AnimatePresence>
+        {deleteConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setDeleteConfirm(null)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="relative bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center">
+              <div className="w-14 h-14 rounded-full bg-red-50 mx-auto mb-4 flex items-center justify-center">
+                <Trash2 className="w-6 h-6 text-red-500" />
+              </div>
+              <h3 className="text-lg font-black mb-2">Delete product?</h3>
+              <p className="text-sm text-purple-400 mb-6">This cannot be undone.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setDeleteConfirm(null)} className="btn-secondary flex-1 py-3 text-sm justify-center">Cancel</button>
+                <button onClick={() => handleDelete(deleteConfirm)}
+                  className="flex-1 py-3 rounded-full text-sm font-bold text-white bg-red-500 hover:bg-red-600 transition-colors">Delete</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit / Create Modal */}
       <AnimatePresence>
         {editingProduct && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setEditingProduct(null)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-2xl bg-white rounded-none shadow-2xl overflow-hidden"
-            >
-              <div className="p-8 border-b border-zinc-100 flex items-center justify-between">
-                <h2 className="text-xl font-bold uppercase tracking-tight">Edit Listing</h2>
-                <button onClick={() => setEditingProduct(null)} className="p-2 hover:bg-zinc-50 transition-colors">
-                  <X className="w-5 h-5" />
-                </button>
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={closeModal} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+            <motion.div initial={{ y: '100%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '100%', opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className="relative w-full sm:max-w-2xl bg-white sm:rounded-3xl rounded-t-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
+
+              {/* Modal header */}
+              <div className="flex items-center justify-between p-6 border-b border-purple-100">
+                <h2 className="text-lg font-black gradient-text">{isNew ? 'Add Product' : 'Edit Product'}</h2>
+                <button onClick={closeModal} className="p-2 rounded-full hover:bg-purple-50"><X className="w-5 h-5 text-purple-400" /></button>
               </div>
 
-              <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-[8px] font-bold uppercase tracking-widest text-zinc-400 block mb-1">Product Name</label>
-                      <input 
-                        type="text" 
-                        value={editingProduct.name}
-                        onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
-                        className="w-full p-3 bg-zinc-50 border border-zinc-100 text-xs font-bold uppercase tracking-tight focus:outline-none focus:border-black"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[8px] font-bold uppercase tracking-widest text-zinc-400 block mb-1">Description</label>
-                      <textarea 
-                        value={editingProduct.description}
-                        onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })}
-                        className="w-full p-3 bg-zinc-50 border border-zinc-100 text-xs leading-relaxed focus:outline-none focus:border-black h-32"
-                      />
-                    </div>
+              {/* Modal body */}
+              <div className="overflow-y-auto p-6 space-y-5 flex-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls}>Product Name</label>
+                    <input value={editingProduct.name} onChange={e => setField('name', e.target.value)} className={inputCls} placeholder="e.g. Vintage Denim Jacket" />
                   </div>
+                  <div>
+                    <label className={labelCls}>Category</label>
+                    <input value={editingProduct.category} onChange={e => setField('category', e.target.value)} className={inputCls} placeholder="e.g. Clothing" />
+                  </div>
+                </div>
 
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-[8px] font-bold uppercase tracking-widest text-zinc-400 block mb-1">Retail Price</label>
-                        <input 
-                          type="number" 
-                          value={editingProduct.retailPrice}
-                          onChange={(e) => {
-                            const retail = Number(e.target.value);
-                            const discount = Math.round(retail * (1 - editingProduct.markdownPercentage / 100));
-                            setEditingProduct({ ...editingProduct, retailPrice: retail, discountPrice: discount });
-                          }}
-                          className="w-full p-3 bg-zinc-50 border border-zinc-100 text-xs font-bold focus:outline-none focus:border-black"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[8px] font-bold uppercase tracking-widest text-zinc-400 block mb-1">Markdown %</label>
-                        <input 
-                          type="number" 
-                          value={editingProduct.markdownPercentage}
-                          onChange={(e) => {
-                            const markdown = Number(e.target.value);
-                            const discount = Math.round(editingProduct.retailPrice * (1 - markdown / 100));
-                            setEditingProduct({ ...editingProduct, markdownPercentage: markdown, discountPrice: discount });
-                          }}
-                          className="w-full p-3 bg-zinc-50 border border-zinc-100 text-xs font-bold focus:outline-none focus:border-black"
-                        />
-                      </div>
-                    </div>
+                <div>
+                  <label className={labelCls}>Description</label>
+                  <textarea value={editingProduct.description} onChange={e => setField('description', e.target.value)}
+                    rows={3} className={cn(inputCls, 'resize-none')} placeholder="Describe the item…" />
+                </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-[8px] font-bold uppercase tracking-widest text-zinc-400 block mb-1">Condition</label>
-                        <select 
-                          value={editingProduct.condition}
-                          onChange={(e) => setEditingProduct({ ...editingProduct, condition: e.target.value as ProductCondition })}
-                          className="w-full p-3 bg-zinc-50 border border-zinc-100 text-xs font-bold uppercase tracking-widest focus:outline-none focus:border-black appearance-none"
-                        >
-                          {conditions.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-[8px] font-bold uppercase tracking-widest text-zinc-400 block mb-1">Stock</label>
-                        <input 
-                          type="number" 
-                          value={editingProduct.stock}
-                          onChange={(e) => setEditingProduct({ ...editingProduct, stock: Number(e.target.value) })}
-                          className="w-full p-3 bg-zinc-50 border border-zinc-100 text-xs font-bold focus:outline-none focus:border-black"
-                        />
-                      </div>
-                    </div>
+                <div>
+                  <label className={labelCls}>Image URL</label>
+                  <input value={editingProduct.imageUrl} onChange={e => setField('imageUrl', e.target.value)} className={inputCls} placeholder="https://…" />
+                  {editingProduct.imageUrl && <img src={editingProduct.imageUrl} className="mt-2 h-24 rounded-xl object-cover" alt="" referrerPolicy="no-referrer" />}
+                </div>
 
-                    <div>
-                      <label className="text-[8px] font-bold uppercase tracking-widest text-zinc-400 block mb-1">Listing Type</label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {(['store', 'auction', 'both'] as const).map((type) => (
-                          <button
-                            key={type}
-                            onClick={() => setEditingProduct({ ...editingProduct, listingType: type })}
-                            className={cn(
-                              "py-3 border rounded-none text-[8px] font-bold uppercase tracking-widest transition-all",
-                              editingProduct.listingType === type
-                                ? "bg-black border-black text-white"
-                                : "bg-zinc-50 border-zinc-100 text-zinc-400 hover:border-zinc-200"
-                            )}
-                          >
-                            {type}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className={labelCls}>Retail Price (R)</label>
+                    <input type="number" value={editingProduct.retailPrice || ''} onChange={e => setField('retailPrice', Number(e.target.value))} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Markdown %</label>
+                    <input type="number" value={editingProduct.markdownPercentage ?? 40} onChange={e => setField('markdownPercentage', Number(e.target.value))} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Sale Price (R)</label>
+                    <input type="number" value={editingProduct.discountPrice || ''} onChange={e => setField('discountPrice', Number(e.target.value))} className={cn(inputCls, 'bg-green-50 border-green-200')} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div>
+                    <label className={labelCls}>Condition</label>
+                    <select value={editingProduct.condition} onChange={e => setField('condition', e.target.value)} className={inputCls}>
+                      {CONDITIONS.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Rarity</label>
+                    <select value={editingProduct.rarity} onChange={e => setField('rarity', e.target.value)} className={inputCls}>
+                      {RARITIES.map(r => <option key={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Stock</label>
+                    <input type="number" value={editingProduct.stock ?? 1} onChange={e => setField('stock', Number(e.target.value))} className={inputCls} min={0} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Status</label>
+                    <select value={editingProduct.status} onChange={e => setField('status', e.target.value)} className={inputCls}>
+                      <option value="approved">Approved</option>
+                      <option value="pending">Pending</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className={labelCls}>Listing Channel</label>
+                  <div className="flex gap-2">
+                    {LISTING_TYPES.map(t => (
+                      <button key={t} onClick={() => setField('listingType', t)}
+                        className={cn('flex-1 py-2.5 rounded-2xl text-xs font-bold capitalize border-2 transition-all',
+                          editingProduct.listingType === t ? 'text-white border-transparent' : 'bg-white text-purple-400 border-purple-100')}
+                        style={editingProduct.listingType === t ? { background: 'linear-gradient(135deg, #F472B6, #A855F7)' } : {}}>
+                        {t}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
 
-              <div className="p-8 bg-zinc-50 border-t border-zinc-100 flex gap-4">
-                <button
-                  onClick={() => setEditingProduct(null)}
-                  className="flex-1 py-4 bg-white border border-zinc-200 text-black rounded-none font-bold uppercase tracking-widest text-[10px] hover:bg-zinc-50 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleUpdateProduct}
-                  className="flex-1 py-4 bg-black text-white rounded-none font-bold uppercase tracking-widest text-[10px] hover:bg-zinc-800 transition-all flex items-center justify-center gap-2"
-                >
-                  <Save className="w-4 h-4" />
-                  Save Changes
+              {/* Modal footer */}
+              <div className="p-6 border-t border-purple-100 flex gap-3">
+                <button onClick={closeModal} className="btn-secondary flex-1 py-3 text-sm justify-center">Cancel</button>
+                <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 py-3 text-sm justify-center disabled:opacity-50">
+                  {saving ? 'Saving…' : <><Save className="w-4 h-4" />{isNew ? 'Create Product' : 'Save Changes'}</>}
                 </button>
               </div>
             </motion.div>
