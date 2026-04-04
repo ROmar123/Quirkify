@@ -59,7 +59,7 @@ export default function Checkout() {
             imageUrl: item.imageUrl,
           })),
           total: orderTotal,
-          status: 'pending_payment',
+          status: 'pending',
           shippingInfo: {
             email: formData.email,
             address: formData.address,

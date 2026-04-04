@@ -25,7 +25,7 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
             const orderSnap = await getDoc(orderRef);
             if (orderSnap.exists()) {
               const orderData = orderSnap.data();
-              await updateDoc(orderRef, { status: 'paid' });
+              await updateDoc(orderRef, { status: 'processing' });
               if (auth.currentUser) {
                 // Award XP: 1 XP per R10 spent, minimum 10 XP
                 const xp = Math.max(10, Math.floor(amount / 10));
