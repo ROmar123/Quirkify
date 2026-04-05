@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { ArrowLeft, Upload, AlertCircle } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { AIIntakeResult } from './AIIntake';
+import { ProductCondition } from '../../../types';
 
 interface ManualEntryProps {
   onComplete: (data: AIIntakeResult) => void;
@@ -10,7 +11,7 @@ interface ManualEntryProps {
 }
 
 const CATEGORIES = ['Electronics', 'Fashion', 'Home & Garden', 'Sports', 'Toys', 'Books', 'Other'];
-const CONDITIONS = ['New', 'Like New', 'Good', 'Fair', 'Poor'];
+const CONDITIONS: ProductCondition[] = ['New', 'Like New', 'Pre-owned', 'Refurbished'];
 
 export default function ManualEntry({ onComplete, onCancel }: ManualEntryProps) {
   const [formData, setFormData] = useState({
@@ -105,17 +106,22 @@ export default function ManualEntry({ onComplete, onCancel }: ManualEntryProps) 
       }
 
       // Submit product data
+      const retailPrice = Number(formData.retailPrice);
+      const discountPrice = Number(formData.discountPrice);
+      const markdownPercentage = Math.round(((retailPrice - discountPrice) / retailPrice) * 100);
+
       onComplete({
         name: formData.name,
         description: formData.description,
         category: formData.category,
-        condition: formData.condition,
-        retailPrice: Number(formData.retailPrice),
-        discountPrice: Number(formData.discountPrice),
+        condition: formData.condition as ProductCondition,
+        retailPrice: retailPrice,
+        discountPrice: discountPrice,
+        markdownPercentage: markdownPercentage,
         stock: Number(formData.stock),
         imageUrl: imageUrl,
         imageUrls: [imageUrl], // Support multiple images in future
-        confidence: 100, // Manual entry is 100% confident
+        confidenceScore: 100, // Manual entry is 100% confident
       });
     } catch (err: any) {
       setError(err.message || 'Failed to process image');
@@ -226,7 +232,7 @@ export default function ManualEntry({ onComplete, onCancel }: ManualEntryProps) 
                 <label className="block text-xs font-bold text-purple-400 uppercase tracking-widest mb-2">Condition *</label>
                 <select
                   value={formData.condition}
-                  onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, condition: e.target.value as ProductCondition })}
                   className="w-full px-4 py-3 rounded-xl border-2 border-purple-100 focus:border-purple-300 focus:outline-none text-purple-900 font-semibold"
                 >
                   {CONDITIONS.map(cond => (

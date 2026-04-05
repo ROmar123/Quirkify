@@ -65,7 +65,7 @@ export default function ProductsDetailView({ onBack }: ProductsDetailViewProps) 
 
       {/* Products Grid - Using existing ProductsView */}
       <div className="bg-white rounded-3xl border-2 border-purple-100 p-6 sm:p-8">
-        <ProductsView searchQuery={searchQuery} statusFilter={statusFilter} />
+        <ProductsView onBack={() => {}} />
       </div>
     </motion.div>
   );

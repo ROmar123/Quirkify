@@ -4,7 +4,7 @@ import { Check, ArrowLeft, Upload, AlertCircle } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { db, auth } from '../../../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { Product } from '../../../types';
+import { Product, ProductCondition } from '../../../types';
 import AIIntake, { AIIntakeResult } from './AIIntake';
 import ManualEntry from './ManualEntry';
 import { retryFirestoreOperation } from '../../../services/retry';
@@ -264,7 +264,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               <div className="space-y-8 max-w-2xl mx-auto">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => setCurrentStep(productData?.confidence === 100 ? 'manual' : 'intake')}
+                    onClick={() => setCurrentStep(productData?.confidenceScore === 100 ? 'manual' : 'intake')}
                     className="p-2 hover:bg-purple-100 rounded-xl transition-colors"
                   >
                     <ArrowLeft className="w-5 h-5 text-purple-600" />
@@ -315,7 +315,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                         <label className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">CONDITION</label>
                         <select
                           value={productData.condition}
-                          onChange={(e) => setProductData({ ...productData, condition: e.target.value })}
+                          onChange={(e) => setProductData({ ...productData, condition: e.target.value as ProductCondition })}
                           className="w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-900 focus:outline-none focus:border-purple-400"
                         >
                           <option>New</option>
@@ -368,7 +368,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
                     <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
                       <button
-                        onClick={() => setCurrentStep(productData?.confidence === 100 ? 'manual' : 'intake')}
+                        onClick={() => setCurrentStep(productData?.confidenceScore === 100 ? 'manual' : 'intake')}
                         className="py-3 px-6 rounded-2xl text-sm font-bold text-purple-700 bg-white border-2 border-purple-100 hover:border-purple-300 transition-all"
                       >
                         Back
