@@ -42,7 +42,7 @@ async function startServer() {
       
       const yocoSecretKey = process.env.YOCO_SECRET_KEY || 'sk_test_960bf73aeb0c406638f8'; // Test key
       
-      const response = await axios.post('https://online.yoco.com/v1/checkouts', {
+      const response = await axios.post('https://payments.yoco.com/api/checkouts', {
         amount: Math.round(amount * 100), // Yoco expects amount in cents
         currency: 'ZAR',
         successUrl: `${req.headers.origin}/payment/success?orderId=${m_payment_id}&amount=${amount}`,

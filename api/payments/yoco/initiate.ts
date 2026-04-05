@@ -38,7 +38,7 @@ export default async function handler(req: any, res: any) {
       keyPrefix: yocoSecretKey.substring(0, 10)
     });
 
-    const response = await axios.post('https://online.yoco.com/v1/checkouts', {
+    const response = await axios.post('https://payments.yoco.com/api/checkouts', {
       amount: amountCents,
       currency: 'ZAR',
       successUrl: `${origin}/payment/success?orderId=${m_payment_id}&amount=${amount}`,
