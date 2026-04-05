@@ -53,7 +53,7 @@ export default function AuctionEditor() {
             }
           }
         } catch (error) {
-          console.error(`Error checking allocation for auction ${auction.id}:`, error);
+          // Silently skip allocation checks - will be enforced by Cloud Functions
         }
       }
 
