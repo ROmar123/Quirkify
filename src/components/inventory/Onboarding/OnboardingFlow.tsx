@@ -58,42 +58,73 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       return;
     }
 
-    setSaving(true);
     setError(null);
 
+    // Validate required fields before saving
+    const errors: string[] = [];
+
+    // Check name
+    if (!finalData.name || finalData.name.trim().length === 0) {
+      errors.push('Product name is required');
+    }
+
+    // Check description
+    if (!finalData.description || finalData.description.trim().length === 0) {
+      errors.push('Description is required');
+    }
+
+    // Check category
+    if (!finalData.category || finalData.category.trim().length === 0) {
+      errors.push('Category is required');
+    }
+
+    // Check condition
+    const validConditions = ['New', 'Like New', 'Pre-owned', 'Refurbished'];
+    if (!finalData.condition || !validConditions.includes(finalData.condition)) {
+      errors.push('Valid condition is required');
+    }
+
+    // Check retail price
+    if (!finalData.retailPrice || finalData.retailPrice <= 0) {
+      errors.push('Retail price must be greater than 0');
+    }
+
+    // Check discount/sale price
+    if (!finalData.discountPrice || finalData.discountPrice <= 0) {
+      errors.push('Sale price must be greater than 0');
+    }
+
+    // Check stock
+    if (!finalData.stock || finalData.stock <= 0) {
+      errors.push('Stock must be greater than 0');
+    }
+
+    // If there are validation errors, show them and don't proceed
+    if (errors.length > 0) {
+      setError(errors.join(' · '));
+      return;
+    }
+
+    setSaving(true);
+
     try {
-      // Validate condition - map to valid values
-      const validConditions = ['New', 'Like New', 'Pre-owned', 'Refurbished'];
-      let condition = finalData.condition || 'New';
-      if (!validConditions.includes(condition)) {
-        condition = 'New'; // Default to New if invalid
-      }
-
-      // Ensure description is not empty (Firestore rule requires size > 0)
-      const description = finalData.description && finalData.description.trim().length > 0
-        ? finalData.description
-        : `${finalData.name || 'Product'} - No description provided`;
-
-      // Ensure imageUrl exists (Firestore rule requires size > 0)
-      const imageUrl = finalData.imageUrl && finalData.imageUrl.length > 0 && finalData.imageUrl.length < 2000
-        ? finalData.imageUrl
-        : 'https://via.placeholder.com/400x400?text=No+Image';
-
       const productToSave = {
-        name: finalData.name || 'Untitled Product',
-        description: description,
-        category: finalData.category || 'Uncategorized',
-        condition: condition,
-        retailPrice: finalData.retailPrice && finalData.retailPrice > 0 ? finalData.retailPrice : 99.99,
-        discountPrice: finalData.discountPrice && finalData.discountPrice > 0 ? finalData.discountPrice : 49.99,
+        name: finalData.name!.trim(),
+        description: finalData.description!.trim(),
+        category: finalData.category!.trim(),
+        condition: finalData.condition!,
+        retailPrice: finalData.retailPrice!,
+        discountPrice: finalData.discountPrice!,
         markdownPercentage: finalData.markdownPercentage >= 0 ? finalData.markdownPercentage : 50,
-        stock: finalData.stock && finalData.stock > 0 ? finalData.stock : 1,
+        stock: finalData.stock!,
         allocations: {
-          store: (finalData.allocations?.store || 1),
-          auction: (finalData.allocations?.auction || 0),
-          packs: (finalData.allocations?.packs || 0),
+          store: Math.min(finalData.stock!, finalData.allocations?.store || finalData.stock || 0),
+          auction: finalData.allocations?.auction || 0,
+          packs: finalData.allocations?.packs || 0,
         },
-        imageUrl: imageUrl,
+        imageUrl: finalData.imageUrl && finalData.imageUrl.length > 0 && finalData.imageUrl.length < 2000
+          ? finalData.imageUrl
+          : 'https://via.placeholder.com/400x400?text=No+Image',
         status: 'pending' as const,
         authorUid: auth.currentUser.uid,
       };
@@ -239,63 +270,103 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     <ArrowLeft className="w-5 h-5 text-purple-600" />
                   </button>
                   <div>
-                    <h2 className="text-2xl sm:text-3xl font-black text-purple-900">Review Details</h2>
-                    <p className="text-purple-400 text-sm font-semibold mt-1">Verify the product information before saving</p>
+                    <h2 className="text-2xl sm:text-3xl font-black text-purple-900">Review & Edit</h2>
+                    <p className="text-purple-400 text-sm font-semibold mt-1">Fix any details before saving</p>
                   </div>
                 </div>
 
                 <div className="bg-white rounded-3xl border-2 border-purple-100 overflow-hidden shadow-sm">
-                  {/* Gradient Bar */}
                   <div className="h-2 bg-gradient-to-r from-pink-500 to-purple-600" />
+                  <div className="p-6 sm:p-8 space-y-6">
+                    {/* Name */}
+                    <div>
+                      <label className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">PRODUCT NAME *</label>
+                      <input
+                        type="text"
+                        value={productData.name}
+                        onChange={(e) => setProductData({ ...productData, name: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-900 focus:outline-none focus:border-purple-400"
+                      />
+                    </div>
 
-                  {/* Product Preview */}
-                  <div className="p-6 sm:p-8 border-b border-purple-100">
-                    <div className="flex flex-col sm:flex-row gap-6">
-                      {productData.imageUrl && (
-                        <div className="flex-shrink-0">
-                          <img src={productData.imageUrl} className="w-full sm:w-40 h-auto sm:h-40 rounded-2xl object-cover shadow-md" alt="" />
-                        </div>
-                      )}
-                      <div className="flex-1">
-                        <h3 className="text-2xl font-black text-purple-900 mb-2">{productData.name}</h3>
-                        <p className="text-purple-600 text-sm font-semibold leading-relaxed mb-4">{productData.description}</p>
+                    {/* Description */}
+                    <div>
+                      <label className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">DESCRIPTION *</label>
+                      <textarea
+                        value={productData.description}
+                        onChange={(e) => setProductData({ ...productData, description: e.target.value })}
+                        rows={3}
+                        className="w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-900 focus:outline-none focus:border-purple-400"
+                      />
+                    </div>
 
-                        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-purple-100">
-                          <div>
-                            <p className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-1">CATEGORY</p>
-                            <p className="text-sm font-black text-purple-900">{productData.category}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-1">CONDITION</p>
-                            <p className="text-sm font-black text-purple-900">{productData.condition}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-1">RETAIL PRICE</p>
-                            <p className="text-sm font-black text-purple-900">R{productData.retailPrice}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-1">SALE PRICE</p>
-                            <p className="text-sm font-black bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">R{productData.discountPrice}</p>
-                          </div>
-                        </div>
+                    {/* Category & Condition */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">CATEGORY</label>
+                        <input
+                          type="text"
+                          value={productData.category}
+                          onChange={(e) => setProductData({ ...productData, category: e.target.value })}
+                          className="w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-900 focus:outline-none focus:border-purple-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">CONDITION</label>
+                        <select
+                          value={productData.condition}
+                          onChange={(e) => setProductData({ ...productData, condition: e.target.value })}
+                          className="w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-900 focus:outline-none focus:border-purple-400"
+                        >
+                          <option>New</option>
+                          <option>Like New</option>
+                          <option>Pre-owned</option>
+                          <option>Refurbished</option>
+                        </select>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Stock & Actions */}
-                  <div className="p-6 sm:p-8 bg-gradient-to-br from-purple-50 to-pink-50 space-y-6">
+                    {/* Pricing */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">RETAIL PRICE *</label>
+                        <input
+                          type="number"
+                          value={productData.retailPrice}
+                          onChange={(e) => setProductData({ ...productData, retailPrice: parseFloat(e.target.value) || 0 })}
+                          className="w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-900 focus:outline-none focus:border-purple-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">SALE PRICE *</label>
+                        <input
+                          type="number"
+                          value={productData.discountPrice}
+                          onChange={(e) => setProductData({ ...productData, discountPrice: parseFloat(e.target.value) || 0 })}
+                          className="w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-900 focus:outline-none focus:border-purple-400"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Stock */}
                     <div>
-                      <p className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2">TOTAL STOCK</p>
-                      <p className="text-3xl font-black text-purple-900">{productData.stock}</p>
+                      <label className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">TOTAL STOCK *</label>
+                      <input
+                        type="number"
+                        value={productData.stock}
+                        onChange={(e) => setProductData({ ...productData, stock: parseFloat(e.target.value) || 1 })}
+                        className="w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-900 focus:outline-none focus:border-purple-400"
+                      />
                     </div>
 
                     {error && (
-                      <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-sm font-bold">
-                        {error}
+                      <div className="p-4 bg-red-50 border-2 border-red-200 rounded-2xl flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                        <div className="text-red-700 text-sm font-bold">{error}</div>
                       </div>
                     )}
 
-                    <div className="flex flex-col-reverse sm:flex-row gap-3">
+                    <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
                       <button
                         onClick={() => setCurrentStep(productData?.confidence === 100 ? 'manual' : 'intake')}
                         className="py-3 px-6 rounded-2xl text-sm font-bold text-purple-700 bg-white border-2 border-purple-100 hover:border-purple-300 transition-all"
@@ -305,7 +376,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                       <button
                         onClick={() => handleSaveProduct(productData)}
                         disabled={saving}
-                        className="py-3 px-6 rounded-2xl text-sm font-bold text-white disabled:opacity-60 transition-all"
+                        className="py-3 px-6 rounded-2xl text-sm font-bold text-white disabled:opacity-60 disabled:cursor-not-allowed transition-all"
                         style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
                       >
                         {saving ? 'Saving...' : 'Save Product'}
