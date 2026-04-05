@@ -59,7 +59,7 @@ function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: User | null
           <Route path="/admin/auctions" element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
           <Route path="/admin/packs"    element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
           <Route path="/admin/reviews"  element={isAdmin ? <ProductsPage /> : <Navigate to="/" />} />
-          <Route path="/admin/orders"   element={isAdmin ? <CommercePage /> : <Navigate to="/" />} />
+          <Route path="/admin/orders"   element={isAdmin ? <div className="p-8"><h1 className="text-3xl font-black text-purple-900">Commerce Test</h1><p className="text-purple-400 mt-4">If you see this, routing works</p></div> : <Navigate to="/" />} />
           <Route path="/admin/campaigns" element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
           <Route path="/admin/social"   element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
           <Route path="/admin/streams"  element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
