@@ -2,63 +2,70 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-export async function identifyProduct(base64Image: string) {
-  // Wrap with 30-second timeout
+interface ProductAnalysis {
+  name: string;
+  description: string;
+  category: string;
+  priceRange: { min: number; max: number };
+  retailPrice: number;
+  rarity: string;
+  stats: { quirkiness: number; rarity: number; utility: number; hype: number };
+  confidenceScore: number;
+  alternatives: string[];
+}
+
+export async function identifyProduct(base64Image: string): Promise<ProductAnalysis> {
+  // Wrap with 45-second timeout for better reliability
   const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('AI analysis timed out after 30 seconds. Please try a different image.')), 30000)
+    setTimeout(() => reject(new Error('Image analysis took too long. Try a clearer photo.')), 45000)
   );
 
-  const analyzePromise = ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: [
-      {
-        parts: [
-          { text: "Identify this product for Quirkify, a gamified social commerce platform. Provide a name, a detailed description, a suggested category (must be one of: Sneakers, Clothing, Accessories, Electronics, Collectibles, Toys & Games, Books & Media, Beauty & Health, Home & Decor, Sports & Outdoors, Art & Crafts, Vintage & Retro, Other), and an estimated price range in ZAR (South African Rand) specifically for the Cape Town market. Also assign a Rarity (Common, Limited, Rare, Super Rare, Unique) and four stats (quirkiness, rarity, utility, hype) from 1 to 100 based on the product's appeal. Provide a confidence score from 0 to 1." },
-          { inlineData: { data: base64Image, mimeType: "image/jpeg" } }
-        ]
-      }
-    ],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          name: { type: Type.STRING },
-          description: { type: Type.STRING },
-          category: { type: Type.STRING },
-          priceRange: {
-            type: Type.OBJECT,
-            properties: {
-              min: { type: Type.NUMBER },
-              max: { type: Type.NUMBER }
-            },
-            required: ["min", "max"]
-          },
-          retailPrice: { type: Type.NUMBER, description: "The estimated current retail price in ZAR" },
-          rarity: { type: Type.STRING, description: "Common, Limited, Rare, Super Rare, Unique" },
-          stats: {
-            type: Type.OBJECT,
-            properties: {
-              quirkiness: { type: Type.NUMBER },
-              rarity: { type: Type.NUMBER },
-              utility: { type: Type.NUMBER },
-              hype: { type: Type.NUMBER }
-            },
-            required: ["quirkiness", "rarity", "utility", "hype"]
-          },
-          confidenceScore: { type: Type.NUMBER },
-          alternatives: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING }
-          }
-        },
-        required: ["name", "description", "category", "priceRange", "rarity", "stats", "confidenceScore"]
-      }
-    }
-  });
+  try {
+    const analyzePromise = (async (): Promise<ProductAnalysis> => {
+      try {
+        const response = await ai.models.generateContent({
+          model: "gemini-2.0-flash",
+          contents: [
+            {
+              parts: [
+                { text: "Identify this product for Quirkify, a social commerce platform. Return ONLY valid JSON with: name (string), description (string, detailed), category (one of: Sneakers, Clothing, Accessories, Electronics, Collectibles, Toys & Games, Books & Media, Beauty & Health, Home & Decor, Sports & Outdoors, Art & Crafts, Vintage & Retro, Other), priceRange (object with min and max in ZAR), retailPrice (number in ZAR), rarity (Common/Limited/Rare/Super Rare/Unique), stats (object with quirkiness, rarity, utility, hype as 1-100 numbers), confidenceScore (0-1). Be accurate with pricing for Cape Town market." },
+                { inlineData: { data: base64Image, mimeType: "image/jpeg" } }
+              ]
+            }
+          ]
+        });
 
-  const response = await Promise.race([analyzePromise, timeoutPromise]) as any;
-  return JSON.parse(response.text);
+        // Handle both structured output and text response formats
+        const responseText = (response as any).text ? (response as any).text() :
+                            (response as any).candidates?.[0]?.content?.parts?.[0]?.text ||
+                            JSON.stringify(response);
+
+        // Parse JSON response
+        const parsed = JSON.parse(responseText) as ProductAnalysis;
+
+        // Ensure all required fields exist with safe defaults
+        return {
+          name: parsed.name || 'Unknown Product',
+          description: parsed.description || 'No description available',
+          category: parsed.category || 'Other',
+          priceRange: parsed.priceRange || { min: 0, max: 0 },
+          retailPrice: parsed.retailPrice || parsed.priceRange?.max || 0,
+          rarity: parsed.rarity || 'Common',
+          stats: parsed.stats || { quirkiness: 50, rarity: 50, utility: 50, hype: 50 },
+          confidenceScore: Math.min(1, Math.max(0, parsed.confidenceScore || 0.7)),
+          alternatives: parsed.alternatives || []
+        };
+      } catch (innerErr) {
+        console.error('Gemini parsing error:', innerErr);
+        throw new Error(`Failed to analyze image: ${(innerErr as any).message}`);
+      }
+    })();
+
+    return await Promise.race([analyzePromise, timeoutPromise]) as ProductAnalysis;
+  } catch (err) {
+    console.error('Product identification error:', err);
+    throw err;
+  }
 }
 
 export async function suggestCampaign(topSellers: any[]) {

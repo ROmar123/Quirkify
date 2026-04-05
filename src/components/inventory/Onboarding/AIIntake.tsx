@@ -148,13 +148,23 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
       setAnalysisStep(-1);
     } catch (err) {
       console.error('Analysis error:', err);
-      if (err instanceof Error && err.message.includes('AbortError')) {
-        setError('Image analysis timed out. Please try a different image.');
-      } else if (err instanceof Error && err.message.includes('storage')) {
-        setError('Failed to upload image. Please check your connection and try again.');
+      const errMsg = (err instanceof Error) ? err.message : String(err);
+
+      if (errMsg.includes('timeout') || errMsg.includes('timed out')) {
+        setError('Analysis took too long. Please try with a clearer, well-lit photo.');
+      } else if (errMsg.includes('storage') || errMsg.includes('upload')) {
+        setError('Could not upload image. Check your connection and try again.');
+      } else if (errMsg.includes('AI') || errMsg.includes('analyze')) {
+        setError('Could not analyze this image. Try a different photo.');
+      } else if (errMsg.includes('network') || errMsg.includes('fetch')) {
+        setError('Network error. Check connection and try again.');
       } else {
-        setError('Failed to analyze image. Please try again.');
+        setError(`Error: ${errMsg.substring(0, 100)}`);
       }
+
+      // Clear partial state
+      setFormData(null);
+      setAnalysisStep(-1);
     } finally {
       setIsAnalyzing(false);
     }
