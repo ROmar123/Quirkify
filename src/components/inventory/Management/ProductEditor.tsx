@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../../firebase';
 import { Product, ProductCondition, AllocationSnapshot } from '../../../types';
@@ -75,6 +75,20 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
   // Check if data has changed
   const hasChanges = formData && JSON.stringify(formData) !== JSON.stringify(product);
 
+  // Warn before leaving with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isEditing && hasChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isEditing, hasChanges]);
+
   const handleSave = async () => {
     if (!formData || !product) return;
 
@@ -146,7 +160,15 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <button
-        onClick={onBack}
+        onClick={() => {
+          if (isEditing && hasChanges) {
+            if (window.confirm('You have unsaved changes. Discard them?')) {
+              onBack?.();
+            }
+          } else {
+            onBack?.();
+          }
+        }}
         className="flex items-center gap-2 text-purple-600 font-bold text-sm mb-6 hover:text-purple-700"
       >
         <ArrowLeft className="w-4 h-4" />
