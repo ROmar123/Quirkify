@@ -1,9 +1,18 @@
 import { useState } from 'react';
-import OrderManager from './OrderManager';
-import AuctionManager from './AuctionManager';
-import PackManager from './PackManager';
 
 type Tab = 'orders' | 'auctions' | 'packs';
+
+function TestOrders() {
+  return <div className="bg-purple-50 rounded-3xl p-6"><p className="text-purple-900 font-bold">Orders Test Component</p></div>;
+}
+
+function TestAuctions() {
+  return <div className="bg-purple-50 rounded-3xl p-6"><p className="text-purple-900 font-bold">Auctions Test Component</p></div>;
+}
+
+function TestPacks() {
+  return <div className="bg-purple-50 rounded-3xl p-6"><p className="text-purple-900 font-bold">Packs Test Component</p></div>;
+}
 
 export default function CommercePage() {
   const [tab, setTab] = useState<Tab>('orders');
@@ -22,9 +31,9 @@ export default function CommercePage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {tab === 'orders' && <OrderManager />}
-        {tab === 'auctions' && <AuctionManager />}
-        {tab === 'packs' && <PackManager />}
+        {tab === 'orders' && <TestOrders />}
+        {tab === 'auctions' && <TestAuctions />}
+        {tab === 'packs' && <TestPacks />}
       </div>
     </div>
   );
