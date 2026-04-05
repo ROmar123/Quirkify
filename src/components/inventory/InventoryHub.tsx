@@ -4,6 +4,8 @@ import { cn } from '../../lib/utils';
 import OnboardingFlow from './Onboarding/OnboardingFlow';
 import InventoryDashboard from './Management/InventoryDashboard';
 import ProductsView from './Management/ProductsView';
+import AuctionEditor from './Management/AuctionEditor';
+import PackEditor from './Management/PackEditor';
 
 type View = 'onboarding' | 'dashboard' | 'products' | 'auctions' | 'packs';
 
@@ -66,21 +68,11 @@ export default function InventoryHub() {
         )}
 
         {activeView === 'auctions' && (
-          <div className="px-4 py-8">
-            <div className="text-center">
-              <h2 className="text-2xl font-black gradient-text mb-4">Auctions</h2>
-              <p className="text-purple-400">Coming soon - Create and manage auctions</p>
-            </div>
-          </div>
+          <AuctionEditor />
         )}
 
         {activeView === 'packs' && (
-          <div className="px-4 py-8">
-            <div className="text-center">
-              <h2 className="text-2xl font-black gradient-text mb-4">Mystery Packs</h2>
-              <p className="text-purple-400">Coming soon - Manage mystery packs</p>
-            </div>
-          </div>
+          <PackEditor />
         )}
       </div>
     </div>
