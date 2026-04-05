@@ -30,23 +30,42 @@ service cloud.firestore {
 
     function isValidProduct(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
-             data.description is string && data.description.size() < 2000 &&
-             data.category is string &&
-             data.priceRange is map &&
-             data.priceRange.min is number && data.priceRange.max is number &&
+             data.description is string && data.description.size() > 0 && data.description.size() < 2000 &&
+             data.category is string && data.category.size() > 0 &&
+             data.stock is number && data.stock > 0 &&
+             data.retailPrice is number && data.retailPrice > 0 &&
+             data.discountPrice is number && data.discountPrice > 0 &&
+             data.markdownPercentage is number && data.markdownPercentage >= 0 && data.markdownPercentage <= 100 &&
+             data.condition in ['New', 'Like New', 'Pre-owned', 'Refurbished'] &&
+             data.imageUrl is string && data.imageUrl.size() > 0 &&
+             data.allocations is map &&
+             data.allocations.store is number && data.allocations.store >= 0 &&
+             data.allocations.auction is number && data.allocations.auction >= 0 &&
+             data.allocations.packs is number && data.allocations.packs >= 0 &&
+             // CRITICAL: Total allocated cannot exceed total stock
+             (data.allocations.store + data.allocations.auction + data.allocations.packs) <= data.stock &&
              data.status in ['pending', 'approved', 'rejected'];
+    }
+
+    function allocationsValid(data) {
+      return (data.allocations.store + data.allocations.auction + data.allocations.packs) <= data.stock;
     }
 
     function isValidAuction(data) {
       return data.productId is string &&
              data.sellerId is string &&
-             data.startPrice is number &&
-             data.currentBid is number &&
+             data.startPrice is number && data.startPrice > 0 &&
+             data.currentBid is number && data.currentBid >= data.startPrice &&
              data.startTime is string &&
              data.endTime is string &&
+             timestamp(data.endTime) > timestamp(data.startTime) &&
              data.status in ['active', 'ended', 'cancelled'] &&
              data.bidCount is number &&
              (data.highestBidderId == null || data.highestBidderId is string);
+    }
+
+    function getProduct(productId) {
+      return get(/databases/$(database)/documents/products/$(productId)).data;
     }
 
     function isValidUserProfile(data) {
@@ -66,8 +85,21 @@ service cloud.firestore {
 
     match /products/{productId} {
       allow read: if true; // Public can see products
-      allow create: if isAuthenticated() && isValidProduct(request.resource.data);
-      allow update, delete: if isAdmin();
+      // Create: Authenticated users create new products as pending
+      allow create: if isAuthenticated() &&
+        isValidProduct(request.resource.data) &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.authorUid == request.auth.uid;
+
+      // Update: Admin can change status/reject. Owner can update allocations if pending
+      allow update: if isAdmin() ||
+        (isAuthenticated() &&
+         resource.data.authorUid == request.auth.uid &&
+         isValidProduct(request.resource.data) &&
+         request.resource.data.status == resource.data.status && // Cannot change own status
+         allocationsValid(request.resource.data)); // Allocations must be valid
+
+      allow delete: if isAdmin();
     }
 
     match /campaigns/{campaignId} {
@@ -77,7 +109,13 @@ service cloud.firestore {
 
     match /auctions/{auctionId} {
       allow read: if true;
-      allow create: if isAdmin() && isValidAuction(request.resource.data);
+      // Create: Admin only, and product must have auction allocation > 0
+      allow create: if isAdmin() &&
+        isValidAuction(request.resource.data) &&
+        request.resource.data.status == 'active' &&
+        // CRITICAL: Verify product has auction allocation
+        getProduct(request.resource.data.productId).allocations.auction > 0;
+
       allow update: if isAdmin() || (
         isAuthenticated() && 
         isValidAuction(request.resource.data) && (
@@ -163,7 +201,31 @@ service cloud.firestore {
 
     match /packs/{packId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
+      // Create: Admin only, and linked products must have packs allocation
+      allow create: if isAdmin() &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.price is number &&
+        request.resource.data.price > 0 &&
+        request.resource.data.linkedProductIds is list &&
+        request.resource.data.linkedProductIds.size() > 0 &&
+        // CRITICAL: All linked products must have packs allocation > 0
+        request.resource.data.linkedProductIds.all(
+          productId, getProduct(productId).allocations.packs > 0
+        );
+
+      // Update: Admin only
+      allow update: if isAdmin() &&
+        // If linkedProductIds changes, verify all have packs allocation
+        (!('linkedProductIds' in request.resource.data.diff(resource.data).affectedKeys()) ||
+         (request.resource.data.linkedProductIds is list &&
+          request.resource.data.linkedProductIds.size() > 0 &&
+          request.resource.data.linkedProductIds.all(
+            productId, getProduct(productId).allocations.packs > 0
+          )
+        ));
+
+      allow delete: if isAdmin();
     }
     match /orders/{orderId} {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
