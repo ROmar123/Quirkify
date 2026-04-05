@@ -62,11 +62,11 @@ export default function MiniDashboardCards({ onSelectOnboarding, onSelectManagem
   const cards = [
     {
       id: 'onboarding',
-      label: 'Product Onboarding',
+      label: 'Add Product',
       icon: Plus,
       color: 'from-emerald-500 to-teal-600',
       stats: [
-        { label: 'Add New', value: loading ? '—' : 'AI Intake' },
+        { label: 'Method', value: loading ? '—' : 'AI Intake' },
         { label: 'Pending Review', value: loading ? '—' : pendingProducts.length },
         { label: 'Action', value: 'Create & Approve' }
       ],
@@ -74,12 +74,12 @@ export default function MiniDashboardCards({ onSelectOnboarding, onSelectManagem
     },
     {
       id: 'management',
-      label: 'Product Management',
+      label: 'Products',
       icon: Package,
       color: 'from-purple-500 to-indigo-600',
       stats: [
-        { label: 'Active Products', value: loading ? '—' : products.length },
-        { label: 'Total Retail Value', value: loading ? '—' : `R${totalRetailValue.toLocaleString()}` },
+        { label: 'Active', value: loading ? '—' : products.length },
+        { label: 'Total Value', value: loading ? '—' : `R${totalRetailValue.toLocaleString()}` },
         { label: 'Low Stock', value: loading ? '—' : lowStockProducts.length, alert: lowStockProducts.length > 0 }
       ],
       action: onSelectManagement
