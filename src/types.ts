@@ -32,7 +32,19 @@ export interface Product {
   stats?: ItemStats;
   serialNumber?: string;
   maxSupply?: number;
-  stock?: number;
+  stock?: number; // legacy, use totalStock instead
+  totalStock?: number; // total physical inventory
+  allocations?: {
+    store: number;
+    auction: number;
+    packs: number;
+  };
+  reserved?: {
+    store: number;
+    auction: number;
+    packs: number;
+  };
+  approvalDate?: string;
   condition?: ProductCondition;
   marketData?: {
     location: string;
