@@ -1,71 +1,87 @@
 import { useState } from 'react';
-import { cn } from '../../lib/utils';
+import { motion, AnimatePresence } from 'motion/react';
 import OnboardingFlow from './Onboarding/OnboardingFlow';
-import InventoryDashboard from './Management/InventoryDashboard';
+import MiniDashboardCards from './Dashboard/MiniDashboardCards';
 import ProductsView from './Management/ProductsView';
 import AuctionEditor from './Management/AuctionEditor';
 import PackEditor from './Management/PackEditor';
 
-type View = 'onboarding' | 'dashboard' | 'products' | 'auctions' | 'packs';
+type View = 'hub' | 'add-product' | 'products' | 'auctions' | 'packs';
 
-const VIEWS: { id: View; label: string }[] = [
-  { id: 'onboarding', label: 'New Product' },
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'products', label: 'Products' },
-  { id: 'auctions', label: 'Auctions' },
-  { id: 'packs', label: 'Packs' },
-];
+
+const titles: Record<View, { title: string; description: string }> = {
+  hub: { title: 'Inventory', description: 'Manage your complete inventory ecosystem' },
+  'add-product': { title: 'Add Product', description: 'Create new inventory items with AI or manual entry' },
+  'products': { title: 'Products', description: 'Browse and manage your product catalog' },
+  'auctions': { title: 'Auctions', description: 'Create and manage live auctions' },
+  'packs': { title: 'Packs', description: 'Create and manage mystery packs' },
+};
 
 export default function InventoryHub() {
-  const [activeView, setActiveView] = useState<View>('dashboard');
+  const [activeView, setActiveView] = useState<View>('hub');
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Navigation */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6">Inventory</h1>
-
-          <div className="flex gap-2 overflow-x-auto pb-2 -mb-6">
-            {VIEWS.map(view => (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
+      {/* Fixed Header */}
+      <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-purple-100 shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 py-2.5 sm:py-3">
+          <div className="flex items-center justify-between gap-3 sm:gap-4">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-3xl font-black bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent truncate">
+                {titles[activeView].title}
+              </h1>
+              <p className="text-purple-400 text-xs font-semibold mt-0.5 sm:mt-1 line-clamp-1">{titles[activeView].description}</p>
+            </div>
+            {activeView !== 'hub' && (
               <button
-                key={view.id}
-                onClick={() => setActiveView(view.id)}
-                className={cn(
-                  'px-4 py-2.5 text-sm font-medium transition-all whitespace-nowrap rounded-lg border',
-                  activeView === view.id
-                    ? 'bg-purple-600 text-white border-purple-600'
-                    : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'
-                )}
+                onClick={() => setActiveView('hub')}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-purple-700 bg-white border-2 border-purple-100 hover:border-purple-300 transition-all whitespace-nowrap"
               >
-                {view.label}
+                ← Back
               </button>
-            ))}
+            )}
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
-        {activeView === 'onboarding' && (
-          <OnboardingFlow onComplete={() => setActiveView('dashboard')} />
-        )}
+      <div className="max-w-6xl mx-auto px-4 py-4 sm:py-6 pb-24 sm:pb-8">
+        <AnimatePresence mode="wait">
+          {/* Hub - Mini Dashboard */}
+          {activeView === 'hub' && (
+            <motion.div key="hub" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+              <MiniDashboardCards onSelectSection={(section) => setActiveView(section)} />
+            </motion.div>
+          )}
 
-        {activeView === 'dashboard' && (
-          <InventoryDashboard />
-        )}
+          {/* Add Product - Onboarding Flow */}
+          {activeView === 'add-product' && (
+            <motion.div key="add-product" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+              <OnboardingFlow onComplete={() => setActiveView('hub')} />
+            </motion.div>
+          )}
 
-        {activeView === 'products' && (
-          <ProductsView />
-        )}
+          {/* Products View */}
+          {activeView === 'products' && (
+            <motion.div key="products" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+              <ProductsView />
+            </motion.div>
+          )}
 
-        {activeView === 'auctions' && (
-          <AuctionEditor />
-        )}
+          {/* Auctions */}
+          {activeView === 'auctions' && (
+            <motion.div key="auctions" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+              <AuctionEditor />
+            </motion.div>
+          )}
 
-        {activeView === 'packs' && (
-          <PackEditor />
-        )}
+          {/* Packs */}
+          {activeView === 'packs' && (
+            <motion.div key="packs" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+              <PackEditor />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

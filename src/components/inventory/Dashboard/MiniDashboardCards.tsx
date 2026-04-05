@@ -3,11 +3,11 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../../firebase';
 import { Product, Auction, Pack } from '../../../types';
 import { motion } from 'motion/react';
-import { Package, Gavel, Gift, AlertCircle, TrendingUp, Clock } from 'lucide-react';
+import { Package, Gavel, Gift, AlertCircle, TrendingUp, Clock, Plus } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 
 interface MiniDashboardCardsProps {
-  onSelectSection: (section: 'products' | 'auctions' | 'packs') => void;
+  onSelectSection: (section: 'add-product' | 'products' | 'auctions' | 'packs') => void;
 }
 
 export default function MiniDashboardCards({ onSelectSection }: MiniDashboardCardsProps) {
@@ -79,6 +79,17 @@ export default function MiniDashboardCards({ onSelectSection }: MiniDashboardCar
 
   const cards = [
     {
+      id: 'add-product',
+      label: 'Add Product',
+      icon: Plus,
+      color: 'from-green-500 to-emerald-600',
+      stats: [
+        { label: 'Action', value: 'New' },
+        { label: 'Method', value: 'AI or Manual' },
+        { label: 'Status', value: 'Intake' }
+      ]
+    },
+    {
       id: 'products',
       label: 'Products',
       icon: Package,
@@ -137,7 +148,7 @@ export default function MiniDashboardCards({ onSelectSection }: MiniDashboardCar
       )}
 
       {/* Mini Dashboard Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 auto-rows-max">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 auto-rows-max">
         {cards.map((card, idx) => {
           const Icon = card.icon;
           return (
@@ -148,7 +159,7 @@ export default function MiniDashboardCards({ onSelectSection }: MiniDashboardCar
               transition={{ delay: idx * 0.1 }}
               whileHover={{ y: -6, boxShadow: '0 20px 40px rgba(168, 85, 247, 0.15)' }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => onSelectSection(card.id as 'products' | 'auctions' | 'packs')}
+              onClick={() => onSelectSection(card.id as 'add-product' | 'products' | 'auctions' | 'packs')}
               className="bg-white rounded-3xl border-2 border-purple-100 overflow-hidden hover:border-purple-300 transition-all group text-left shadow-sm"
             >
               {/* Gradient top bar */}
