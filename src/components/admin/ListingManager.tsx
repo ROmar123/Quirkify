@@ -441,6 +441,34 @@ export default function ListingManager() {
                 </div>
 
                 <div>
+                  <label className={labelCls}>Allocate Stock to Channels</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[8px] text-purple-400 block mb-1">Store</label>
+                      <input type="number" min="0" max={editingProduct.stock ?? 1}
+                        value={editingProduct.allocations?.store ?? 0}
+                        onChange={(e) => setField('allocations', { ...editingProduct.allocations || { store: 0, auction: 0, packs: 0 }, store: Number(e.target.value) })}
+                        className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="text-[8px] text-purple-400 block mb-1">Auction</label>
+                      <input type="number" min="0" max={editingProduct.stock ?? 1}
+                        value={editingProduct.allocations?.auction ?? 0}
+                        onChange={(e) => setField('allocations', { ...editingProduct.allocations || { store: 0, auction: 0, packs: 0 }, auction: Number(e.target.value) })}
+                        className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="text-[8px] text-purple-400 block mb-1">Packs</label>
+                      <input type="number" min="0" max={editingProduct.stock ?? 1}
+                        value={editingProduct.allocations?.packs ?? 0}
+                        onChange={(e) => setField('allocations', { ...editingProduct.allocations || { store: 0, auction: 0, packs: 0 }, packs: Number(e.target.value) })}
+                        className={inputCls} />
+                    </div>
+                  </div>
+                  <p className="text-[8px] text-purple-400 font-bold mt-2">Total: {(editingProduct.allocations?.store ?? 0) + (editingProduct.allocations?.auction ?? 0) + (editingProduct.allocations?.packs ?? 0)} / {editingProduct.stock ?? 1}</p>
+                </div>
+
+                <div>
                   <label className={labelCls}>Listing Channel</label>
                   <div className="flex gap-2">
                     {LISTING_TYPES.map(t => (
