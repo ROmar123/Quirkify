@@ -3,21 +3,21 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../../firebase';
 import { Product, Auction, Pack } from '../../../types';
 import { motion } from 'motion/react';
-import { Package, Gavel, Gift, AlertCircle, TrendingUp, Clock, Plus } from 'lucide-react';
+import { Plus, Package, AlertCircle } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 
 interface MiniDashboardCardsProps {
-  onSelectSection: (section: 'add-product' | 'products' | 'auctions' | 'packs') => void;
+  onSelectOnboarding: () => void;
+  onSelectManagement: () => void;
 }
 
-export default function MiniDashboardCards({ onSelectSection }: MiniDashboardCardsProps) {
+export default function MiniDashboardCards({ onSelectOnboarding, onSelectManagement }: MiniDashboardCardsProps) {
   const [products, setProducts] = useState<Product[]>([]);
-  const [auctions, setAuctions] = useState<Auction[]>([]);
-  const [packs, setPacks] = useState<Pack[]>([]);
+  const [pendingProducts, setPendingProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let unsubProducts: any, unsubAuctions: any, unsubPacks: any;
+    let unsubProducts: any, unsubPending: any;
 
     try {
       // Fetch approved products
@@ -32,27 +32,15 @@ export default function MiniDashboardCards({ onSelectSection }: MiniDashboardCar
         }
       );
 
-      // Fetch active auctions
-      unsubAuctions = onSnapshot(
-        query(collection(db, 'auctions'), where('status', '==', 'active')),
+      // Fetch pending products for review
+      unsubPending = onSnapshot(
+        query(collection(db, 'products'), where('status', '==', 'pending')),
         (snap) => {
-          setAuctions(snap.docs.map(d => ({ id: d.id, ...d.data() } as Auction)));
-        },
-        (err) => {
-          handleFirestoreError(err, OperationType.GET, 'auctions');
-          setLoading(false);
-        }
-      );
-
-      // Fetch packs
-      unsubPacks = onSnapshot(
-        collection(db, 'packs'),
-        (snap) => {
-          setPacks(snap.docs.map(d => ({ id: d.id, ...d.data() } as Pack)));
+          setPendingProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
           setLoading(false);
         },
         (err) => {
-          handleFirestoreError(err, OperationType.GET, 'packs');
+          handleFirestoreError(err, OperationType.GET, 'products');
           setLoading(false);
         }
       );
@@ -63,64 +51,38 @@ export default function MiniDashboardCards({ onSelectSection }: MiniDashboardCar
 
     return () => {
       if (unsubProducts) unsubProducts();
-      if (unsubAuctions) unsubAuctions();
-      if (unsubPacks) unsubPacks();
+      if (unsubPending) unsubPending();
     };
   }, []);
 
   // Calculate metrics
   const lowStockProducts = products.filter(p => (p.stock || 0) <= 5);
-  const totalProductValue = products.reduce((sum, p) => sum + ((p.discountPrice || 0) * (p.stock || 0)), 0);
-  const auctionValue = auctions.reduce((sum, a) => sum + (a.currentBid || a.startPrice), 0);
-  const auctionEnding = auctions.filter(a => {
-    const timeLeft = new Date(a.endTime).getTime() - Date.now();
-    return timeLeft > 0 && timeLeft < 3600000; // Less than 1 hour
-  }).length;
+  const totalRetailValue = products.reduce((sum, p) => sum + ((p.retailPrice || 0) * (p.stock || 0)), 0);
 
   const cards = [
     {
-      id: 'add-product',
-      label: 'Add Product',
+      id: 'onboarding',
+      label: 'Product Onboarding',
       icon: Plus,
-      color: 'from-green-500 to-emerald-600',
+      color: 'from-emerald-500 to-teal-600',
       stats: [
-        { label: 'Action', value: 'New' },
-        { label: 'Method', value: 'AI or Manual' },
-        { label: 'Status', value: 'Intake' }
-      ]
+        { label: 'Add New', value: loading ? '—' : 'AI Intake' },
+        { label: 'Pending Review', value: loading ? '—' : pendingProducts.length },
+        { label: 'Action', value: 'Create & Approve' }
+      ],
+      action: onSelectOnboarding
     },
     {
-      id: 'products',
-      label: 'Products',
+      id: 'management',
+      label: 'Product Management',
       icon: Package,
       color: 'from-purple-500 to-indigo-600',
       stats: [
-        { label: 'Total Items', value: loading ? '—' : products.length },
-        { label: 'Total Value', value: loading ? '—' : `R${totalProductValue.toLocaleString()}` },
+        { label: 'Active Products', value: loading ? '—' : products.length },
+        { label: 'Total Retail Value', value: loading ? '—' : `R${totalRetailValue.toLocaleString()}` },
         { label: 'Low Stock', value: loading ? '—' : lowStockProducts.length, alert: lowStockProducts.length > 0 }
-      ]
-    },
-    {
-      id: 'auctions',
-      label: 'Auctions',
-      icon: Gavel,
-      color: 'from-amber-500 to-orange-600',
-      stats: [
-        { label: 'Active Now', value: loading ? '—' : auctions.length },
-        { label: 'Bid Value', value: loading ? '—' : `R${auctionValue.toLocaleString()}` },
-        { label: 'Ending Soon', value: loading ? '—' : auctionEnding, alert: auctionEnding > 0 }
-      ]
-    },
-    {
-      id: 'packs',
-      label: 'Packs',
-      icon: Gift,
-      color: 'from-pink-500 to-rose-600',
-      stats: [
-        { label: 'Available', value: loading ? '—' : packs.length },
-        { label: 'Products Linked', value: loading ? '—' : packs.reduce((sum, p) => sum + (p.linkedProductIds?.length || 0), 0) },
-        { label: 'Total Revenue', value: loading ? '—' : `R${packs.reduce((sum, p) => sum + ((p.price || 0) * 1), 0).toLocaleString()}` }
-      ]
+      ],
+      action: onSelectManagement
     }
   ];
 
@@ -130,7 +92,7 @@ export default function MiniDashboardCards({ onSelectSection }: MiniDashboardCar
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      {/* Low Stock Alert - if any products are low */}
+      {/* Low Stock Alert */}
       {!loading && lowStockProducts.length > 0 && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -141,14 +103,14 @@ export default function MiniDashboardCards({ onSelectSection }: MiniDashboardCar
           <div>
             <h3 className="font-black text-red-900 text-sm sm:text-base">Low Stock Alert</h3>
             <p className="text-red-700 text-xs sm:text-sm font-semibold mt-1">
-              {lowStockProducts.length} product{lowStockProducts.length !== 1 ? 's' : ''} with 5 or fewer items. Manage now.
+              {lowStockProducts.length} product{lowStockProducts.length !== 1 ? 's' : ''} with 5 or fewer items. Manage in Product Management.
             </p>
           </div>
         </motion.div>
       )}
 
-      {/* Mini Dashboard Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 auto-rows-max">
+      {/* Cards Grid - 2 columns */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 auto-rows-max">
         {cards.map((card, idx) => {
           const Icon = card.icon;
           return (
@@ -157,25 +119,25 @@ export default function MiniDashboardCards({ onSelectSection }: MiniDashboardCar
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.1 }}
-              whileHover={{ y: -6, boxShadow: '0 20px 40px rgba(168, 85, 247, 0.15)' }}
+              whileHover={{ y: -4, boxShadow: '0 12px 24px rgba(168, 85, 247, 0.1)' }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => onSelectSection(card.id as 'add-product' | 'products' | 'auctions' | 'packs')}
+              onClick={card.action}
               className="bg-white rounded-3xl border-2 border-purple-100 overflow-hidden hover:border-purple-300 transition-all group text-left shadow-sm"
             >
               {/* Gradient top bar */}
               <div className={cn('h-1.5 bg-gradient-to-r', card.color)} />
 
               {/* Content */}
-              <div className="p-5 sm:p-6 space-y-4">
+              <div className="p-6 space-y-4">
                 {/* Header: Icon + Label */}
                 <div className="flex items-start justify-between gap-3">
                   <div className={cn(
-                    'w-12 h-12 rounded-xl flex items-center justify-center text-white group-hover:scale-110 transition-transform flex-shrink-0',
+                    'w-14 h-14 rounded-2xl flex items-center justify-center text-white group-hover:scale-110 transition-transform flex-shrink-0',
                     `bg-gradient-to-br ${card.color}`
                   )}>
-                    <Icon className="w-6 h-6" />
+                    <Icon className="w-7 h-7" />
                   </div>
-                  <h3 className="text-lg font-black text-purple-900 flex-1">{card.label}</h3>
+                  <h3 className="text-lg sm:text-xl font-black text-purple-900 flex-1">{card.label}</h3>
                 </div>
 
                 {/* Stats Grid */}
@@ -185,7 +147,7 @@ export default function MiniDashboardCards({ onSelectSection }: MiniDashboardCar
                       <p className="text-xs font-bold text-purple-400 uppercase tracking-widest">{stat.label}</p>
                       <div className="flex items-center gap-2">
                         <p className={cn(
-                          'text-lg font-black',
+                          'text-base sm:text-lg font-black',
                           stat.alert ? 'text-red-600' : 'text-purple-900'
                         )}>
                           {stat.value}
@@ -200,7 +162,7 @@ export default function MiniDashboardCards({ onSelectSection }: MiniDashboardCar
 
                 {/* Action */}
                 <div className="inline-flex items-center text-purple-600 font-bold text-sm group-hover:translate-x-1 transition-transform">
-                  View Details →
+                  Open Section →
                 </div>
               </div>
             </motion.button>
