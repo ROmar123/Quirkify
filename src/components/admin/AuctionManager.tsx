@@ -41,6 +41,14 @@ export default function AuctionManager() {
       setError('Select a product and set a start price > 0');
       return;
     }
+
+    // Validate auction allocation
+    const auctionAllocation = selectedProduct.allocations?.auction ?? 0;
+    if (auctionAllocation <= 0) {
+      setError(`${selectedProduct.name} has no stock allocated for auctions. Please allocate stock in the products manager.`);
+      return;
+    }
+
     setSaving(true);
     setError(null);
     try {
@@ -115,7 +123,9 @@ export default function AuctionManager() {
                     <img src={p.imageUrl} className="w-10 h-10 rounded-xl object-cover flex-shrink-0" alt="" />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold text-purple-900 truncate">{p.name}</p>
-                      <p className="text-[10px] text-purple-400 font-semibold">{p.rarity} · {p.condition}</p>
+                      <p className="text-[10px] text-purple-400 font-semibold">
+                        {p.condition} · Auction stock: {p.allocations?.auction ?? 0}
+                      </p>
                     </div>
                     {selectedProduct?.id === p.id && (
                       <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }} />
