@@ -51,19 +51,29 @@ export default function Orders() {
   useEffect(() => {
     if (!auth.currentUser) { setLoading(false); return; }
 
-    const q = query(
-      collection(db, 'orders'),
-      where('userId', '==', auth.currentUser.uid),
-      orderBy('createdAt', 'desc')
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+    try {
+      const q = query(
+        collection(db, 'orders'),
+        where('userId', '==', auth.currentUser.uid),
+        orderBy('createdAt', 'desc')
+      );
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const orderList = snapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() } as Order))
+          .sort((a, b) => (b.createdAt?.toDate?.().getTime() || 0) - (a.createdAt?.toDate?.().getTime() || 0));
+        setOrders(orderList);
+        setLoading(false);
+      }, (error) => {
+        console.error('Firestore error:', error);
+        handleFirestoreError(error, OperationType.LIST, 'orders');
+        setLoading(false);
+      });
+      return unsubscribe;
+    } catch (error) {
+      console.error('Query setup error:', error);
       setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'orders');
-      setLoading(false);
-    });
-    return unsubscribe;
+      return () => {};
+    }
   }, []);
 
   const handleTrack = async (orderId: string, trackingNumber: string) => {
@@ -242,7 +252,7 @@ export default function Orders() {
                 {/* Tracking Overlay */}
                 <AnimatePresence>
                   {selectedTracking?.id === order.id && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-white/95 backdrop-blur-sm z-50 p-8 overflow-y-auto rounded-3xl">
+                    <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-50 p-8 overflow-y-auto rounded-3xl">
                       <div className="flex items-center justify-between mb-8">
                         <h3 className="text-xl font-black gradient-text">Live Tracking</h3>
                         <button onClick={() => setSelectedTracking(null)} className="p-2 rounded-full hover:bg-purple-50 text-purple-400">
@@ -274,7 +284,7 @@ export default function Orders() {
                           </div>
                         </div>
                       </div>
-                    </motion.div>
+                    </div>
                   )}
                 </AnimatePresence>
               </motion.div>
