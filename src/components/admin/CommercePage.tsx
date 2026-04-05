@@ -1,8 +1,8 @@
 import { useState, lazy, Suspense, Component, ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 
-// Lazy load managers to prevent blocking
-const OrderManager = lazy(() => import('./OrderManager').catch(e => { console.error('Failed to load OrderManager:', e); throw e; }));
+// Test with minimal version first
+const OrderManager = lazy(() => import('./OrderManagerTest'));
 const AuctionManager = lazy(() => import('./AuctionManager').catch(e => { console.error('Failed to load AuctionManager:', e); throw e; }));
 const PackManager = lazy(() => import('./PackManager').catch(e => { console.error('Failed to load PackManager:', e); throw e; }));
 
