@@ -3,29 +3,36 @@ import { GoogleGenAI, Type } from "@google/genai";
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export async function identifyProduct(base64Image: string) {
-  // Check if API key is configured
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error('Gemini API key not configured. Check GEMINI_API_KEY environment variable.');
-  }
+  console.log(`[Gemini] Starting product identification. Image size: ${base64Image.length} bytes`);
 
-  // Log image size for debugging
-  console.log(`[Gemini] Analyzing image, base64 size: ${base64Image.length} bytes`);
-
-  // Wrap with 45-second timeout (API calls can be slow)
+  // 60-second timeout for API call
   const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('Analysis timed out. Server is busy. Try again in a moment.')), 45000)
+    setTimeout(() => reject(new Error('Analysis timed out after 60 seconds. Please try again.')), 60000)
   );
 
   const analyzePromise = (async () => {
     try {
-      console.log('[Gemini] Starting API call...');
+      console.log('[Gemini] Calling API with base64 image...');
 
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: [
           {
             parts: [
-              { text: "You are a product identifier for Quirkify, a social commerce platform. Analyze this product image and return ONLY a valid JSON response (no markdown, no explanation). Required fields: name (product name), description (detailed 1-2 sentence description), category (one of: Sneakers, Clothing, Accessories, Electronics, Collectibles, Toys & Games, Books & Media, Beauty & Health, Home & Decor, Sports & Outdoors, Art & Crafts, Vintage & Retro, Other), priceRange (object with min and max in ZAR for Cape Town market), retailPrice (estimated retail price in ZAR), rarity (one of: Common, Limited, Rare, Super Rare, Unique), stats (object with quirkiness, rarity, utility, hype as numbers 1-100), confidenceScore (0-1)." },
+              {
+                text: `Identify this product. Return ONLY valid JSON with these EXACT fields:
+{
+  "name": "product name",
+  "description": "2-3 sentence description",
+  "category": "one of: Sneakers, Clothing, Accessories, Electronics, Collectibles, Toys & Games, Books & Media, Beauty & Health, Home & Decor, Sports & Outdoors, Art & Crafts, Vintage & Retro, Other",
+  "priceRange": {"min": number, "max": number},
+  "retailPrice": number,
+  "rarity": "one of: Common, Limited, Rare, Super Rare, Unique",
+  "stats": {"quirkiness": 1-100, "rarity": 1-100, "utility": 1-100, "hype": 1-100},
+  "confidenceScore": 0-1,
+  "alternatives": ["alternative1", "alternative2"]
+}`
+              },
               { inlineData: { data: base64Image, mimeType: "image/jpeg" } }
             ]
           }
@@ -69,68 +76,51 @@ export async function identifyProduct(base64Image: string) {
         }
       });
 
-      console.log('[Gemini] Got response:', response);
+      console.log('[Gemini] Received response object');
 
-      // Handle response.text() as function or property
-      const textContent = typeof (response as any).text === 'function'
-        ? (response as any).text()
-        : (response as any).text;
+      // Extract text from response - handle both methods
+      let textContent: string;
 
-      if (!textContent) {
-        console.error('[Gemini] No text content in response:', response);
-        throw new Error('No text content in API response');
+      if (typeof (response as any).text === 'function') {
+        textContent = (response as any).text();
+      } else if ((response as any).text) {
+        textContent = (response as any).text;
+      } else {
+        console.error('[Gemini] Response structure:', JSON.stringify(response).substring(0, 500));
+        throw new Error('Could not extract text from API response');
       }
 
-      console.log('[Gemini] Text content:', textContent.substring(0, 200));
+      if (!textContent || textContent.length === 0) {
+        throw new Error('API returned empty response');
+      }
 
+      console.log('[Gemini] Parsing JSON response...');
       const parsed = JSON.parse(textContent);
-      console.log('[Gemini] Parsed JSON successfully');
 
-      // Validate required fields
-      if (!parsed.name || !parsed.description || !parsed.category) {
-        throw new Error(`Missing required fields. Got: ${JSON.stringify(Object.keys(parsed))}`);
+      // Validate all required fields exist
+      const required = ['name', 'description', 'category', 'priceRange', 'rarity', 'stats', 'confidenceScore'];
+      const missing = required.filter(field => !parsed[field]);
+
+      if (missing.length > 0) {
+        throw new Error(`Missing fields: ${missing.join(', ')}`);
       }
 
-      console.log('[Gemini] Validation passed, returning product data');
+      console.log('[Gemini] Product identified successfully:', parsed.name);
       return parsed;
-    } catch (innerErr: any) {
-      console.error('[Gemini] API error:', {
-        message: innerErr.message,
-        code: innerErr.code,
-        status: innerErr.status,
-        details: innerErr.details,
-      });
-      throw innerErr;
+
+    } catch (err: any) {
+      console.error('[Gemini] Inner error:', err.message);
+      throw err;
     }
   })();
 
   try {
-    const response = await Promise.race([analyzePromise, timeoutPromise]) as any;
-    return response;
+    const result = await Promise.race([analyzePromise, timeoutPromise]);
+    console.log('[Gemini] Analysis complete, returning to AIIntake');
+    return result;
   } catch (err: any) {
-    console.error('[Gemini] Full error:', {
-      message: err.message,
-      name: err.name,
-      status: err.status,
-      code: err.code,
-    });
-
-    // Provide better error message based on error type
-    if (err.message.includes('timed out')) {
-      throw err;
-    } else if (err.message.includes('API key')) {
-      throw new Error('Server configuration error: API key missing');
-    } else if (err.message.includes('401') || err.message.includes('403')) {
-      throw new Error('Server authentication failed. Contact support.');
-    } else if (err.message.includes('400')) {
-      throw new Error('Invalid image format. Try a different photo.');
-    } else if (err.message.includes('429')) {
-      throw new Error('Too many requests. Wait a moment and try again.');
-    } else if (err.message.includes('500') || err.message.includes('503')) {
-      throw new Error('Gemini service is temporarily unavailable. Try again soon.');
-    } else {
-      throw err;
-    }
+    console.error('[Gemini] Analysis failed:', err.message);
+    throw err;
   }
 }
 
