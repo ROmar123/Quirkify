@@ -12,6 +12,7 @@ export default function ReviewQueue() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedProduct, setEditedProduct] = useState<Product | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'products'), where('status', '==', 'pending'));
@@ -49,6 +50,37 @@ export default function ReviewQueue() {
 
   const handleStatus = async (id: string, status: 'approved' | 'rejected') => {
     if (!editedProduct) return;
+    setError(null);
+
+    // Validate required fields on approval
+    if (status === 'approved') {
+      if (!editedProduct.name?.trim()) {
+        setError('Product name is required');
+        return;
+      }
+      if (!editedProduct.description?.trim()) {
+        setError('Description is required');
+        return;
+      }
+      if (!editedProduct.retailPrice || editedProduct.retailPrice <= 0) {
+        setError('Retail price is required and must be greater than 0');
+        return;
+      }
+      if (!editedProduct.stock || editedProduct.stock <= 0) {
+        setError('Stock must be at least 1');
+        return;
+      }
+
+      // Validate allocations don't exceed total stock
+      const totalAllocated = (editedProduct.allocations?.store || 0) +
+                            (editedProduct.allocations?.auction || 0) +
+                            (editedProduct.allocations?.packs || 0);
+      if (totalAllocated > (editedProduct.stock || 0)) {
+        setError(`Allocations (${totalAllocated}) cannot exceed total stock (${editedProduct.stock})`);
+        return;
+      }
+    }
+
     try {
       const updateData: any = { status };
       if (status === 'approved') {
@@ -78,18 +110,18 @@ export default function ReviewQueue() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-12">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-12">
         <div>
-          <h1 className="text-4xl font-black tracking-tight mb-2 text-purple-900">Review Queue</h1>
-          <p className="text-purple-600 text-sm font-bold">Human-in-the-loop validation for AI products.</p>
+          <h1 className="text-2xl sm:text-4xl font-black tracking-tight mb-2 text-purple-900">Review Queue</h1>
+          <p className="text-purple-600 text-xs sm:text-sm font-bold">Human-in-the-loop validation for AI products.</p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-2xl border border-purple-100 shadow-sm">
+        <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-2xl border border-purple-100 shadow-sm w-fit">
           <Clock className="w-4 h-4 text-purple-400" />
           <span className="text-[10px] font-bold uppercase tracking-widest text-purple-700">{products.length} Pending</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-12">
         <div className="lg:col-span-1 space-y-2">
           {loading ? (
             [1, 2, 3].map(i => (
@@ -151,6 +183,11 @@ export default function ReviewQueue() {
                   <img src={selectedProduct.imageUrl} className="w-full h-full object-contain" alt="" />
                 </div>
                 <div className="p-8">
+                  {error && (
+                    <div className="mb-6 p-3 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-xs font-bold flex items-center gap-2">
+                      <span>⚠</span> {error}
+                    </div>
+                  )}
                   <div className="flex items-center justify-between mb-8">
                     <div className="flex-1">
                       {isEditing ? (
@@ -295,6 +332,57 @@ export default function ReviewQueue() {
                           <p className="text-purple-600 text-sm leading-relaxed">{editedProduct.description}</p>
                         </div>
                       </>
+                    )}
+
+                    {isEditing && (
+                      <div className="mt-4 pt-4 border-t border-purple-100">
+                        <label className="text-[8px] font-bold uppercase tracking-widest text-purple-400 block mb-3">Allocate Stock to Channels</label>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="text-[8px] text-purple-400 block mb-1">Store</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max={editedProduct.stock}
+                              value={editedProduct.allocations?.store || 0}
+                              onChange={(e) => setEditedProduct({
+                                ...editedProduct,
+                                allocations: { ...editedProduct.allocations || { store: 0, auction: 0, packs: 0 }, store: Number(e.target.value) }
+                              })}
+                              className="w-full px-3 py-2 bg-white border-2 border-purple-100 rounded-lg text-sm font-bold text-purple-800 focus:outline-none focus:border-purple-400"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[8px] text-purple-400 block mb-1">Auction</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max={editedProduct.stock}
+                              value={editedProduct.allocations?.auction || 0}
+                              onChange={(e) => setEditedProduct({
+                                ...editedProduct,
+                                allocations: { ...editedProduct.allocations || { store: 0, auction: 0, packs: 0 }, auction: Number(e.target.value) }
+                              })}
+                              className="w-full px-3 py-2 bg-white border-2 border-purple-100 rounded-lg text-sm font-bold text-purple-800 focus:outline-none focus:border-purple-400"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[8px] text-purple-400 block mb-1">Packs</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max={editedProduct.stock}
+                              value={editedProduct.allocations?.packs || 0}
+                              onChange={(e) => setEditedProduct({
+                                ...editedProduct,
+                                allocations: { ...editedProduct.allocations || { store: 0, auction: 0, packs: 0 }, packs: Number(e.target.value) }
+                              })}
+                              className="w-full px-3 py-2 bg-white border-2 border-purple-100 rounded-lg text-sm font-bold text-purple-800 focus:outline-none focus:border-purple-400"
+                            />
+                          </div>
+                        </div>
+                        <p className="text-[8px] text-purple-400 font-bold mt-2">Total allocated: {(editedProduct.allocations?.store || 0) + (editedProduct.allocations?.auction || 0) + (editedProduct.allocations?.packs || 0)} / {editedProduct.stock}</p>
+                      </div>
                     )}
 
                     <div className="pt-8 border-t border-purple-100">

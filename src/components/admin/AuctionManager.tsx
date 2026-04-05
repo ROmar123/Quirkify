@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../../firebase';
 import { Product, Auction } from '../../types';
 import { createAuction } from '../../services/auctionService';
@@ -28,8 +28,26 @@ export default function AuctionManager() {
     }, err => handleFirestoreError(err, OperationType.GET, 'products'));
 
     const qAuctions = query(collection(db, 'auctions'), where('status', '==', 'active'));
-    const unsubAuctions = onSnapshot(qAuctions, snap => {
-      setActiveAuctions(snap.docs.map(d => ({ id: d.id, ...d.data() } as Auction)));
+    const unsubAuctions = onSnapshot(qAuctions, async snap => {
+      const auctions = snap.docs.map(d => ({ id: d.id, ...d.data() } as Auction));
+
+      // Auto-delist auctions with 0 allocation
+      for (const auction of auctions) {
+        try {
+          const productDoc = await getDoc(doc(db, 'products', auction.productId));
+          if (productDoc.exists()) {
+            const product = productDoc.data() as Product;
+            const auctionAllocation = product.allocations?.auction ?? 0;
+            if (auctionAllocation <= 0) {
+              await updateDoc(doc(db, 'auctions', auction.id), { status: 'ended' });
+            }
+          }
+        } catch (error) {
+          console.error(`Error checking allocation for auction ${auction.id}:`, error);
+        }
+      }
+
+      setActiveAuctions(auctions);
       setLoading(false);
     }, err => { handleFirestoreError(err, OperationType.GET, 'auctions'); setLoading(false); });
 
@@ -41,6 +59,14 @@ export default function AuctionManager() {
       setError('Select a product and set a start price > 0');
       return;
     }
+
+    // Validate auction allocation
+    const auctionAllocation = selectedProduct.allocations?.auction ?? 0;
+    if (auctionAllocation <= 0) {
+      setError(`${selectedProduct.name} has no stock allocated for auctions. Please allocate stock in the products manager.`);
+      return;
+    }
+
     setSaving(true);
     setError(null);
     try {
@@ -115,7 +141,9 @@ export default function AuctionManager() {
                     <img src={p.imageUrl} className="w-10 h-10 rounded-xl object-cover flex-shrink-0" alt="" />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold text-purple-900 truncate">{p.name}</p>
-                      <p className="text-[10px] text-purple-400 font-semibold">{p.rarity} · {p.condition}</p>
+                      <p className="text-[10px] text-purple-400 font-semibold">
+                        {p.condition} · Auction stock: {p.allocations?.auction ?? 0}
+                      </p>
                     </div>
                     {selectedProduct?.id === p.id && (
                       <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }} />

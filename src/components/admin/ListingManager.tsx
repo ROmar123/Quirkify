@@ -41,6 +41,7 @@ export default function ListingManager() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -63,7 +64,15 @@ export default function ListingManager() {
   };
 
   const openEdit = (p: Product) => {
-    setEditingProduct({ ...p });
+    // Ensure pricing fields have defaults if missing
+    const productWithDefaults = {
+      ...p,
+      retailPrice: p.retailPrice ?? 0,
+      markdownPercentage: p.markdownPercentage ?? 40,
+      discountPrice: p.discountPrice ?? 0,
+      listingType: p.listingType ?? 'store'
+    };
+    setEditingProduct(productWithDefaults);
     setIsNew(false);
   };
 
@@ -72,6 +81,7 @@ export default function ListingManager() {
     setIsNew(false);
     setImageFiles([]);
     setImagePreviews([]);
+    setError(null);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,6 +98,41 @@ export default function ListingManager() {
 
   const handleSave = async () => {
     if (!editingProduct) return;
+
+    // Validate required fields
+    if (!editingProduct.name?.trim()) {
+      setError('Product name is required');
+      return;
+    }
+    if (!editingProduct.description?.trim()) {
+      setError('Description is required');
+      return;
+    }
+    if (!editingProduct.category?.trim()) {
+      setError('Category is required');
+      return;
+    }
+    if (!editingProduct.retailPrice || editingProduct.retailPrice <= 0) {
+      setError('Retail price is required and must be greater than 0');
+      return;
+    }
+    if (!editingProduct.stock || editingProduct.stock <= 0) {
+      setError('Stock must be at least 1');
+      return;
+    }
+    if (isNew && !editingProduct.imageUrl && imageFiles.length === 0) {
+      setError('Product image is required');
+      return;
+    }
+
+    // Validate allocations don't exceed total stock
+    const totalAllocated = (editingProduct.allocations?.store || 0) + (editingProduct.allocations?.auction || 0) + (editingProduct.allocations?.packs || 0);
+    if (totalAllocated > (editingProduct.stock || 0)) {
+      setError(`Total allocated stock (${totalAllocated}) cannot exceed total stock (${editingProduct.stock})`);
+      return;
+    }
+
+    setError(null);
     setSaving(true);
     try {
       let imageUrl = editingProduct.imageUrl;
@@ -295,6 +340,11 @@ export default function ListingManager() {
 
               {/* Modal body */}
               <div className="overflow-y-auto p-6 space-y-5 flex-1">
+                {error && (
+                  <div className="p-3 bg-red-50 border border-red-100 rounded-2xl">
+                    <p className="text-xs font-bold text-red-600">{error}</p>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className={labelCls}>Product Name</label>
@@ -359,7 +409,7 @@ export default function ListingManager() {
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className={labelCls}>Retail Price (R)</label>
-                    <input type="number" value={editingProduct.retailPrice || ''} onChange={e => setField('retailPrice', Number(e.target.value))} className={inputCls} />
+                    <input type="number" value={editingProduct.retailPrice ?? ''} onChange={e => setField('retailPrice', Number(e.target.value))} className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Markdown %</label>
@@ -367,7 +417,7 @@ export default function ListingManager() {
                   </div>
                   <div>
                     <label className={labelCls}>Sale Price (R)</label>
-                    <input type="number" value={editingProduct.discountPrice || ''} onChange={e => setField('discountPrice', Number(e.target.value))} className={cn(inputCls, 'bg-green-50 border-green-200')} />
+                    <input type="number" value={editingProduct.discountPrice ?? ''} onChange={e => setField('discountPrice', Number(e.target.value))} className={cn(inputCls, 'bg-green-50 border-green-200')} />
                   </div>
                 </div>
 

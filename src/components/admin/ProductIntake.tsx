@@ -119,6 +119,29 @@ export default function ProductIntake({ onSuccess }: ProductIntakeProps) {
 
   const handleSave = async (status: 'pending' | 'rejected') => {
     if (!editedResult || files.length === 0 || loading) return;
+
+    // Validate required fields
+    if (!editedResult.name?.trim()) {
+      setError('Product name is required');
+      return;
+    }
+    if (!editedResult.description?.trim()) {
+      setError('Description is required');
+      return;
+    }
+    if (!editedResult.retailPrice || editedResult.retailPrice <= 0) {
+      setError('Retail price is required and must be greater than 0');
+      return;
+    }
+    if (!editedResult.stock || editedResult.stock <= 0) {
+      setError('Stock must be at least 1');
+      return;
+    }
+    if (!editedResult.category?.trim()) {
+      setError('Category is required');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
