@@ -87,6 +87,49 @@ export default function AdminDashboard() {
         ))}
       </div>
 
+      {/* Stock Levels */}
+      <div className="bg-white rounded-3xl border border-purple-100 p-5 shadow-sm mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-black text-purple-900">Stock Levels by Channel</h2>
+          <Link to="/admin/listings" className="text-xs font-bold text-purple-500 hover:text-purple-700">Manage →</Link>
+        </div>
+        {products.length === 0 ? (
+          <p className="text-xs text-purple-300 font-semibold text-center py-6">No products yet</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-purple-100">
+                  <th className="text-left py-2 px-3 font-bold text-purple-600">Product</th>
+                  <th className="text-center py-2 px-3 font-bold text-purple-600">Total</th>
+                  <th className="text-center py-2 px-3 font-bold text-blue-600">Store</th>
+                  <th className="text-center py-2 px-3 font-bold text-amber-600">Auction</th>
+                  <th className="text-center py-2 px-3 font-bold text-pink-600">Packs</th>
+                </tr>
+              </thead>
+              <tbody>
+                {products.filter(p => p.status === 'approved').map(p => {
+                  const total = p.stock ?? 0;
+                  const store = p.allocations?.store ?? 0;
+                  const auction = p.allocations?.auction ?? 0;
+                  const packs = p.allocations?.packs ?? 0;
+                  const allocated = store + auction + packs;
+                  return (
+                    <tr key={p.id} className="border-b border-purple-50 hover:bg-purple-50 transition-colors">
+                      <td className="py-3 px-3 truncate max-w-xs">{p.name}</td>
+                      <td className="text-center py-3 px-3 font-bold">{total}</td>
+                      <td className="text-center py-3 px-3"><span className="bg-blue-50 text-blue-700 px-2 py-1 rounded-full">{store}</span></td>
+                      <td className="text-center py-3 px-3"><span className="bg-amber-50 text-amber-700 px-2 py-1 rounded-full">{auction}</span></td>
+                      <td className="text-center py-3 px-3"><span className="bg-pink-50 text-pink-700 px-2 py-1 rounded-full">{packs}</span></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* Recent activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-3xl border border-purple-100 p-5 shadow-sm">
