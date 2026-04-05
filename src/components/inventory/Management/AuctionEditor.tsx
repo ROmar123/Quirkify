@@ -4,10 +4,14 @@ import { db, handleFirestoreError, OperationType } from '../../../firebase';
 import { Product, Auction } from '../../../types';
 import { createAuction } from '../../../services/auctionService';
 import { motion, AnimatePresence } from 'motion/react';
-import { Gavel, AlertCircle, CheckCircle2, Clock, ChevronRight, X, Edit2, Trash2, AlertTriangle } from 'lucide-react';
+import { Gavel, AlertCircle, CheckCircle2, Clock, ChevronRight, X, Edit2, Trash2, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 
-export default function AuctionEditor() {
+interface AuctionEditorProps {
+  onBack?: () => void;
+}
+
+export default function AuctionEditor({ onBack }: AuctionEditorProps = {}) {
   const [products, setProducts] = useState<Product[]>([]);
   const [activeAuctions, setActiveAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -176,9 +180,20 @@ export default function AuctionEditor() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-black text-purple-900 mb-2">Auctions</h1>
-        <p className="text-purple-400 text-sm font-semibold">Create and manage live auctions for your products</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-black text-purple-900 mb-2">Auctions</h1>
+          <p className="text-purple-400 text-sm font-semibold">Create and manage live auctions for your products</p>
+        </div>
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold text-purple-700 bg-purple-50 border-2 border-purple-100 hover:border-purple-300 hover:bg-purple-100 transition-all whitespace-nowrap"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
