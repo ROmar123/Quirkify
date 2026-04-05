@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCart } from '../../context/CartContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { CreditCard, Truck, ArrowRight, ArrowLeft, ShoppingBag, Sparkles, LogIn, Shield, Zap, MapPin } from 'lucide-react';
+import { CreditCard, Truck, ArrowRight, ArrowLeft, ShoppingBag, Sparkles, LogIn, Shield, Zap, MapPin, AlertCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { db, auth, handleFirestoreError, OperationType, signIn } from '../../firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { initiateYocoCheckout } from '../../services/paymentService';
+import { Product } from '../../types';
 type CheckoutStep = 'cart' | 'shipping' | 'payment';
 
 const STEPS = [
@@ -22,6 +23,7 @@ export default function Checkout() {
   const { items, total, removeFromCart, updateQuantity } = useCart();
   const [step, setStep] = useState<CheckoutStep>('cart');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [stockErrors, setStockErrors] = useState<string[]>([]);
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -31,6 +33,34 @@ export default function Checkout() {
     zip: '',
     phone: '',
   });
+
+  // Validate stock availability for cart items
+  useEffect(() => {
+    const validateStock = async () => {
+      const errors: string[] = [];
+      for (const item of items) {
+        try {
+          const productDoc = await getDoc(doc(db, 'products', item.id));
+          if (productDoc.exists()) {
+            const product = productDoc.data() as Product;
+            const storeAllocation = product.allocations?.store ?? 0;
+            if (item.quantity > storeAllocation) {
+              errors.push(`${item.name}: Only ${storeAllocation} available in stock (you want ${item.quantity})`);
+            }
+          }
+        } catch (error) {
+          console.error(`Error checking stock for ${item.id}:`, error);
+        }
+      }
+      setStockErrors(errors);
+    };
+
+    if (items.length > 0) {
+      validateStock();
+    } else {
+      setStockErrors([]);
+    }
+  }, [items]);
 
   const subtotal = total;
   const vat = Math.round(subtotal * VAT_RATE);
@@ -42,7 +72,13 @@ export default function Checkout() {
   });
 
   const handleNext = async () => {
-    if (step === 'cart') setStep('shipping');
+    if (step === 'cart') {
+      if (stockErrors.length > 0) {
+        alert('Some items in your cart are no longer available in the requested quantities. Please update your cart.');
+        return;
+      }
+      setStep('shipping');
+    }
     else if (step === 'shipping') {
       // Validate shipping form
       if (!formData.email || !formData.address || !formData.city || !formData.zip || !formData.phone) {
@@ -154,6 +190,17 @@ export default function Checkout() {
             {step === 'cart' && (
               <motion.div key="cart" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-4">
                 <h2 className="text-2xl font-black gradient-text mb-6">Your Cart</h2>
+                {stockErrors.length > 0 && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex gap-3 items-start">
+                    <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-red-700 mb-2">Stock availability issue</p>
+                      {stockErrors.map((error, i) => (
+                        <p key={i} className="text-xs text-red-600 mb-1">{error}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {items.map((item) => (
                   <div key={item.id} className="bg-white rounded-3xl border border-purple-100 p-4 flex items-center gap-4 group shadow-sm hover:shadow-md transition-all">
                     <div className="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 bg-purple-50">
@@ -287,7 +334,7 @@ export default function Checkout() {
             <div className="mt-6 space-y-3">
               <button
                 onClick={handleNext}
-                disabled={isProcessing}
+                disabled={isProcessing || (step === 'cart' && stockErrors.length > 0)}
                 className="btn-primary w-full py-4 text-sm justify-center disabled:opacity-50"
               >
                 {isProcessing ? (
