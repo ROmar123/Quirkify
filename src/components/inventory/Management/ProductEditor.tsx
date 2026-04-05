@@ -141,9 +141,9 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
         Back
       </button>
 
-      <div className="bg-white rounded-3xl border border-purple-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-3xl border-2 border-purple-100 shadow-sm overflow-hidden">
         {/* Header with Image */}
-        <div className="relative h-64 bg-purple-50 border-b border-purple-100 overflow-hidden">
+        <div className="relative h-64 bg-purple-50 border-b-2 border-purple-100 overflow-hidden">
           {isEditing ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">

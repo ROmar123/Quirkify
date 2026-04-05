@@ -113,7 +113,7 @@ export default function AuctionEditor() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Create Auction Form */}
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-3xl border border-purple-100 shadow-sm p-8 space-y-6">
+          <div className="bg-white rounded-3xl border-2 border-purple-100 shadow-sm p-8 space-y-6">
             <div>
               <h2 className="text-xl font-black text-purple-900 mb-4">Start New Auction</h2>
 
