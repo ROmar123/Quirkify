@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../../firebase';
 import { Product, Auction } from '../../types';
 import { createAuction } from '../../services/auctionService';
@@ -28,8 +28,26 @@ export default function AuctionManager() {
     }, err => handleFirestoreError(err, OperationType.GET, 'products'));
 
     const qAuctions = query(collection(db, 'auctions'), where('status', '==', 'active'));
-    const unsubAuctions = onSnapshot(qAuctions, snap => {
-      setActiveAuctions(snap.docs.map(d => ({ id: d.id, ...d.data() } as Auction)));
+    const unsubAuctions = onSnapshot(qAuctions, async snap => {
+      const auctions = snap.docs.map(d => ({ id: d.id, ...d.data() } as Auction));
+
+      // Auto-delist auctions with 0 allocation
+      for (const auction of auctions) {
+        try {
+          const productDoc = await getDoc(doc(db, 'products', auction.productId));
+          if (productDoc.exists()) {
+            const product = productDoc.data() as Product;
+            const auctionAllocation = product.allocations?.auction ?? 0;
+            if (auctionAllocation <= 0) {
+              await updateDoc(doc(db, 'auctions', auction.id), { status: 'ended' });
+            }
+          }
+        } catch (error) {
+          console.error(`Error checking allocation for auction ${auction.id}:`, error);
+        }
+      }
+
+      setActiveAuctions(auctions);
       setLoading(false);
     }, err => { handleFirestoreError(err, OperationType.GET, 'auctions'); setLoading(false); });
 
