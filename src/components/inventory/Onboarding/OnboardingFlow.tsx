@@ -62,22 +62,35 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     setError(null);
 
     try {
-      // Only save essential fields - strip everything else
+      // Validate condition - map to valid values
+      const validConditions = ['New', 'Like New', 'Pre-owned', 'Refurbished'];
+      let condition = finalData.condition || 'New';
+      if (!validConditions.includes(condition)) {
+        condition = 'New'; // Default to New if invalid
+      }
+
+      // Ensure description is not empty (Firestore rule requires size > 0)
+      const description = finalData.description && finalData.description.trim().length > 0
+        ? finalData.description
+        : `${finalData.name || 'Product'} - No description provided`;
+
+      // Ensure imageUrl exists (Firestore rule requires size > 0)
+      const imageUrl = finalData.imageUrl && finalData.imageUrl.length > 0 && finalData.imageUrl.length < 2000
+        ? finalData.imageUrl
+        : 'https://via.placeholder.com/400x400?text=No+Image';
+
       const productToSave = {
-        name: finalData.name || '',
-        description: finalData.description || '',
-        category: finalData.category || '',
-        condition: finalData.condition || '',
+        name: finalData.name || 'Untitled Product',
+        description: description,
+        category: finalData.category || 'Uncategorized',
+        condition: condition,
         retailPrice: finalData.retailPrice || 0,
         discountPrice: finalData.discountPrice || 0,
         markdownPercentage: finalData.markdownPercentage || 0,
         stock: finalData.stock || 1,
         allocations: finalData.allocations || { store: 1, auction: 0, packs: 0 },
-        imageUrl: finalData.imageUrl && finalData.imageUrl.length < 2000 ? finalData.imageUrl : '',
+        imageUrl: imageUrl,
         status: 'pending' as const,
-        version: 1,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
         authorUid: auth.currentUser.uid,
       };
 
@@ -85,7 +98,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       setCurrentStep('confirmation');
     } catch (err: any) {
       const message = err.message || err.toString();
-      setError(message.substring(0, 200)); // Truncate long errors
+      setError(message.substring(0, 200));
     } finally {
       setSaving(false);
     }
