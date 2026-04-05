@@ -24,6 +24,7 @@ export default function Checkout() {
   const [step, setStep] = useState<CheckoutStep>('cart');
   const [isProcessing, setIsProcessing] = useState(false);
   const [stockErrors, setStockErrors] = useState<string[]>([]);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -90,6 +91,7 @@ export default function Checkout() {
     else if (step === 'payment') {
       if (!auth.currentUser) return;
       setIsProcessing(true);
+      setPaymentError(null);
       try {
         const orderData = {
           userId: auth.currentUser.uid,
@@ -117,6 +119,9 @@ export default function Checkout() {
         const itemName = items.length === 1 ? items[0].name : `Quirkify Order #${orderRef.id.slice(0, 8)}`;
         await initiateYocoCheckout(orderTotal, itemName, orderRef.id);
       } catch (error) {
+        console.error('Payment error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Payment processing failed. Please try again.';
+        setPaymentError(errorMessage);
         handleFirestoreError(error, OperationType.WRITE, 'orders');
       } finally {
         setIsProcessing(false);
@@ -271,6 +276,17 @@ export default function Checkout() {
             {step === 'payment' && (
               <motion.div key="payment" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
                 <h2 className="text-2xl font-black gradient-text mb-6">Secure Payment</h2>
+
+                {paymentError && (
+                  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex gap-3 items-start">
+                    <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-red-700">Payment Error</p>
+                      <p className="text-xs text-red-600 mt-1">{paymentError}</p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="bg-white rounded-3xl border border-purple-100 p-8 shadow-sm text-center">
                   <div className="w-16 h-16 rounded-full mx-auto mb-6 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #4ADE80, #60A5FA)' }}>
                     <Shield className="w-8 h-8 text-white" />

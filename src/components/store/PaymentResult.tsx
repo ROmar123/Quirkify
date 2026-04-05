@@ -33,7 +33,7 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
                 setXpEarned(xp);
               }
               if (orderData.orderType === 'topup' && auth.currentUser) {
-                const userProgressRef = doc(db, 'users', auth.currentUser.uid, 'progress', 'stats');
+                const userProgressRef = doc(db, 'user_progress', auth.currentUser.uid);
                 await updateDoc(userProgressRef, { balance: increment(amount) });
               }
             }

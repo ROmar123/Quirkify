@@ -114,19 +114,26 @@ export default function LiveStreamRoom() {
 
     // Fetch session
     const sessionRef = doc(db, 'live_sessions', sessionId);
+    let unsubscribeAuction: (() => void) | null = null;
+
     const unsubscribeSession = onSnapshot(sessionRef, (docSnap) => {
       if (docSnap.exists()) {
         const sessionData = { id: docSnap.id, ...docSnap.data() } as LiveSession;
         setSession(sessionData);
-        
+
         // If there's a current auction, fetch it
         if (sessionData.currentAuctionId) {
+          // Clean up previous auction listener if exists
+          if (unsubscribeAuction) {
+            unsubscribeAuction();
+          }
+
           const auctionRef = doc(db, 'auctions', sessionData.currentAuctionId);
-          onSnapshot(auctionRef, async (auctionSnap) => {
+          unsubscribeAuction = onSnapshot(auctionRef, async (auctionSnap) => {
             if (auctionSnap.exists()) {
               const auctionData = { id: auctionSnap.id, ...auctionSnap.data() } as Auction;
               setCurrentAuction(auctionData);
-              
+
               // Get AI talking points if host
               if (auth.currentUser?.uid === sessionData.hostId && auctionData.product) {
                 try {
@@ -137,11 +144,21 @@ export default function LiveStreamRoom() {
                 }
               }
             }
+          }, (error) => {
+            console.error('Error fetching auction:', error);
           });
+        } else {
+          // No active auction, clean up listener if exists
+          if (unsubscribeAuction) {
+            unsubscribeAuction();
+            unsubscribeAuction = null;
+          }
         }
       } else {
         navigate('/auctions');
       }
+    }, (error) => {
+      console.error('Error fetching session:', error);
     });
 
     // Fetch chat messages
@@ -151,11 +168,16 @@ export default function LiveStreamRoom() {
     );
     const unsubscribeChat = onSnapshot(q, (snapshot) => {
       setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatMessage)));
+    }, (error) => {
+      console.error('Error fetching chat messages:', error);
     });
 
     return () => {
       unsubscribeSession();
       unsubscribeChat();
+      if (unsubscribeAuction) {
+        unsubscribeAuction();
+      }
     };
   }, [sessionId, navigate]);
 
