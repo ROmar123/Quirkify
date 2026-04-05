@@ -52,8 +52,26 @@ export default function ReviewQueue() {
     if (!editedProduct) return;
     setError(null);
 
-    // Validate allocations don't exceed total stock
+    // Validate required fields on approval
     if (status === 'approved') {
+      if (!editedProduct.name?.trim()) {
+        setError('Product name is required');
+        return;
+      }
+      if (!editedProduct.description?.trim()) {
+        setError('Description is required');
+        return;
+      }
+      if (!editedProduct.retailPrice || editedProduct.retailPrice <= 0) {
+        setError('Retail price is required and must be greater than 0');
+        return;
+      }
+      if (!editedProduct.stock || editedProduct.stock <= 0) {
+        setError('Stock must be at least 1');
+        return;
+      }
+
+      // Validate allocations don't exceed total stock
       const totalAllocated = (editedProduct.allocations?.store || 0) +
                             (editedProduct.allocations?.auction || 0) +
                             (editedProduct.allocations?.packs || 0);
