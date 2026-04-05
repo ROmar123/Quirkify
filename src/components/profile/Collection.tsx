@@ -28,6 +28,8 @@ export default function Collection() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [topUpError, setTopUpError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -42,15 +44,20 @@ export default function Collection() {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
 
-    ensureUserProgress(uid).then(setUserProgress);
-    getUserProfile(uid).then(p => {
-      setProfile(p);
-      if (p) {
-        setDisplayName(p.displayName || '');
-        setBio(p.bio || '');
-        setLocation(p.location || '');
-      }
-    });
+    ensureUserProgress(uid)
+      .then(setUserProgress)
+      .catch(err => console.error('Error ensuring user progress:', err));
+
+    getUserProfile(uid)
+      .then(p => {
+        setProfile(p);
+        if (p) {
+          setDisplayName(p.displayName || '');
+          setBio(p.bio || '');
+          setLocation(p.location || '');
+        }
+      })
+      .catch(err => console.error('Error loading user profile:', err));
 
     const qVault = query(collection(db, 'users', uid, 'collection'));
     const unsubscribeVault = onSnapshot(qVault, async (snapshot) => {
@@ -85,10 +92,15 @@ export default function Collection() {
     e.preventDefault();
     if (!auth.currentUser) return;
     setSaving(true);
+    setUpdateError(null);
     try {
       await createOrUpdateProfile(auth.currentUser.uid, { displayName, bio, location });
       const p = await getUserProfile(auth.currentUser.uid);
       setProfile(p);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to update profile';
+      setUpdateError(errorMsg);
+      console.error('Profile update error:', err);
     } finally {
       setSaving(false);
     }
@@ -110,6 +122,7 @@ export default function Collection() {
 
   const handleTopUp = async () => {
     if (!auth.currentUser) return;
+    setTopUpError(null);
     try {
       const orderRef = await addDoc(collection(db, 'orders'), {
         userId: auth.currentUser.uid,
@@ -121,6 +134,9 @@ export default function Collection() {
       });
       await initiateYocoCheckout(topUpAmount, 'Wallet Top Up', orderRef.id);
     } catch (error: any) {
+      const errorMsg = error?.message || 'Wallet top-up failed. Please try again.';
+      setTopUpError(errorMsg);
+      console.error('Top-up error:', error);
       handleFirestoreError(error, OperationType.WRITE, 'orders');
     }
   };
