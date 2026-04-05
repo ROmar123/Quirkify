@@ -50,41 +50,54 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const handleSaveProduct = async (finalData: Partial<Product> | null) => {
     // Validation
     if (!finalData) {
+      console.error('[SAVE] Product data is missing');
       setError('Product data is missing. Please review the form.');
       return;
     }
 
     if (!auth.currentUser) {
+      console.error('[SAVE] User not authenticated');
       setError('You must be logged in to create products');
       return;
     }
 
+    console.log('[SAVE] Starting save process for:', finalData.name);
     setSaving(true);
     setError(null);
 
     try {
-      // Use retry logic for network resilience
-      const productRef = await retryFirestoreOperation(
-        async () => {
-          return await addDoc(collection(db, 'products'), {
-            ...finalData,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            authorUid: auth.currentUser!.uid,
-            status: 'pending',
-            version: 1,
-          });
-        },
-        'Creating product'
-      );
+      console.log('[SAVE] About to call addDoc...');
 
-      console.log('Product saved successfully:', productRef.id);
+      // Strip out large fields (images, raw base64 data) before saving
+      const cleanData = {
+        ...finalData,
+      };
+
+      // Remove any base64/image data that makes the document too large
+      delete (cleanData as any).imageData;
+      delete (cleanData as any).rawImages;
+      delete (cleanData as any).images;
+      delete (cleanData as any).base64;
+
+      console.log('[SAVE] Cleaned data size estimate:', JSON.stringify(cleanData).length, 'bytes');
+
+      const productRef = await addDoc(collection(db, 'products'), {
+        ...cleanData,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        authorUid: auth.currentUser!.uid,
+        status: 'pending',
+        version: 1,
+      });
+
+      console.log('[SAVE] Product created successfully:', productRef.id);
       setProductData(finalData);
       setCurrentStep('confirmation');
     } catch (err: any) {
-      console.error('Product save error:', err);
+      console.error('[SAVE] ERROR:', err);
+      console.error('[SAVE] Error code:', err.code);
+      console.error('[SAVE] Error message:', err.message);
 
-      // User-friendly error messages
       const message = err.message || 'Failed to save product';
 
       if (message.includes('network') || message.includes('unavailable')) {
@@ -95,6 +108,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         setError(message);
       }
     } finally {
+      console.log('[SAVE] Setting saving to false');
       setSaving(false);
     }
   };
