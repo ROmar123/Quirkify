@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Plus, Grid3X3, Settings } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import OnboardingFlow from './Onboarding/OnboardingFlow';
+import InventoryDashboard from './Management/InventoryDashboard';
 
 type View = 'onboarding' | 'dashboard' | 'products' | 'auctions' | 'packs';
 
@@ -56,12 +57,7 @@ export default function InventoryHub() {
         )}
 
         {activeView === 'dashboard' && (
-          <div className="px-4 py-8">
-            <div className="text-center">
-              <h2 className="text-2xl font-black gradient-text mb-4">Dashboard</h2>
-              <p className="text-purple-400">Coming soon - Stock levels, recent activity, quick actions</p>
-            </div>
-          </div>
+          <InventoryDashboard />
         )}
 
         {activeView === 'products' && (
