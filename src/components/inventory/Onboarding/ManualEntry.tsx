@@ -4,6 +4,7 @@ import { ArrowLeft, Upload, AlertCircle } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { AIIntakeResult } from './AIIntake';
 import { ProductCondition } from '../../../types';
+import { uploadFile } from '../../../services/storageService';
 
 interface ManualEntryProps {
   onComplete: (data: AIIntakeResult) => void;
@@ -91,18 +92,10 @@ export default function ManualEntry({ onComplete, onCancel }: ManualEntryProps) 
     try {
       let imageUrl = formData.imageUrl;
 
-      // If user uploaded an image file, convert to base64
+      // If user uploaded an image file, upload to Cloud Storage
       if (imageFile && !imageUrl) {
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = (reader.result as string).split(',')[1];
-            resolve(`data:${imageFile.type};base64,${result}`);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(imageFile);
-        });
-        imageUrl = base64;
+        const tempProductId = `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        imageUrl = await uploadFile(`products/${tempProductId}/primary.jpg`, imageFile);
       }
 
       // Submit product data

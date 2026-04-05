@@ -7,6 +7,7 @@ import { identifyProduct } from '../../../services/gemini';
 import { mapToStandardCategory } from '../../../lib/categories';
 import { ProductCondition } from '../../../types';
 import { validateProduct, calculateSellingPrice } from '../Shared/StockValidator';
+import { uploadFile } from '../../../services/storageService';
 
 interface AIIntakeProps {
   onComplete: (data: AIIntakeResult) => void;
@@ -126,8 +127,10 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
       const markdownPercentage = 40;
       const discountPrice = calculateSellingPrice(retailPrice, markdownPercentage);
 
-      // Store base64 images with data:image/jpeg prefix so they display properly
-      const base64ImagesWithPrefix = imageBase64s.map(b64 => `data:image/jpeg;base64,${b64}`);
+      // Upload the first image to Cloud Storage to get a real URL (not base64)
+      // Use a temporary product ID since we don't have one yet
+      const tempProductId = `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      const imageUrl = await uploadFile(`products/${tempProductId}/primary.jpg`, files[0]);
 
       const result = {
         ...analysis,
@@ -137,8 +140,8 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
         markdownPercentage,
         condition: 'New' as ProductCondition,
         stock: 1,
-        imageUrl: base64ImagesWithPrefix[0], // Primary image
-        imageUrls: base64ImagesWithPrefix // All images for storage
+        imageUrl: imageUrl, // Cloud Storage URL, not base64
+        imageUrls: [imageUrl] // Only primary image for now
       };
 
       setFormData(result);
@@ -147,6 +150,8 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
       console.error('Analysis error:', err);
       if (err instanceof Error && err.message.includes('AbortError')) {
         setError('Image analysis timed out. Please try a different image.');
+      } else if (err instanceof Error && err.message.includes('storage')) {
+        setError('Failed to upload image. Please check your connection and try again.');
       } else {
         setError('Failed to analyze image. Please try again.');
       }
