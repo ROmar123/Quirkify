@@ -25,6 +25,7 @@ export default function Checkout() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [stockErrors, setStockErrors] = useState<string[]>([]);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Partial<Record<keyof typeof formData, string>>>({});
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -34,6 +35,34 @@ export default function Checkout() {
     zip: '',
     phone: '',
   });
+
+  // Validation helpers
+  const validateEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  const validatePhone = (phone: string) => {
+    return /^[\d\s\-\+\(\)]+$/.test(phone) && phone.replace(/\D/g, '').length >= 10;
+  };
+
+  const validateField = (key: keyof typeof formData, value: string) => {
+    const errors = { ...validationErrors };
+
+    if (!value.trim()) {
+      errors[key] = 'This field is required';
+    } else if (key === 'email' && !validateEmail(value)) {
+      errors[key] = 'Enter a valid email address';
+    } else if (key === 'phone' && !validatePhone(value)) {
+      errors[key] = 'Enter a valid phone number (10+ digits)';
+    } else if (key === 'zip' && value.trim().length < 3) {
+      errors[key] = 'Enter a valid postal code';
+    } else {
+      delete errors[key];
+    }
+
+    setValidationErrors(errors);
+    return !errors[key];
+  };
 
   // Validate stock availability for cart items
   useEffect(() => {
@@ -79,17 +108,27 @@ export default function Checkout() {
   const handleNext = async () => {
     if (step === 'cart') {
       if (stockErrors.length > 0) {
-        alert('Some items in your cart are no longer available in the requested quantities. Please update your cart.');
-        return;
+        return; // Error message already displayed, don't proceed
       }
+      setValidationErrors({});
       setStep('shipping');
     }
     else if (step === 'shipping') {
-      // Validate shipping form
-      if (!formData.email || !formData.address || !formData.city || !formData.zip || !formData.phone) {
-        alert('Please fill in all delivery details');
-        return;
+      // Validate all shipping fields
+      const fieldsToValidate = ['email', 'address', 'city', 'zip', 'phone'] as const;
+      let isValid = true;
+
+      for (const field of fieldsToValidate) {
+        const value = formData[field];
+        if (!validateField(field, value)) {
+          isValid = false;
+        }
       }
+
+      if (!isValid) {
+        return; // Don't proceed if validation failed
+      }
+
       setStep('payment');
     }
     else if (step === 'payment') {
@@ -257,9 +296,21 @@ export default function Checkout() {
                         <input
                           type={type}
                           placeholder={placeholder}
-                          {...field(key)}
-                          className="w-full p-3 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-800 focus:outline-none focus:border-purple-400 transition-colors"
+                          value={formData[key]}
+                          onChange={(e) => {
+                            setFormData(prev => ({ ...prev, [key]: e.target.value }));
+                            validateField(key, e.target.value);
+                          }}
+                          className={cn(
+                            'w-full p-3 rounded-2xl text-sm font-semibold transition-colors focus:outline-none',
+                            validationErrors[key]
+                              ? 'bg-red-50 border-2 border-red-300 text-purple-800 focus:border-red-400'
+                              : 'bg-purple-50 border-2 border-purple-100 text-purple-800 focus:border-purple-400'
+                          )}
                         />
+                        {validationErrors[key] && (
+                          <p className="text-xs text-red-600 font-bold mt-1">{validationErrors[key]}</p>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -286,6 +337,12 @@ export default function Checkout() {
                     <div className="flex-1">
                       <p className="text-sm font-bold text-red-700">Payment Error</p>
                       <p className="text-xs text-red-600 mt-1">{paymentError}</p>
+                      <button
+                        onClick={() => setPaymentError(null)}
+                        className="text-xs font-bold text-red-600 hover:text-red-700 mt-2 underline"
+                      >
+                        Try Again
+                      </button>
                     </div>
                   </div>
                 )}
