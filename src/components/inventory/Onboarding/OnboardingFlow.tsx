@@ -47,23 +47,26 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     setCurrentStep('review');
   };
 
-  const handleSaveProduct = async (finalData: Partial<Product>) => {
-    // Authorization check
+  const handleSaveProduct = async (finalData: Partial<Product> | null) => {
+    // Validation
+    if (!finalData) {
+      setError('Product data is missing. Please review the form.');
+      return;
+    }
+
     if (!auth.currentUser) {
       setError('You must be logged in to create products');
       return;
     }
 
-    // In admin inventory section, authenticated users can create products
-    // (seller role check is only for public storefront in production)
     setSaving(true);
     setError(null);
 
     try {
       // Use retry logic for network resilience
-      await retryFirestoreOperation(
+      const productRef = await retryFirestoreOperation(
         async () => {
-          const productRef = await addDoc(collection(db, 'products'), {
+          return await addDoc(collection(db, 'products'), {
             ...finalData,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
@@ -71,14 +74,16 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             status: 'pending',
             version: 1,
           });
-          return productRef;
         },
         'Creating product'
       );
 
+      console.log('Product saved successfully:', productRef.id);
       setProductData(finalData);
       setCurrentStep('confirmation');
     } catch (err: any) {
+      console.error('Product save error:', err);
+
       // User-friendly error messages
       const message = err.message || 'Failed to save product';
 
@@ -89,8 +94,6 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       } else {
         setError(message);
       }
-
-      console.error('Product creation error:', err);
     } finally {
       setSaving(false);
     }
