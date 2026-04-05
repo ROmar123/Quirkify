@@ -131,6 +131,8 @@ export default function ListingManager() {
         discountPrice: editingProduct.discountPrice,
         condition: editingProduct.condition,
         stock: editingProduct.stock,
+        totalStock: editingProduct.stock,
+        allocations: editingProduct.allocations || { store: 0, auction: 0, packs: 0 },
         listingType: editingProduct.listingType,
         status: editingProduct.status,
       };
@@ -377,7 +379,7 @@ export default function ListingManager() {
                     </select>
                   </div>
                   <div>
-                    <label className={labelCls}>Stock</label>
+                    <label className={labelCls}>Total Stock</label>
                     <input type="number" value={editingProduct.stock ?? 1} onChange={e => setField('stock', Number(e.target.value))} className={inputCls} min={0} />
                   </div>
                   <div>
@@ -388,6 +390,34 @@ export default function ListingManager() {
                       <option value="rejected">Rejected</option>
                     </select>
                   </div>
+                </div>
+
+                <div>
+                  <label className={labelCls}>Allocate Stock to Channels</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[8px] text-purple-400 block mb-1">Store</label>
+                      <input type="number" min="0" max={editingProduct.stock ?? 1}
+                        value={editingProduct.allocations?.store ?? 0}
+                        onChange={(e) => setField('allocations', { ...editingProduct.allocations || { store: 0, auction: 0, packs: 0 }, store: Number(e.target.value) })}
+                        className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="text-[8px] text-purple-400 block mb-1">Auction</label>
+                      <input type="number" min="0" max={editingProduct.stock ?? 1}
+                        value={editingProduct.allocations?.auction ?? 0}
+                        onChange={(e) => setField('allocations', { ...editingProduct.allocations || { store: 0, auction: 0, packs: 0 }, auction: Number(e.target.value) })}
+                        className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="text-[8px] text-purple-400 block mb-1">Packs</label>
+                      <input type="number" min="0" max={editingProduct.stock ?? 1}
+                        value={editingProduct.allocations?.packs ?? 0}
+                        onChange={(e) => setField('allocations', { ...editingProduct.allocations || { store: 0, auction: 0, packs: 0 }, packs: Number(e.target.value) })}
+                        className={inputCls} />
+                    </div>
+                  </div>
+                  <p className="text-[8px] text-purple-400 font-bold mt-2">Total: {(editingProduct.allocations?.store ?? 0) + (editingProduct.allocations?.auction ?? 0) + (editingProduct.allocations?.packs ?? 0)} / {editingProduct.stock ?? 1}</p>
                 </div>
 
                 <div>
