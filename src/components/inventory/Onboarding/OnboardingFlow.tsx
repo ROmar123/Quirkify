@@ -108,6 +108,10 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     setSaving(true);
 
     try {
+      // Calculate markdown percentage properly (use nullish coalescing for 0 values)
+      const markdownPercentage = finalData.markdownPercentage ??
+        Math.round(((finalData.retailPrice! - finalData.discountPrice!) / finalData.retailPrice!) * 100);
+
       const productToSave = {
         name: finalData.name!.trim(),
         description: finalData.description!.trim(),
@@ -115,25 +119,30 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         condition: finalData.condition!,
         retailPrice: finalData.retailPrice!,
         discountPrice: finalData.discountPrice!,
-        markdownPercentage: finalData.markdownPercentage >= 0 ? finalData.markdownPercentage : 50,
+        markdownPercentage: Math.max(0, Math.min(100, markdownPercentage)), // Clamp 0-100
         stock: finalData.stock!,
         allocations: {
           store: Math.min(finalData.stock!, finalData.allocations?.store || finalData.stock || 0),
           auction: finalData.allocations?.auction || 0,
           packs: finalData.allocations?.packs || 0,
         },
-        imageUrl: finalData.imageUrl && finalData.imageUrl.length > 0 && finalData.imageUrl.length < 2000
-          ? finalData.imageUrl
-          : 'https://via.placeholder.com/400x400?text=No+Image',
+        imageUrl: finalData.imageUrl || 'https://via.placeholder.com/400x400?text=No+Image',
+        confidenceScore: finalData.confidenceScore ?? 0, // Persist AI confidence metric
         status: 'pending' as const,
         authorUid: auth.currentUser.uid,
+        createdAt: new Date().toISOString(), // Add creation timestamp
       };
 
       const docRef = await addDoc(collection(db, 'products'), productToSave);
       setCurrentStep('confirmation');
     } catch (err: any) {
       const message = err.message || err.toString();
-      setError(message.substring(0, 200));
+      // Provide better error context for Firestore validation errors
+      if (message.includes('PERMISSION_DENIED') || message.includes('permission')) {
+        setError('Unable to save: Check all required fields are filled. Prices must be > 0, stock > 0.');
+      } else {
+        setError(message.length > 180 ? `${message.substring(0, 180)}...` : message);
+      }
     } finally {
       setSaving(false);
     }
