@@ -12,6 +12,7 @@ export default function ReviewQueue() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedProduct, setEditedProduct] = useState<Product | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'products'), where('status', '==', 'pending'));
@@ -49,6 +50,19 @@ export default function ReviewQueue() {
 
   const handleStatus = async (id: string, status: 'approved' | 'rejected') => {
     if (!editedProduct) return;
+    setError(null);
+
+    // Validate allocations don't exceed total stock
+    if (status === 'approved') {
+      const totalAllocated = (editedProduct.allocations?.store || 0) +
+                            (editedProduct.allocations?.auction || 0) +
+                            (editedProduct.allocations?.packs || 0);
+      if (totalAllocated > (editedProduct.stock || 0)) {
+        setError(`Allocations (${totalAllocated}) cannot exceed total stock (${editedProduct.stock})`);
+        return;
+      }
+    }
+
     try {
       const updateData: any = { status };
       if (status === 'approved') {
@@ -148,6 +162,11 @@ export default function ReviewQueue() {
                   <img src={selectedProduct.imageUrl} className="w-full h-full object-contain" alt="" />
                 </div>
                 <div className="p-8">
+                  {error && (
+                    <div className="mb-6 p-3 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-xs font-bold flex items-center gap-2">
+                      <span>⚠</span> {error}
+                    </div>
+                  )}
                   <div className="flex items-center justify-between mb-8">
                     <div className="flex-1">
                       {isEditing ? (
