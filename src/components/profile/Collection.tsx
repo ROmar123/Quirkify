@@ -28,6 +28,8 @@ export default function Collection() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [topUpError, setTopUpError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -42,32 +44,59 @@ export default function Collection() {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
 
-    ensureUserProgress(uid).then(setUserProgress);
-    getUserProfile(uid).then(p => {
-      setProfile(p);
-      if (p) {
-        setDisplayName(p.displayName || '');
-        setBio(p.bio || '');
-        setLocation(p.location || '');
-      }
-    });
+    ensureUserProgress(uid)
+      .then(setUserProgress)
+      .catch(() => {
+        // Silently fail - user progress will be created on first interaction
+      });
+
+    getUserProfile(uid)
+      .then(p => {
+        setProfile(p);
+        if (p) {
+          setDisplayName(p.displayName || '');
+          setBio(p.bio || '');
+          setLocation(p.location || '');
+        }
+      })
+      .catch(() => {
+        // Silently fail - profile will be created on first update
+      });
+
+    let isMounted = true;
 
     const qVault = query(collection(db, 'users', uid, 'collection'));
     const unsubscribeVault = onSnapshot(qVault, async (snapshot) => {
-      const collectionItems: CollectionItem[] = [];
-      for (const d of snapshot.docs) {
-        const itemData = d.data() as CollectionItem;
-        const productRef = doc(db, 'products', itemData.productId);
-        const productSnap = await getDoc(productRef);
-        if (productSnap.exists()) {
-          collectionItems.push({ id: d.id, ...itemData, product: { id: productSnap.id, ...productSnap.data() } as Product });
+      if (!isMounted) return; // Prevent setState on unmounted component
+
+      try {
+        const collectionItems: CollectionItem[] = [];
+        for (const d of snapshot.docs) {
+          if (!isMounted) break; // Check again during async loop
+
+          const itemData = d.data() as CollectionItem;
+          const productRef = doc(db, 'products', itemData.productId);
+          const productSnap = await getDoc(productRef);
+          if (productSnap.exists()) {
+            collectionItems.push({ id: d.id, ...itemData, product: { id: productSnap.id, ...productSnap.data() } as Product });
+          }
+        }
+
+        if (isMounted) {
+          setItems(collectionItems);
+          setLoading(false);
+        }
+      } catch (err) {
+        if (isMounted) {
+          // Silently fail - vault items will show empty
+          setLoading(false);
         }
       }
-      setItems(collectionItems);
-      setLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `users/${uid}/collection`);
-      setLoading(false);
+      if (isMounted) {
+        handleFirestoreError(error, OperationType.GET, `users/${uid}/collection`);
+        setLoading(false);
+      }
     });
 
     const qBids = query(collection(db, 'auctions'), where('highestBidderId', '==', uid), where('status', '==', 'active'));
@@ -78,17 +107,27 @@ export default function Collection() {
     });
 
     const unsubscribeNotifications = subscribeToNotifications(uid, setNotifications);
-    return () => { unsubscribeVault(); unsubscribeBids(); unsubscribeNotifications(); };
+
+    return () => {
+      isMounted = false; // Prevent setState after unmount
+      unsubscribeVault();
+      unsubscribeBids();
+      unsubscribeNotifications();
+    };
   }, []);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth.currentUser) return;
     setSaving(true);
+    setUpdateError(null);
     try {
       await createOrUpdateProfile(auth.currentUser.uid, { displayName, bio, location });
       const p = await getUserProfile(auth.currentUser.uid);
       setProfile(p);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to update profile';
+      setUpdateError(errorMsg);
     } finally {
       setSaving(false);
     }
@@ -110,6 +149,7 @@ export default function Collection() {
 
   const handleTopUp = async () => {
     if (!auth.currentUser) return;
+    setTopUpError(null);
     try {
       const orderRef = await addDoc(collection(db, 'orders'), {
         userId: auth.currentUser.uid,
@@ -121,6 +161,8 @@ export default function Collection() {
       });
       await initiateYocoCheckout(topUpAmount, 'Wallet Top Up', orderRef.id);
     } catch (error: any) {
+      const errorMsg = error?.message || 'Wallet top-up failed. Please try again.';
+      setTopUpError(errorMsg);
       handleFirestoreError(error, OperationType.WRITE, 'orders');
     }
   };

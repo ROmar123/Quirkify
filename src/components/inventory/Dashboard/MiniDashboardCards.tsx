@@ -9,9 +9,11 @@ import { cn } from '../../../lib/utils';
 interface MiniDashboardCardsProps {
   onSelectOnboarding: () => void;
   onSelectManagement: () => void;
+  onSelectAuctions: () => void;
+  onSelectPacks: () => void;
 }
 
-export default function MiniDashboardCards({ onSelectOnboarding, onSelectManagement }: MiniDashboardCardsProps) {
+export default function MiniDashboardCards({ onSelectOnboarding, onSelectManagement, onSelectAuctions, onSelectPacks }: MiniDashboardCardsProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [pendingProducts, setPendingProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +85,30 @@ export default function MiniDashboardCards({ onSelectOnboarding, onSelectManagem
         { label: 'Low Stock', value: loading ? '—' : lowStockProducts.length, alert: lowStockProducts.length > 0 }
       ],
       action: onSelectManagement
+    },
+    {
+      id: 'auctions',
+      label: 'Auctions',
+      icon: Package,
+      color: 'from-orange-500 to-red-600',
+      stats: [
+        { label: 'Action', value: 'Create & manage' },
+        { label: 'Status', value: 'Available' },
+        { label: 'Channel', value: 'Live auctions' }
+      ],
+      action: onSelectAuctions
+    },
+    {
+      id: 'packs',
+      label: 'Packs',
+      icon: Package,
+      color: 'from-blue-500 to-cyan-600',
+      stats: [
+        { label: 'Action', value: 'Create & manage' },
+        { label: 'Status', value: 'Available' },
+        { label: 'Channel', value: 'Mystery packs' }
+      ],
+      action: onSelectPacks
     }
   ];
 

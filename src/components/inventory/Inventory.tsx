@@ -4,8 +4,10 @@ import { ArrowLeft } from 'lucide-react';
 import OnboardingFlow from './Onboarding/OnboardingFlow';
 import MiniDashboardCards from './Dashboard/MiniDashboardCards';
 import ProductsView from './Management/ProductsView';
+import AuctionEditor from './Management/AuctionEditor';
+import PackEditor from './Management/PackEditor';
 
-type State = 'hub' | 'onboarding' | 'management';
+type State = 'hub' | 'onboarding' | 'management' | 'auctions' | 'packs';
 
 export default function Inventory() {
   const [state, setState] = useState<State>('hub');
@@ -14,6 +16,8 @@ export default function Inventory() {
     hub: { title: 'Inventory', description: 'Manage your complete inventory ecosystem' },
     'onboarding': { title: 'Product Onboarding', description: 'Add new products and approve pending items' },
     'management': { title: 'Product Management', description: 'Edit approved products - store, auctions & packs' },
+    'auctions': { title: 'Auctions', description: 'Create and manage live auction items' },
+    'packs': { title: 'Mystery Packs', description: 'Create and manage mystery packs' },
   };
 
   return (
@@ -50,6 +54,8 @@ export default function Inventory() {
               <MiniDashboardCards
                 onSelectOnboarding={() => setState('onboarding')}
                 onSelectManagement={() => setState('management')}
+                onSelectAuctions={() => setState('auctions')}
+                onSelectPacks={() => setState('packs')}
               />
             </motion.div>
           )}
@@ -65,6 +71,20 @@ export default function Inventory() {
           {state === 'management' && (
             <motion.div key="management" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
               <ProductsView onBack={() => setState('hub')} />
+            </motion.div>
+          )}
+
+          {/* Auctions Management */}
+          {state === 'auctions' && (
+            <motion.div key="auctions" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
+              <AuctionEditor onBack={() => setState('hub')} />
+            </motion.div>
+          )}
+
+          {/* Packs Management */}
+          {state === 'packs' && (
+            <motion.div key="packs" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
+              <PackEditor onBack={() => setState('hub')} />
             </motion.div>
           )}
         </AnimatePresence>

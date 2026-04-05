@@ -57,4 +57,5 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
+  // Don't throw - just log. Errors in Firestore listeners should be handled gracefully
 }

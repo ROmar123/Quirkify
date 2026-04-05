@@ -3,7 +3,7 @@ import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc
 import { db, handleFirestoreError, OperationType } from '../../../firebase';
 import { Product, Pack } from '../../../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Gift, Plus, Trash2, Edit3, Save, X, AlertCircle, CheckCircle2, Upload } from 'lucide-react';
+import { Gift, Plus, Trash2, Edit3, Save, X, AlertCircle, CheckCircle2, Upload, ArrowLeft } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 
 const inputCls = 'w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-800 focus:outline-none focus:border-purple-400 transition-colors';
@@ -11,7 +11,11 @@ const labelCls = 'block text-xs font-bold text-purple-400 mb-1 uppercase trackin
 
 const BLANK: Partial<Pack> = { name: '', description: '', price: 0, imageUrl: '', status: 'available', linkedProductIds: [] };
 
-export default function PackEditor() {
+interface PackEditorProps {
+  onBack?: () => void;
+}
+
+export default function PackEditor({ onBack }: PackEditorProps = {}) {
   const [products, setProducts] = useState<Product[]>([]);
   const [packs, setPacks] = useState<Pack[]>([]);
   const [loading, setLoading] = useState(true);
@@ -168,9 +172,20 @@ export default function PackEditor() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-black text-purple-900 mb-2">Mystery Packs</h1>
-        <p className="text-purple-400 text-sm font-semibold">Create and manage mystery packs linked to products</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-black text-purple-900 mb-2">Mystery Packs</h1>
+          <p className="text-purple-400 text-sm font-semibold">Create and manage mystery packs linked to products</p>
+        </div>
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold text-purple-700 bg-purple-50 border-2 border-purple-100 hover:border-purple-300 hover:bg-purple-100 transition-all whitespace-nowrap"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </button>
+        )}
       </div>
 
       <AnimatePresence>

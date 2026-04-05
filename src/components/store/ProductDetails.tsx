@@ -38,7 +38,7 @@ export default function ProductDetails() {
           setProduct({ id: docSnap.id, ...docSnap.data() } as Product);
         }
       } catch (error) {
-        console.error('Error fetching product:', error);
+        // Silently fail - will show "Product not found" in UI
       } finally {
         setLoading(false);
       }

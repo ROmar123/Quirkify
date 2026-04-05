@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion } from 'motion/react';
 import { Loader2, AlertCircle, X, ArrowLeft, Upload } from 'lucide-react';
@@ -71,7 +71,7 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
         const result = (reader.result as string).split(',')[1];
         resolve(result);
       };
-      reader.onerror = reject;
+      reader.onerror = () => reject(new Error('Failed to read file'));
       reader.readAsDataURL(f);
     }));
 
@@ -86,6 +86,13 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
     setError(null);
     setAnalysisStep(-1);
   }, [files]);
+
+  // Cleanup blob URLs on unmount or when previews change
+  useEffect(() => {
+    return () => {
+      previews.forEach(preview => URL.revokeObjectURL(preview));
+    };
+  }, [previews]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -121,7 +128,20 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
       await simulateProgress();
 
       // Analyze first image with AI
-      const analysis = await identifyProduct(imageBase64s[0]);
+      setAnalysisStep(3); // Show "Calculating price" while API processes
+
+      // Add a secondary timeout to detect hanging
+      const apiTimeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => {
+          reject(new Error('Analysis is taking too long. Please try again.'));
+        }, 45000)
+      );
+
+      const analysis = await Promise.race([
+        identifyProduct(imageBase64s[0]),
+        apiTimeoutPromise
+      ]) as any;
+
       const standardCategory = mapToStandardCategory(analysis.category || '');
       const retailPrice = analysis.retailPrice || analysis.priceRange?.max || 0;
       const markdownPercentage = 40;
@@ -146,23 +166,9 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
 
       setFormData(result);
       setAnalysisStep(-1);
-    } catch (err) {
-      console.error('Analysis error:', err);
+    } catch (err: any) {
       const errMsg = (err instanceof Error) ? err.message : String(err);
-
-      if (errMsg.includes('timeout') || errMsg.includes('timed out')) {
-        setError('Analysis took too long. Please try with a clearer, well-lit photo.');
-      } else if (errMsg.includes('storage') || errMsg.includes('upload')) {
-        setError('Could not upload image. Check your connection and try again.');
-      } else if (errMsg.includes('AI') || errMsg.includes('analyze')) {
-        setError('Could not analyze this image. Try a different photo.');
-      } else if (errMsg.includes('network') || errMsg.includes('fetch')) {
-        setError('Network error. Check connection and try again.');
-      } else {
-        setError(`Error: ${errMsg.substring(0, 100)}`);
-      }
-
-      // Clear partial state
+      setError(errMsg || 'Analysis failed. Please try again.');
       setFormData(null);
       setAnalysisStep(-1);
     } finally {

@@ -4,7 +4,7 @@ import { UserProfile, CollectionItem } from '../../types';
 import { getUserProfile } from '../../services/userService';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Trophy, Shield, Zap, Star, MapPin, Twitter, Instagram, Package, Gavel } from 'lucide-react';
+import { Trophy, Shield, Zap, Star, MapPin, Twitter, Instagram, Package, Gavel, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { RARITY_COLORS, RARITY_BG } from '../../services/gamificationService';
@@ -14,6 +14,7 @@ export default function PublicProfile() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [items, setItems] = useState<CollectionItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -21,6 +22,7 @@ export default function PublicProfile() {
       try {
         const p = await getUserProfile(uid);
         setProfile(p);
+        setError(null);
 
         // Load public collection
         const q = query(collection(db, 'users', uid, 'collection'));
@@ -28,7 +30,8 @@ export default function PublicProfile() {
         const collectionItems = snap.docs.map(d => ({ id: d.id, ...d.data() } as CollectionItem));
         setItems(collectionItems);
       } catch (error) {
-        console.error('Error loading profile:', error);
+        setError(error instanceof Error ? error.message : 'Failed to load profile');
+        setProfile(null);
       } finally {
         setLoading(false);
       }
@@ -41,6 +44,16 @@ export default function PublicProfile() {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 flex justify-center" style={{ background: '#FDF4FF' }}>
         <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#A855F7', borderTopColor: 'transparent' }} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-20 text-center" style={{ background: '#FDF4FF' }}>
+        <h2 className="text-2xl font-black text-red-600 mb-4">Error Loading Profile</h2>
+        <p className="text-red-500 text-sm mb-6">{error}</p>
+        <Link to="/" className="text-purple-500 font-bold text-sm hover:text-purple-700 transition-colors">Return to Store</Link>
       </div>
     );
   }
