@@ -44,14 +44,12 @@ export default function Orders() {
         setOrders(data);
         setLoading(false);
       }, (error: any) => {
-        console.error('Firestore error:', error);
         setError(error?.message || 'Failed to load orders');
         setLoading(false);
       });
 
       return () => unsubscribe();
     } catch (err) {
-      console.error('Setup error:', err);
       setError('Failed to set up orders listener');
       setLoading(false);
     }

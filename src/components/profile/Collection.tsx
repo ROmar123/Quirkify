@@ -46,7 +46,9 @@ export default function Collection() {
 
     ensureUserProgress(uid)
       .then(setUserProgress)
-      .catch(err => console.error('Error ensuring user progress:', err));
+      .catch(() => {
+        // Silently fail - user progress will be created on first interaction
+      });
 
     getUserProfile(uid)
       .then(p => {
@@ -57,7 +59,9 @@ export default function Collection() {
           setLocation(p.location || '');
         }
       })
-      .catch(err => console.error('Error loading user profile:', err));
+      .catch(() => {
+        // Silently fail - profile will be created on first update
+      });
 
     let isMounted = true;
 
@@ -84,7 +88,7 @@ export default function Collection() {
         }
       } catch (err) {
         if (isMounted) {
-          console.error('Error processing vault items:', err);
+          // Silently fail - vault items will show empty
           setLoading(false);
         }
       }
@@ -124,7 +128,6 @@ export default function Collection() {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to update profile';
       setUpdateError(errorMsg);
-      console.error('Profile update error:', err);
     } finally {
       setSaving(false);
     }
@@ -160,7 +163,6 @@ export default function Collection() {
     } catch (error: any) {
       const errorMsg = error?.message || 'Wallet top-up failed. Please try again.';
       setTopUpError(errorMsg);
-      console.error('Top-up error:', error);
       handleFirestoreError(error, OperationType.WRITE, 'orders');
     }
   };

@@ -30,7 +30,6 @@ export default function PublicProfile() {
         const collectionItems = snap.docs.map(d => ({ id: d.id, ...d.data() } as CollectionItem));
         setItems(collectionItems);
       } catch (error) {
-        console.error('Error loading profile:', error);
         setError(error instanceof Error ? error.message : 'Failed to load profile');
         setProfile(null);
       } finally {

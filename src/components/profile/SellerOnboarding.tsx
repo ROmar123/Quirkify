@@ -23,7 +23,6 @@ function CameraCapture({ onCapture, label }: { onCapture: (blob: Blob) => void, 
         videoRef.current.srcObject = mediaStream;
       }
     } catch (err) {
-      console.error('Camera access error:', err);
       setError('Camera access denied. Please check your browser permissions.');
     }
   };
