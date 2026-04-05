@@ -60,6 +60,9 @@ export default function ReviewQueue() {
           discountPrice: editedProduct.discountPrice,
           condition: editedProduct.condition,
           stock: editedProduct.stock,
+          totalStock: editedProduct.stock,
+          allocations: editedProduct.allocations || { store: editedProduct.stock, auction: 0, packs: 0 },
+          approvalDate: new Date().toISOString(),
           listingType: editedProduct.listingType || 'store'
         });
       }
@@ -219,6 +222,55 @@ export default function ReviewQueue() {
                               className="w-full px-4 py-3 bg-white border-2 border-purple-100 rounded-2xl text-sm font-bold text-purple-800 placeholder:text-purple-300 focus:outline-none focus:border-purple-400"
                             />
                           </div>
+                        </div>
+
+                        <div className="mt-4 pt-4 border-t border-purple-100">
+                          <label className="text-[8px] font-bold uppercase tracking-widest text-purple-400 block mb-3">Allocate Stock to Channels</label>
+                          <div className="grid grid-cols-3 gap-3">
+                            <div>
+                              <label className="text-[8px] text-purple-400 block mb-1">Store</label>
+                              <input
+                                type="number"
+                                min="0"
+                                max={editedProduct.stock}
+                                value={editedProduct.allocations?.store || 0}
+                                onChange={(e) => setEditedProduct({
+                                  ...editedProduct,
+                                  allocations: { ...editedProduct.allocations || { store: 0, auction: 0, packs: 0 }, store: Number(e.target.value) }
+                                })}
+                                className="w-full px-3 py-2 bg-white border-2 border-purple-100 rounded-lg text-sm font-bold text-purple-800 focus:outline-none focus:border-purple-400"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[8px] text-purple-400 block mb-1">Auction</label>
+                              <input
+                                type="number"
+                                min="0"
+                                max={editedProduct.stock}
+                                value={editedProduct.allocations?.auction || 0}
+                                onChange={(e) => setEditedProduct({
+                                  ...editedProduct,
+                                  allocations: { ...editedProduct.allocations || { store: 0, auction: 0, packs: 0 }, auction: Number(e.target.value) }
+                                })}
+                                className="w-full px-3 py-2 bg-white border-2 border-purple-100 rounded-lg text-sm font-bold text-purple-800 focus:outline-none focus:border-purple-400"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[8px] text-purple-400 block mb-1">Packs</label>
+                              <input
+                                type="number"
+                                min="0"
+                                max={editedProduct.stock}
+                                value={editedProduct.allocations?.packs || 0}
+                                onChange={(e) => setEditedProduct({
+                                  ...editedProduct,
+                                  allocations: { ...editedProduct.allocations || { store: 0, auction: 0, packs: 0 }, packs: Number(e.target.value) }
+                                })}
+                                className="w-full px-3 py-2 bg-white border-2 border-purple-100 rounded-lg text-sm font-bold text-purple-800 focus:outline-none focus:border-purple-400"
+                              />
+                            </div>
+                          </div>
+                          <p className="text-[8px] text-purple-400 font-bold mt-2">Total allocated: {(editedProduct.allocations?.store || 0) + (editedProduct.allocations?.auction || 0) + (editedProduct.allocations?.packs || 0)} / {editedProduct.stock}</p>
                         </div>
                       </div>
                     ) : (
