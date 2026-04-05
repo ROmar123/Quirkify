@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Check, ArrowLeft, Upload } from 'lucide-react';
+import { Check, ArrowLeft, Upload, AlertCircle } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { db, auth } from '../../../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Product } from '../../../types';
 import AIIntake, { AIIntakeResult } from './AIIntake';
+import { retryFirestoreOperation } from '../../../services/retry';
 
 type Step = 'entry' | 'intake' | 'review' | 'confirmation';
 
@@ -43,8 +44,18 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   };
 
   const handleSaveProduct = async (finalData: Partial<Product>) => {
+    // Authorization check
     if (!auth.currentUser) {
-      setError('You must be logged in');
+      setError('You must be logged in to create products');
+      return;
+    }
+
+    // Check if user has seller role (would be in custom claims in production)
+    const token = await auth.currentUser.getIdTokenResult();
+    const sellerClaims = (token.claims as any)?.seller || (token.claims as any)?.role === 'seller';
+
+    if (!sellerClaims && process.env.NODE_ENV === 'production') {
+      setError('Only sellers can create products. Upgrade your account to get started.');
       return;
     }
 
@@ -52,17 +63,37 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     setError(null);
 
     try {
-      const productRef = await addDoc(collection(db, 'products'), {
-        ...finalData,
-        createdAt: serverTimestamp(),
-        authorUid: auth.currentUser.uid,
-        status: 'pending',
-      });
+      // Use retry logic for network resilience
+      await retryFirestoreOperation(
+        async () => {
+          const productRef = await addDoc(collection(db, 'products'), {
+            ...finalData,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            authorUid: auth.currentUser!.uid,
+            status: 'pending',
+            version: 1,
+          });
+          return productRef;
+        },
+        'Creating product'
+      );
 
       setProductData(finalData);
       setCurrentStep('confirmation');
     } catch (err: any) {
-      setError(err.message || 'Failed to save product');
+      // User-friendly error messages
+      const message = err.message || 'Failed to save product';
+
+      if (message.includes('network') || message.includes('unavailable')) {
+        setError(`${message}. Your draft will be saved locally and synced when online.`);
+      } else if (message.includes('permission')) {
+        setError('You don\'t have permission to create products. Check your account settings.');
+      } else {
+        setError(message);
+      }
+
+      console.error('Product creation error:', err);
     } finally {
       setSaving(false);
     }

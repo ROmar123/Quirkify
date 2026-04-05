@@ -63,6 +63,18 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
     setFormData({ ...formData, allocations });
   };
 
+  // Check if allocations are valid
+  const isAllocationValid = () => {
+    if (!formData || !formData.allocations || !formData.stock) return false;
+    const total = (formData.allocations.store || 0) +
+                  (formData.allocations.auction || 0) +
+                  (formData.allocations.packs || 0);
+    return total <= formData.stock;
+  };
+
+  // Check if data has changed
+  const hasChanges = formData && JSON.stringify(formData) !== JSON.stringify(product);
+
   const handleSave = async () => {
     if (!formData || !product) return;
 
@@ -355,13 +367,19 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
                 </button>
                 <button
                   onClick={handleSave}
-                  disabled={saving}
+                  disabled={saving || !isAllocationValid()}
                   className="flex-1 py-3 rounded-2xl text-sm font-bold text-white disabled:opacity-50 transition-all flex items-center justify-center gap-2"
                   style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
+                  title={!isAllocationValid() ? 'Fix allocations: total cannot exceed stock' : ''}
                 >
                   <Save className="w-4 h-4" />
                   {saving ? 'Saving...' : 'Save Changes'}
                 </button>
+                {!isAllocationValid() && (
+                  <p className="text-xs text-red-600 font-bold mt-2">
+                    ⚠️ Fix allocations: Total allocated ({(formData?.allocations?.store || 0) + (formData?.allocations?.auction || 0) + (formData?.allocations?.packs || 0)}) cannot exceed stock ({formData?.stock})
+                  </p>
+                )}
               </>
             ) : (
               <button
