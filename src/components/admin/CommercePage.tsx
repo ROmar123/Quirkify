@@ -1,16 +1,8 @@
-import { useState, Suspense } from 'react';
+import { useState } from 'react';
 import { cn } from '../../lib/utils';
 import OrderManager from './OrderManager';
 
 type Tab = 'orders';
-
-function ErrorFallback() {
-  return (
-    <div className="p-8 text-center">
-      <p className="text-red-600 font-bold">Error loading orders. Please refresh the page.</p>
-    </div>
-  );
-}
 
 export default function CommercePage() {
   const [tab, setTab] = useState<Tab>('orders');
@@ -35,11 +27,7 @@ export default function CommercePage() {
           ))}
         </div>
       </div>
-      {tab === 'orders' && (
-        <Suspense fallback={<div className="p-8 text-center text-purple-400">Loading orders...</div>}>
-          <OrderManager />
-        </Suspense>
-      )}
+      {tab === 'orders' && <OrderManager />}
     </div>
   );
 }
