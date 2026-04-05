@@ -118,19 +118,39 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
     setErrors([]);
 
     try {
+      console.log('[AIIntake] Starting analysis...');
       await simulateProgress();
 
       // Analyze first image with AI
-      const analysis = await identifyProduct(imageBase64s[0]);
+      console.log('[AIIntake] Calling Gemini API...');
+      setAnalysisStep(3); // Show "Calculating price" while API processes
+
+      // Add a secondary timeout to detect hanging
+      const apiTimeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => {
+          console.error('[AIIntake] API call timeout detected after 45 seconds');
+          reject(new Error('API is taking too long - server may be busy or API key invalid'));
+        }, 45000)
+      );
+
+      const analysis = await Promise.race([
+        identifyProduct(imageBase64s[0]),
+        apiTimeoutPromise
+      ]) as any;
+
+      console.log('[AIIntake] Got AI response:', analysis);
+
       const standardCategory = mapToStandardCategory(analysis.category || '');
       const retailPrice = analysis.retailPrice || analysis.priceRange?.max || 0;
       const markdownPercentage = 40;
       const discountPrice = calculateSellingPrice(retailPrice, markdownPercentage);
 
+      console.log('[AIIntake] Uploading file to Cloud Storage...');
       // Upload the first image to Cloud Storage to get a real URL (not base64)
       // Use a temporary product ID since we don't have one yet
       const tempProductId = `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       const imageUrl = await uploadFile(`products/${tempProductId}/primary.jpg`, files[0]);
+      console.log('[AIIntake] File uploaded, URL:', imageUrl);
 
       const result = {
         ...analysis,
@@ -144,23 +164,17 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
         imageUrls: [imageUrl] // Only primary image for now
       };
 
+      console.log('[AIIntake] Analysis complete, showing form');
       setFormData(result);
       setAnalysisStep(-1);
-    } catch (err) {
-      console.error('Analysis error:', err);
+    } catch (err: any) {
+      console.error('[AIIntake] ERROR:', err);
       const errMsg = (err instanceof Error) ? err.message : String(err);
+      console.error('[AIIntake] Error message:', errMsg);
+      console.error('[AIIntake] Full error object:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
 
-      if (errMsg.includes('timeout') || errMsg.includes('timed out')) {
-        setError('Analysis took too long. Please try with a clearer, well-lit photo.');
-      } else if (errMsg.includes('storage') || errMsg.includes('upload')) {
-        setError('Could not upload image. Check your connection and try again.');
-      } else if (errMsg.includes('AI') || errMsg.includes('analyze')) {
-        setError('Could not analyze this image. Try a different photo.');
-      } else if (errMsg.includes('network') || errMsg.includes('fetch')) {
-        setError('Network error. Check connection and try again.');
-      } else {
-        setError(`Error: ${errMsg.substring(0, 100)}`);
-      }
+      // Show error immediately - don't try to parse it
+      setError(errMsg || 'Analysis failed. Please try again.');
 
       // Clear partial state
       setFormData(null);
