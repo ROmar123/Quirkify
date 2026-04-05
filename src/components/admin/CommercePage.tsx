@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { useLocation } from 'react-router-dom';
-import OrderManager from './OrderManager';
-import AuctionManager from './AuctionManager';
-import PackManager from './PackManager';
+
+// Lazy load managers to prevent blocking
+const OrderManager = lazy(() => import('./OrderManager'));
+const AuctionManager = lazy(() => import('./AuctionManager'));
+const PackManager = lazy(() => import('./PackManager'));
 
 type Tab = 'orders' | 'auctions' | 'packs';
 
@@ -45,26 +47,28 @@ export default function CommercePage() {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div key={tab}>
-          {tab === 'orders' && (
-            <>
-              <h2 className="text-lg font-bold mb-4 text-purple-900">Orders Management</h2>
-              <OrderManager />
-            </>
-          )}
-          {tab === 'auctions' && (
-            <>
-              <h2 className="text-lg font-bold mb-4 text-purple-900">Auctions Management</h2>
-              <AuctionManager />
-            </>
-          )}
-          {tab === 'packs' && (
-            <>
-              <h2 className="text-lg font-bold mb-4 text-purple-900">Mystery Packs Management</h2>
-              <PackManager />
-            </>
-          )}
-        </div>
+        <Suspense fallback={<div className="flex items-center justify-center py-32"><div className="w-10 h-10 rounded-full border-4 border-purple-200 border-t-purple-500 animate-spin" /></div>}>
+          <div key={tab}>
+            {tab === 'orders' && (
+              <>
+                <h2 className="text-lg font-bold mb-4 text-purple-900">Orders Management</h2>
+                <OrderManager />
+              </>
+            )}
+            {tab === 'auctions' && (
+              <>
+                <h2 className="text-lg font-bold mb-4 text-purple-900">Auctions Management</h2>
+                <AuctionManager />
+              </>
+            )}
+            {tab === 'packs' && (
+              <>
+                <h2 className="text-lg font-bold mb-4 text-purple-900">Mystery Packs Management</h2>
+                <PackManager />
+              </>
+            )}
+          </div>
+        </Suspense>
       </div>
     </div>
   );
