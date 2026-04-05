@@ -59,22 +59,40 @@ export default function Collection() {
       })
       .catch(err => console.error('Error loading user profile:', err));
 
+    let isMounted = true;
+
     const qVault = query(collection(db, 'users', uid, 'collection'));
     const unsubscribeVault = onSnapshot(qVault, async (snapshot) => {
-      const collectionItems: CollectionItem[] = [];
-      for (const d of snapshot.docs) {
-        const itemData = d.data() as CollectionItem;
-        const productRef = doc(db, 'products', itemData.productId);
-        const productSnap = await getDoc(productRef);
-        if (productSnap.exists()) {
-          collectionItems.push({ id: d.id, ...itemData, product: { id: productSnap.id, ...productSnap.data() } as Product });
+      if (!isMounted) return; // Prevent setState on unmounted component
+
+      try {
+        const collectionItems: CollectionItem[] = [];
+        for (const d of snapshot.docs) {
+          if (!isMounted) break; // Check again during async loop
+
+          const itemData = d.data() as CollectionItem;
+          const productRef = doc(db, 'products', itemData.productId);
+          const productSnap = await getDoc(productRef);
+          if (productSnap.exists()) {
+            collectionItems.push({ id: d.id, ...itemData, product: { id: productSnap.id, ...productSnap.data() } as Product });
+          }
+        }
+
+        if (isMounted) {
+          setItems(collectionItems);
+          setLoading(false);
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.error('Error processing vault items:', err);
+          setLoading(false);
         }
       }
-      setItems(collectionItems);
-      setLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `users/${uid}/collection`);
-      setLoading(false);
+      if (isMounted) {
+        handleFirestoreError(error, OperationType.GET, `users/${uid}/collection`);
+        setLoading(false);
+      }
     });
 
     const qBids = query(collection(db, 'auctions'), where('highestBidderId', '==', uid), where('status', '==', 'active'));
@@ -85,7 +103,13 @@ export default function Collection() {
     });
 
     const unsubscribeNotifications = subscribeToNotifications(uid, setNotifications);
-    return () => { unsubscribeVault(); unsubscribeBids(); unsubscribeNotifications(); };
+
+    return () => {
+      isMounted = false; // Prevent setState after unmount
+      unsubscribeVault();
+      unsubscribeBids();
+      unsubscribeNotifications();
+    };
   }, []);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {

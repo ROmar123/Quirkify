@@ -25,6 +25,10 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
             const orderSnap = await getDoc(orderRef);
             if (orderSnap.exists()) {
               const orderData = orderSnap.data();
+              if (!orderData) {
+                console.error('Order document exists but is empty');
+                return;
+              }
               await updateDoc(orderRef, { status: 'processing' });
               if (auth.currentUser) {
                 // Award XP: 1 XP per R10 spent, minimum 10 XP
@@ -32,7 +36,7 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
                 await addXP(auth.currentUser.uid, xp);
                 setXpEarned(xp);
               }
-              if (orderData.orderType === 'topup' && auth.currentUser) {
+              if (orderData?.orderType === 'topup' && auth.currentUser) {
                 const userProgressRef = doc(db, 'user_progress', auth.currentUser.uid);
                 await updateDoc(userProgressRef, { balance: increment(amount) });
               }

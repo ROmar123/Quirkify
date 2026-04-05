@@ -4,6 +4,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, signIn, getRedirectResult } from './firebase';
 import { Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 import StoreFront from './components/store/StoreFront';
 import AdminDashboard from './components/admin/AdminDashboard';
@@ -51,19 +52,19 @@ function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: User | null
           <Route path="/profile/:uid" element={<PublicProfile />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/seller/onboarding" element={<SellerOnboarding />} />
-          <Route path="/admin" element={isAdmin ? <AdminDashboard /> : <Navigate to="/" />} />
-          <Route path="/admin/inventory/*" element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
-          <Route path="/admin/inventory" element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
-          <Route path="/admin/listings" element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
-          <Route path="/admin/intake"   element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
-          <Route path="/admin/auctions" element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
-          <Route path="/admin/packs"    element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
-          <Route path="/admin/reviews"  element={isAdmin ? <ProductsPage /> : <Navigate to="/" />} />
-          <Route path="/admin/orders"   element={isAdmin ? <CommercePage /> : <Navigate to="/" />} />
-          <Route path="/admin/campaigns" element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
-          <Route path="/admin/social"   element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
-          <Route path="/admin/streams"  element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
-          <Route path="/admin/resources" element={isAdmin ? <ResourceMonitor /> : <Navigate to="/" />} />
+          <Route path="/admin" element={isAdmin ? <ErrorBoundary><AdminDashboard /></ErrorBoundary> : <Navigate to="/" />} />
+          <Route path="/admin/inventory/*" element={isAdmin ? <ErrorBoundary><Inventory /></ErrorBoundary> : <Navigate to="/" />} />
+          <Route path="/admin/inventory" element={isAdmin ? <ErrorBoundary><Inventory /></ErrorBoundary> : <Navigate to="/" />} />
+          <Route path="/admin/listings" element={isAdmin ? <ErrorBoundary><Inventory /></ErrorBoundary> : <Navigate to="/" />} />
+          <Route path="/admin/intake"   element={isAdmin ? <ErrorBoundary><Inventory /></ErrorBoundary> : <Navigate to="/" />} />
+          <Route path="/admin/auctions" element={isAdmin ? <ErrorBoundary><Inventory /></ErrorBoundary> : <Navigate to="/" />} />
+          <Route path="/admin/packs"    element={isAdmin ? <ErrorBoundary><Inventory /></ErrorBoundary> : <Navigate to="/" />} />
+          <Route path="/admin/reviews"  element={isAdmin ? <ErrorBoundary><ProductsPage /></ErrorBoundary> : <Navigate to="/" />} />
+          <Route path="/admin/orders"   element={isAdmin ? <ErrorBoundary><CommercePage /></ErrorBoundary> : <Navigate to="/" />} />
+          <Route path="/admin/campaigns" element={isAdmin ? <ErrorBoundary><GrowthPage /></ErrorBoundary> : <Navigate to="/" />} />
+          <Route path="/admin/social"   element={isAdmin ? <ErrorBoundary><GrowthPage /></ErrorBoundary> : <Navigate to="/" />} />
+          <Route path="/admin/streams"  element={isAdmin ? <ErrorBoundary><GrowthPage /></ErrorBoundary> : <Navigate to="/" />} />
+          <Route path="/admin/resources" element={isAdmin ? <ErrorBoundary><ResourceMonitor /></ErrorBoundary> : <Navigate to="/" />} />
         </Routes>
       </motion.div>
     </AnimatePresence>

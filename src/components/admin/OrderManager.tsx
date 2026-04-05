@@ -48,6 +48,10 @@ export default function OrderManager() {
 
   useEffect(() => {
     try {
+      // IMPORTANT: This query requires a Firestore composite index
+      // Index name: 'orders_createdAt_desc'
+      // Fields: createdAt (Descending)
+      // Create in Firebase Console if query fails with "requires a composite index" error
       const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
       const unsubscribe = onSnapshot(q, (snapshot) => {
         try {
