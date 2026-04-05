@@ -1,29 +1,33 @@
-import { Suspense } from 'react';
+import { useState } from 'react';
+import { cn } from '../../lib/utils';
 import OrderManager from './OrderManager';
 
-function LoadingFallback() {
-  return (
-    <div className="flex items-center justify-center py-24">
-      <div className="w-10 h-10 rounded-full border-4 border-purple-200 border-t-purple-500 animate-spin" />
-    </div>
-  );
-}
+type Tab = 'orders';
 
 export default function CommercePage() {
+  const [tab, setTab] = useState<Tab>('orders');
+
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'orders', label: 'Orders' },
+  ];
+
   return (
-    <div className="min-h-screen bg-white">
-      <div className="sticky top-14 z-20 bg-white/90 backdrop-blur-md border-b-2 border-purple-100 px-4 py-4">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-2xl font-black text-purple-900 mb-4">Commerce</h1>
-          <p className="text-xs text-purple-400">Orders Management</p>
+    <div>
+      <div className="sticky top-14 z-20 bg-white/90 backdrop-blur-md border-b border-purple-100 px-4 py-3">
+        <div className="flex gap-2 max-w-7xl mx-auto">
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={cn(
+                'px-4 py-2 rounded-full text-sm font-black transition-all',
+                tab === t.id ? 'text-white shadow-md' : 'bg-purple-50 text-purple-400 hover:bg-purple-100'
+              )}
+              style={tab === t.id ? { background: 'linear-gradient(135deg, #F472B6, #A855F7)' } : {}}>
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
-
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <Suspense fallback={<LoadingFallback />}>
-          <OrderManager />
-        </Suspense>
-      </div>
+      {tab === 'orders' && <OrderManager />}
     </div>
   );
 }
