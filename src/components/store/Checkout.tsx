@@ -48,9 +48,14 @@ export default function Checkout() {
             if (item.quantity > storeAllocation) {
               errors.push(`${item.name}: Only ${storeAllocation} available in stock (you want ${item.quantity})`);
             }
+          } else {
+            // Product not found
+            errors.push(`${item.name}: Product no longer available`);
           }
         } catch (error) {
           console.error(`Error checking stock for ${item.id}:`, error);
+          // On error, prevent checkout for this item
+          errors.push(`${item.name}: Could not verify stock availability. Please try again.`);
         }
       }
       setStockErrors(errors);
