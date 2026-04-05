@@ -47,16 +47,28 @@ export default function OrderManager() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
   useEffect(() => {
-    const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'orders');
-      setLoading(false);
-    });
+    try {
+      const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        try {
+          setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+          setLoading(false);
+        } catch (err) {
+          console.error('Error mapping orders:', err);
+          setLoading(false);
+        }
+      }, (error) => {
+        console.error('Firestore listener error:', error);
+        handleFirestoreError(error, OperationType.LIST, 'orders');
+        setLoading(false);
+      });
 
-    return unsubscribe;
+      return unsubscribe;
+    } catch (err) {
+      console.error('Error setting up Firestore listener:', err);
+      setLoading(false);
+      return () => {};
+    }
   }, []);
 
   const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
