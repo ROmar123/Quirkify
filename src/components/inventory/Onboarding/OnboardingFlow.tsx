@@ -48,67 +48,45 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   };
 
   const handleSaveProduct = async (finalData: Partial<Product> | null) => {
-    // Validation
     if (!finalData) {
-      console.error('[SAVE] Product data is missing');
-      setError('Product data is missing. Please review the form.');
+      setError('Product data is missing');
       return;
     }
 
     if (!auth.currentUser) {
-      console.error('[SAVE] User not authenticated');
-      setError('You must be logged in to create products');
+      setError('Not logged in');
       return;
     }
 
-    console.log('[SAVE] Starting save process for:', finalData.name);
     setSaving(true);
     setError(null);
 
     try {
-      console.log('[SAVE] About to call addDoc...');
-
-      // Strip out large fields (images, raw base64 data) before saving
-      const cleanData = {
-        ...finalData,
-      };
-
-      // Remove any base64/image data that makes the document too large
-      delete (cleanData as any).imageData;
-      delete (cleanData as any).rawImages;
-      delete (cleanData as any).images;
-      delete (cleanData as any).base64;
-
-      console.log('[SAVE] Cleaned data size estimate:', JSON.stringify(cleanData).length, 'bytes');
-
-      const productRef = await addDoc(collection(db, 'products'), {
-        ...cleanData,
+      // Only save essential fields - strip everything else
+      const productToSave = {
+        name: finalData.name || '',
+        description: finalData.description || '',
+        category: finalData.category || '',
+        condition: finalData.condition || '',
+        retailPrice: finalData.retailPrice || 0,
+        discountPrice: finalData.discountPrice || 0,
+        markdownPercentage: finalData.markdownPercentage || 0,
+        stock: finalData.stock || 1,
+        allocations: finalData.allocations || { store: 1, auction: 0, packs: 0 },
+        imageUrl: finalData.imageUrl && finalData.imageUrl.length < 2000 ? finalData.imageUrl : '',
+        status: 'pending' as const,
+        version: 1,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        authorUid: auth.currentUser!.uid,
-        status: 'pending',
-        version: 1,
-      });
+        authorUid: auth.currentUser.uid,
+      };
 
-      console.log('[SAVE] Product created successfully:', productRef.id);
-      setProductData(finalData);
+      const docRef = await addDoc(collection(db, 'products'), productToSave);
       setCurrentStep('confirmation');
     } catch (err: any) {
-      console.error('[SAVE] ERROR:', err);
-      console.error('[SAVE] Error code:', err.code);
-      console.error('[SAVE] Error message:', err.message);
-
-      const message = err.message || 'Failed to save product';
-
-      if (message.includes('network') || message.includes('unavailable')) {
-        setError(`${message}. Your draft will be saved locally and synced when online.`);
-      } else if (message.includes('permission')) {
-        setError('You don\'t have permission to create products. Check your account settings.');
-      } else {
-        setError(message);
-      }
+      const message = err.message || err.toString();
+      setError(message.substring(0, 200)); // Truncate long errors
     } finally {
-      console.log('[SAVE] Setting saving to false');
       setSaving(false);
     }
   };
