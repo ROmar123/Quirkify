@@ -3,7 +3,7 @@ import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc
 import { db, handleFirestoreError, OperationType } from '../../../firebase';
 import { Product, Pack } from '../../../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Gift, Plus, Trash2, Edit3, Save, X, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Gift, Plus, Trash2, Edit3, Save, X, AlertCircle, CheckCircle2, Upload } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 
 const inputCls = 'w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-800 focus:outline-none focus:border-purple-400 transition-colors';
@@ -19,6 +19,8 @@ export default function PackEditor() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
     let unsubProducts: (() => void) | null = null;
@@ -56,17 +58,60 @@ export default function PackEditor() {
     setTimeout(() => isError ? setError(null) : setSuccess(null), 3000);
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast('Image must be smaller than 5MB', true);
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast('Please select a valid image file', true);
+      return;
+    }
+
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setImagePreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSave = async () => {
     if (!editing?.name || !editing.price) { toast('Name and price are required', true); return; }
     if (!editing.linkedProductIds || editing.linkedProductIds.length === 0) { toast('Select at least one product', true); return; }
 
     setSaving(true);
     try {
+      let imageUrl = editing.imageUrl || '';
+
+      // If image file was uploaded, convert to base64
+      if (imageFile) {
+        imageUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = (reader.result as string).split(',')[1];
+            resolve(`data:${imageFile.type};base64,${result}`);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(imageFile);
+        });
+      }
+
+      if (!imageUrl) {
+        toast('Pack image is required', true);
+        setSaving(false);
+        return;
+      }
+
       const data = {
         name: editing.name,
         description: editing.description || '',
         price: editing.price,
-        imageUrl: editing.imageUrl || '',
+        imageUrl: imageUrl,
         status: editing.status || 'available',
         linkedProductIds: editing.linkedProductIds || [],
         createdAt: editing.id ? undefined : new Date().toISOString(),
@@ -91,6 +136,8 @@ export default function PackEditor() {
         toast('Pack created!');
       }
       setEditing(null);
+      setImageFile(null);
+      setImagePreview(null);
     } catch {
       toast('Failed to save pack', true);
     } finally {
@@ -147,7 +194,11 @@ export default function PackEditor() {
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-black text-purple-900">{editing.id ? 'Edit Pack' : 'Create New Pack'}</h2>
             <button
-              onClick={() => setEditing(null)}
+              onClick={() => {
+                setEditing(null);
+                setImageFile(null);
+                setImagePreview(null);
+              }}
               className="p-2 hover:bg-purple-50 rounded-lg transition-colors"
             >
               <X className="w-5 h-5 text-purple-400" />
@@ -191,14 +242,48 @@ export default function PackEditor() {
               </div>
 
               <div>
-                <label className={labelCls}>Image URL</label>
-                <input
-                  type="text"
-                  value={editing.imageUrl || ''}
-                  onChange={(e) => setEditing({ ...editing, imageUrl: e.target.value })}
-                  className={inputCls}
-                  placeholder="https://..."
-                />
+                <label className={labelCls}>Pack Image</label>
+                {imagePreview ? (
+                  <div className="relative">
+                    <img src={imagePreview} alt="Preview" className="w-full h-40 rounded-2xl object-cover shadow-md" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImagePreview(null);
+                        setImageFile(null);
+                        setEditing({ ...editing, imageUrl: '' });
+                      }}
+                      className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded-lg text-xs font-bold hover:bg-red-600"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <label className="block cursor-pointer">
+                    <div className="border-2 border-dashed border-purple-200 rounded-2xl p-6 text-center hover:border-purple-300 transition-colors">
+                      <Upload className="w-6 h-6 text-purple-400 mx-auto mb-2" />
+                      <p className="text-purple-600 text-xs font-bold">Click to upload or use URL</p>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+                {!imagePreview && (
+                  <div className="mt-3">
+                    <p className="text-[10px] text-purple-400 font-bold mb-1">Or paste URL:</p>
+                    <input
+                      type="text"
+                      value={editing.imageUrl || ''}
+                      onChange={(e) => setEditing({ ...editing, imageUrl: e.target.value })}
+                      className={inputCls}
+                      placeholder="https://..."
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -262,7 +347,11 @@ export default function PackEditor() {
 
           <div className="flex gap-3 pt-4 border-t border-purple-100">
             <button
-              onClick={() => setEditing(null)}
+              onClick={() => {
+                setEditing(null);
+                setImageFile(null);
+                setImagePreview(null);
+              }}
               className="flex-1 py-3 rounded-2xl text-sm font-bold text-purple-700 bg-purple-50 border-2 border-purple-100 hover:border-purple-300 transition-all"
             >
               Cancel
