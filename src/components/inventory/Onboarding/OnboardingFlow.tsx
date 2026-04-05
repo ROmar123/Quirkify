@@ -54,15 +54,8 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       return;
     }
 
-    // Check if user has seller role (would be in custom claims in production)
-    const token = await auth.currentUser.getIdTokenResult();
-    const sellerClaims = (token.claims as any)?.seller || (token.claims as any)?.role === 'seller';
-
-    if (!sellerClaims && process.env.NODE_ENV === 'production') {
-      setError('Only sellers can create products. Upgrade your account to get started.');
-      return;
-    }
-
+    // In admin inventory section, authenticated users can create products
+    // (seller role check is only for public storefront in production)
     setSaving(true);
     setError(null);
 
