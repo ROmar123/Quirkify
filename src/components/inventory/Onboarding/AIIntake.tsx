@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'motion/react';
-import { Camera, Upload, Loader2, AlertCircle, Sparkles, X } from 'lucide-react';
+import { Loader2, AlertCircle, X, ArrowLeft } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { identifyProduct } from '../../../services/gemini';
 import { mapToStandardCategory } from '../../../lib/categories';
@@ -28,23 +28,18 @@ export interface AIIntakeResult {
 }
 
 const ANALYSIS_STEPS = [
-  { id: 'check', label: '📸 Checking product image...' },
-  { id: 'analyze', label: '🔍 Doing comparative analysis...' },
-  { id: 'generate', label: '💡 Generating product details...' },
-  { id: 'pricing', label: '🏷️ Calculating optimal pricing...' },
+  { id: 'check', label: 'Checking product image' },
+  { id: 'analyze', label: 'Analyzing details' },
+  { id: 'generate', label: 'Generating description' },
+  { id: 'pricing', label: 'Calculating pricing' },
 ];
 
 export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
-  // Image upload
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
-
-  // AI analysis
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisStep, setAnalysisStep] = useState<string | null>(null);
+  const [analysisStep, setAnalysisStep] = useState<number>(-1);
   const [aiResult, setAiResult] = useState<any>(null);
-
-  // Form editing
   const [formData, setFormData] = useState<Partial<AIIntakeResult> | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +51,7 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
     setAiResult(null);
     setFormData(null);
     setError(null);
+    setAnalysisStep(-1);
   }, [files]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -68,16 +64,14 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
   const removeFile = (index: number) => {
     const newFiles = files.filter((_, i) => i !== index);
     setFiles(newFiles);
-    setPreviews(newFiles.map(f => URL.createObjectURL(f)));
+    setPreviews(previews.filter((_, i) => i !== index));
   };
 
-  // Simulate AI analysis with progress steps
   const simulateProgress = async () => {
-    for (const step of ANALYSIS_STEPS) {
-      setAnalysisStep(step.id);
-      await new Promise(resolve => setTimeout(resolve, 600));
+    for (let i = 0; i < ANALYSIS_STEPS.length; i++) {
+      setAnalysisStep(i);
+      await new Promise(resolve => setTimeout(resolve, 800));
     }
-    setAnalysisStep(null);
   };
 
   const handleAnalyze = async () => {
@@ -91,10 +85,8 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
     setErrors([]);
 
     try {
-      // Show progress simulation
       await simulateProgress();
 
-      // Analyze first image with AI
       const file = files[0];
       const reader = new FileReader();
 
@@ -107,10 +99,7 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
         reader.readAsDataURL(file);
       });
 
-      // Call Gemini API
       const analysis = await identifyProduct(base64);
-
-      // Map category to standard
       const standardCategory = mapToStandardCategory(analysis.category || '');
       const retailPrice = analysis.retailPrice || analysis.priceRange?.max || 0;
       const markdownPercentage = 40;
@@ -128,8 +117,9 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
         imageUrls: previews
       };
 
-      setAiResult(analysis); // Store raw analysis
-      setFormData(result); // Set editable form
+      setAiResult(analysis);
+      setFormData(result);
+      setAnalysisStep(-1);
     } catch (err) {
       console.error('Analysis error:', err);
       setError('Failed to analyze image. Please try again.');
@@ -141,7 +131,6 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
   const handleFieldChange = (key: keyof AIIntakeResult, value: any) => {
     const updated = { ...formData, [key]: value };
 
-    // Auto-calculate discount price
     if (key === 'retailPrice' || key === 'markdownPercentage') {
       const retail = key === 'retailPrice' ? value : formData?.retailPrice || 0;
       const markdown = key === 'markdownPercentage' ? value : formData?.markdownPercentage || 40;
@@ -154,264 +143,310 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
   const handleSubmit = () => {
     if (!formData) return;
 
-    // Validate
     const validation = validateProduct(formData);
     if (!validation.isValid) {
       setErrors(validation.errors.map(e => e.message));
       return;
     }
 
-    // All good
     setErrors([]);
     onComplete(formData as AIIntakeResult);
   };
 
-  const inputClass = 'w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-800 focus:outline-none focus:border-purple-400 transition-colors';
-  const labelClass = 'block text-xs font-bold text-purple-400 mb-1 uppercase tracking-widest';
-
-  return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-black gradient-text">AI Product Intake</h1>
-        <p className="text-purple-400 text-xs font-semibold mt-1">Upload photos — AI identifies the product, you review and approve</p>
-      </div>
-
-      {/* Image Upload Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Left: Upload */}
-        <div className="space-y-4">
-          <div
-            {...getRootProps()}
-            className={cn(
-              'aspect-square border-2 border-dashed rounded-3xl flex flex-col items-center justify-center p-6 transition-all cursor-pointer overflow-hidden relative bg-white',
-              isDragActive ? 'border-purple-400 bg-purple-50' : 'border-purple-100 hover:border-purple-300',
-              previews.length > 0 && 'border-transparent p-0'
-            )}
+  if (formData) {
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              setFormData(null);
+              setAiResult(null);
+            }}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <input {...getInputProps()} />
-            {previews.length > 0 ? (
-              <div className="grid grid-cols-2 gap-1 w-full h-full">
-                {previews.map((p, i) => (
-                  <div key={i} className={cn('relative group', i === 0 && previews.length === 1 ? 'col-span-2 row-span-2' : i === 0 ? 'col-span-2' : '')}>
-                    <img src={p} className="w-full h-full object-cover rounded-2xl" alt="" />
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeFile(i);
-                      }}
-                      className="absolute top-2 right-2 p-1 bg-black/60 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-                {previews.length < 3 && (
-                  <div className="flex items-center justify-center bg-purple-50 border-2 border-dashed border-purple-100 rounded-2xl">
-                    <span className="text-purple-300 text-sm font-bold">+</span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-3" style={{ background: 'linear-gradient(135deg, #FDF4FF, #EDE9FE)' }}>
-                  <Camera className="w-8 h-8 text-purple-400" />
-                </div>
-                <p className="text-purple-400 text-center text-xs font-bold">Drag & drop up to 3 photos</p>
-                <p className="text-purple-300 text-xs mt-1">or click to browse</p>
-              </>
-            )}
+            <ArrowLeft className="w-5 h-5 text-gray-600" />
+          </button>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Verify Product Details</h2>
+            <p className="text-sm text-gray-600 mt-1">AI has analyzed the image. Review and adjust as needed</p>
           </div>
-
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-2 text-red-600 text-xs font-bold">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />{error}
-            </div>
-          )}
-
-          {!formData && files.length > 0 && (
-            <button
-              onClick={handleAnalyze}
-              disabled={isAnalyzing}
-              className="w-full py-3 rounded-2xl font-black text-sm text-white disabled:opacity-50 flex items-center justify-center gap-2 hover:opacity-90 transition-all"
-              style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  AI Analyzing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-5 h-5" />
-                  Analyze with AI
-                </>
-              )}
-            </button>
-          )}
-
-          {isAnalyzing && (
-            <div className="space-y-2">
-              {ANALYSIS_STEPS.map((step) => (
-                <motion.div
-                  key={step.id}
-                  animate={{ opacity: analysisStep === step.id ? 1 : 0.5 }}
-                  className="p-2 text-xs font-semibold text-purple-600 flex items-center gap-2"
-                >
-                  {analysisStep === step.id ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <span>✓</span>
-                  )}
-                  {step.label}
-                </motion.div>
-              ))}
-            </div>
-          )}
         </div>
 
-        {/* Right: Form */}
-        <AnimatePresence mode="wait">
-          {formData ? (
-            <motion.div key="form" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-              <div className="bg-purple-50 rounded-2xl border border-purple-100 p-4">
-                <p className="text-[10px] text-purple-400 font-bold uppercase mb-2">AI Confidence</p>
-                <p className={cn(
-                  'text-2xl font-black',
-                  (formData.confidenceScore ?? 0) > 0.8 ? 'text-green-600' : 'text-amber-600'
-                )}>
-                  {Math.round((formData.confidenceScore ?? 0) * 100)}%
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className={labelClass}>Product Name</label>
-                  <input
-                    value={formData.name || ''}
-                    onChange={(e) => handleFieldChange('name', e.target.value)}
-                    className={inputClass}
-                    placeholder="e.g. Vintage Denim Jacket"
-                  />
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="p-6 sm:p-8 border-b border-gray-200">
+            <div className="flex flex-col sm:flex-row gap-6">
+              {previews[0] && (
+                <div className="flex-shrink-0">
+                  <img src={previews[0]} className="w-full sm:w-32 h-auto sm:h-32 rounded-lg object-cover" alt="" />
                 </div>
-
-                <div>
-                  <label className={labelClass}>Description</label>
-                  <textarea
-                    value={formData.description || ''}
-                    onChange={(e) => handleFieldChange('description', e.target.value)}
-                    rows={3}
-                    className={cn(inputClass, 'resize-none')}
-                    placeholder="Describe the item..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
+              )}
+              <div className="flex-1">
+                <div className="space-y-4">
                   <div>
-                    <label className={labelClass}>Category</label>
-                    <select
-                      value={formData.category || ''}
-                      onChange={(e) => handleFieldChange('category', e.target.value)}
-                      className={inputClass}
-                    >
-                      <option value="">Select...</option>
-                      {['Sneakers', 'Clothing', 'Accessories', 'Electronics', 'Collectibles', 'Other'].map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>Condition</label>
-                    <select
-                      value={formData.condition || 'New'}
-                      onChange={(e) => handleFieldChange('condition', e.target.value)}
-                      className={inputClass}
-                    >
-                      <option value="New">New</option>
-                      <option value="Like New">Like New</option>
-                      <option value="Pre-owned">Pre-owned</option>
-                      <option value="Refurbished">Refurbished</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className={labelClass}>Retail (R)</label>
-                    <input
-                      type="number"
-                      value={formData.retailPrice || ''}
-                      onChange={(e) => handleFieldChange('retailPrice', Number(e.target.value))}
-                      className={inputClass}
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>Markdown %</label>
-                    <input
-                      type="number"
-                      value={formData.markdownPercentage || 40}
-                      onChange={(e) => handleFieldChange('markdownPercentage', Number(e.target.value))}
-                      className={inputClass}
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>Sale Price (R)</label>
-                    <div className={cn(inputClass, 'bg-green-50 border-green-200 flex items-center')}>
-                      <span className="font-black text-green-700">{formData.discountPrice || 0}</span>
+                    <p className="text-xs font-semibold text-gray-500 mb-2">CONFIDENCE SCORE</p>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(formData.confidenceScore ?? 0) * 100}%` }}
+                          className={cn(
+                            'h-full transition-colors',
+                            (formData.confidenceScore ?? 0) > 0.8 ? 'bg-green-600' : 'bg-amber-600'
+                          )}
+                        />
+                      </div>
+                      <span className={cn(
+                        'text-sm font-semibold min-w-fit',
+                        (formData.confidenceScore ?? 0) > 0.8 ? 'text-green-600' : 'text-amber-600'
+                      )}>
+                        {Math.round((formData.confidenceScore ?? 0) * 100)}%
+                      </span>
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
 
-                <div>
-                  <label className={labelClass}>Total Stock</label>
+          <div className="p-6 sm:p-8 space-y-6">
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">Product Name</label>
+              <input
+                type="text"
+                value={formData.name || ''}
+                onChange={(e) => handleFieldChange('name', e.target.value)}
+                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition-all"
+                placeholder="e.g. Vintage Denim Jacket"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">Description</label>
+              <textarea
+                value={formData.description || ''}
+                onChange={(e) => handleFieldChange('description', e.target.value)}
+                rows={4}
+                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition-all resize-none"
+                placeholder="Describe the product..."
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">Category</label>
+                <select
+                  value={formData.category || ''}
+                  onChange={(e) => handleFieldChange('category', e.target.value)}
+                  className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition-all appearance-none"
+                >
+                  <option value="">Select category...</option>
+                  {['Sneakers', 'Clothing', 'Accessories', 'Electronics', 'Collectibles', 'Other'].map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">Condition</label>
+                <select
+                  value={formData.condition || 'New'}
+                  onChange={(e) => handleFieldChange('condition', e.target.value)}
+                  className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition-all appearance-none"
+                >
+                  <option value="New">New</option>
+                  <option value="Like New">Like New</option>
+                  <option value="Pre-owned">Pre-owned</option>
+                  <option value="Refurbished">Refurbished</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">Retail Price</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-2.5 text-gray-600 font-semibold">R</span>
                   <input
                     type="number"
-                    min="1"
-                    value={formData.stock || 1}
-                    onChange={(e) => handleFieldChange('stock', Number(e.target.value))}
-                    className={inputClass}
+                    value={formData.retailPrice || ''}
+                    onChange={(e) => handleFieldChange('retailPrice', Number(e.target.value))}
+                    className="w-full pl-8 pr-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition-all"
                   />
                 </div>
               </div>
-
-              {errors.length > 0 && (
-                <div className="p-3 bg-red-50 border border-red-100 rounded-2xl">
-                  {errors.map((err, i) => (
-                    <p key={i} className="text-xs text-red-600 font-bold mb-1">{err}</p>
-                  ))}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">Markdown %</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={formData.markdownPercentage || 40}
+                    onChange={(e) => handleFieldChange('markdownPercentage', Number(e.target.value))}
+                    className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition-all"
+                  />
+                  <span className="absolute right-4 top-2.5 text-gray-600 font-semibold">%</span>
                 </div>
-              )}
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setFormData(null);
-                    setAiResult(null);
-                  }}
-                  className="flex-1 py-3 rounded-2xl text-sm font-bold text-purple-700 bg-purple-50 border-2 border-purple-100 hover:border-purple-300 transition-all"
-                >
-                  ← Back
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  className="flex-1 py-3 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90"
-                  style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
-                >
-                  Next →
-                </button>
               </div>
-            </motion.div>
-          ) : (
-            <div key="empty" className="flex flex-col items-center justify-center text-center p-8 bg-white rounded-3xl border-2 border-dashed border-purple-100">
-              <Upload className="w-10 h-10 text-purple-200 mb-3" />
-              <p className="text-xs font-bold text-purple-400">Upload photos to start</p>
-              <p className="text-[10px] text-purple-300 mt-1">AI will analyze and suggest details</p>
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">Sale Price</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-2.5 text-gray-600 font-semibold">R</span>
+                  <div className="w-full pl-8 pr-4 py-2.5 bg-green-50 border border-green-200 rounded-lg text-sm font-semibold text-green-700">
+                    {formData.discountPrice || 0}
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
-        </AnimatePresence>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">Total Stock</label>
+              <input
+                type="number"
+                min="1"
+                value={formData.stock || 1}
+                onChange={(e) => handleFieldChange('stock', Number(e.target.value))}
+                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition-all"
+              />
+            </div>
+
+            {errors.length > 0 && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg space-y-1">
+                {errors.map((err, i) => (
+                  <p key={i} className="text-sm text-red-700">{err}</p>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setFormData(null);
+                  setAiResult(null);
+                }}
+                className="py-2.5 px-4 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleSubmit}
+                className="py-2.5 px-4 rounded-lg text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 transition-colors"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onCancel}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5 text-gray-600" />
+        </button>
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Upload Product Photos</h2>
+          <p className="text-sm text-gray-600 mt-1">AI will analyze the images to generate product details</p>
+        </div>
       </div>
-    </div>
+
+      <div
+        {...getRootProps()}
+        className={cn(
+          'border-2 border-dashed rounded-lg p-8 sm:p-12 text-center transition-all cursor-pointer',
+          isDragActive ? 'border-purple-500 bg-purple-50' : 'border-gray-300 bg-gray-50 hover:border-gray-400'
+        )}
+      >
+        <input {...getInputProps()} />
+        <div className="space-y-3">
+          <div className="text-gray-400">
+            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-gray-900 font-semibold text-sm sm:text-base">Drag & drop photos here</p>
+            <p className="text-gray-600 text-xs sm:text-sm mt-1">or click to browse (up to 3 images)</p>
+          </div>
+        </div>
+      </div>
+
+      {previews.length > 0 && (
+        <div className="space-y-4">
+          <p className="text-sm font-medium text-gray-900">{previews.length} image{previews.length !== 1 ? 's' : ''} selected</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {previews.map((preview, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="relative group rounded-lg overflow-hidden bg-gray-100"
+              >
+                <img src={preview} className="w-full h-32 object-cover" alt={`Preview ${i + 1}`} />
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeFile(i);
+                  }}
+                  className="absolute top-2 right-2 p-1.5 bg-black/70 hover:bg-black rounded-lg text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
+
+      {isAnalyzing && (
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-gray-900">Analyzing images...</p>
+          <div className="space-y-2">
+            {ANALYSIS_STEPS.map((step, idx) => (
+              <motion.div
+                key={step.id}
+                animate={{ opacity: analysisStep >= idx ? 1 : 0.5 }}
+                className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
+              >
+                {analysisStep === idx ? (
+                  <Loader2 className="w-4 h-4 text-purple-600 animate-spin flex-shrink-0" />
+                ) : analysisStep > idx ? (
+                  <div className="w-4 h-4 rounded-full bg-green-600 flex-shrink-0" />
+                ) : (
+                  <div className="w-4 h-4 rounded-full bg-gray-300 flex-shrink-0" />
+                )}
+                <span className={cn(
+                  'text-sm font-medium',
+                  analysisStep === idx ? 'text-gray-900' : 'text-gray-600'
+                )}>
+                  {step.label}
+                </span>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!isAnalyzing && previews.length > 0 && !formData && (
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={handleAnalyze}
+          className="w-full py-3 px-4 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium text-sm transition-colors flex items-center justify-center gap-2"
+        >
+          <span>Analyze with AI</span>
+        </motion.button>
+      )}
+    </motion.div>
   );
 }
