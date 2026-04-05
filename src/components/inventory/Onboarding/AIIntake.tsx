@@ -36,17 +36,51 @@ const ANALYSIS_STEPS = [
 
 export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
   const [files, setFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]); // Blob URLs for display only
+  const [imageBase64s, setImageBase64s] = useState<string[]>([]); // Base64 for storage
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState<number>(-1);
   const [formData, setFormData] = useState<Partial<AIIntakeResult> | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const newFiles = [...files, ...acceptedFiles].slice(0, 3);
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    // Validate file sizes (max 5MB each)
+    const validFiles = acceptedFiles.filter(f => {
+      if (f.size > 5 * 1024 * 1024) {
+        setError(`File ${f.name} is too large (${(f.size / 1024 / 1024).toFixed(1)}MB). Max 5MB.`);
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length === 0) return;
+
+    const newFiles = [...files, ...validFiles].slice(0, 3);
     setFiles(newFiles);
-    setPreviews(newFiles.map(f => URL.createObjectURL(f)));
+
+    // Create preview blob URLs for display
+    const newPreviews = newFiles.map(f => URL.createObjectURL(f));
+    setPreviews(newPreviews);
+
+    // Convert to base64 for storage
+    const base64Promises = newFiles.map(f => new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = (reader.result as string).split(',')[1];
+        resolve(result);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(f);
+    }));
+
+    try {
+      const base64Array = await Promise.all(base64Promises);
+      setImageBase64s(base64Array);
+    } catch (err) {
+      setError('Failed to process images. Please try again.');
+    }
+
     setFormData(null);
     setError(null);
     setAnalysisStep(-1);
@@ -73,7 +107,7 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
   };
 
   const handleAnalyze = async () => {
-    if (files.length === 0) {
+    if (imageBase64s.length === 0) {
       setError('Please select at least one image');
       return;
     }
@@ -85,23 +119,15 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
     try {
       await simulateProgress();
 
-      const file = files[0];
-      const reader = new FileReader();
-
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const result = (reader.result as string).split(',')[1];
-          resolve(result);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      const analysis = await identifyProduct(base64);
+      // Analyze first image with AI
+      const analysis = await identifyProduct(imageBase64s[0]);
       const standardCategory = mapToStandardCategory(analysis.category || '');
       const retailPrice = analysis.retailPrice || analysis.priceRange?.max || 0;
       const markdownPercentage = 40;
       const discountPrice = calculateSellingPrice(retailPrice, markdownPercentage);
+
+      // Store base64 images with data:image/jpeg prefix so they display properly
+      const base64ImagesWithPrefix = imageBase64s.map(b64 => `data:image/jpeg;base64,${b64}`);
 
       const result = {
         ...analysis,
@@ -111,15 +137,19 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
         markdownPercentage,
         condition: 'New' as ProductCondition,
         stock: 1,
-        imageUrl: previews[0],
-        imageUrls: previews
+        imageUrl: base64ImagesWithPrefix[0], // Primary image
+        imageUrls: base64ImagesWithPrefix // All images for storage
       };
 
       setFormData(result);
       setAnalysisStep(-1);
     } catch (err) {
       console.error('Analysis error:', err);
-      setError('Failed to analyze image. Please try again.');
+      if (err instanceof Error && err.message.includes('AbortError')) {
+        setError('Image analysis timed out. Please try a different image.');
+      } else {
+        setError('Failed to analyze image. Please try again.');
+      }
     } finally {
       setIsAnalyzing(false);
     }

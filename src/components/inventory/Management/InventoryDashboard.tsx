@@ -20,23 +20,36 @@ export default function InventoryDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let q;
-    if (filters.status === 'all') {
-      q = query(collection(db, 'products'));
-    } else {
-      q = query(collection(db, 'products'), where('status', '==', filters.status));
-    }
+    let unsubProducts: (() => void) | null = null;
+    let unsubAuctions: (() => void) | null = null;
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-      setProducts(docs);
-      setLoading(false);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.GET, 'products');
-      setLoading(false);
-    });
+    const loadProducts = () => {
+      // Unsubscribe from old listener before creating new one
+      if (unsubProducts) unsubProducts();
 
-    return unsubscribe;
+      let q;
+      if (filters.status === 'all') {
+        q = query(collection(db, 'products'));
+      } else {
+        q = query(collection(db, 'products'), where('status', '==', filters.status));
+      }
+
+      unsubProducts = onSnapshot(q, (snapshot) => {
+        const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        setProducts(docs);
+        setLoading(false);
+      }, (err) => {
+        handleFirestoreError(err, OperationType.GET, 'products');
+        setLoading(false);
+      });
+    };
+
+    loadProducts();
+
+    return () => {
+      if (unsubProducts) unsubProducts();
+      if (unsubAuctions) unsubAuctions();
+    };
   }, [filters.status]);
 
   const filteredProducts = products.filter(p =>

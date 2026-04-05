@@ -21,22 +21,34 @@ export default function PackEditor() {
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
+    let unsubProducts: (() => void) | null = null;
+    let unsubPacks: (() => void) | null = null;
+
     // Load approved products with packs allocation
     const qProducts = query(collection(db, 'products'), where('status', '==', 'approved'));
-    const unsubProducts = onSnapshot(qProducts, snap => {
+    unsubProducts = onSnapshot(qProducts, snap => {
       const allProducts = snap.docs.map(d => ({ id: d.id, ...d.data() } as Product));
       // Filter to only show products with packs allocation > 0
       const packProducts = allProducts.filter(p => (p.allocations?.packs || 0) > 0);
       setProducts(packProducts);
-    }, err => handleFirestoreError(err, OperationType.GET, 'products'));
+    }, err => {
+      handleFirestoreError(err, OperationType.GET, 'products');
+      setLoading(false); // Ensure loading state on error
+    });
 
     // Load packs
-    const unsub = onSnapshot(collection(db, 'packs'), snap => {
+    unsubPacks = onSnapshot(collection(db, 'packs'), snap => {
       setPacks(snap.docs.map(d => ({ id: d.id, ...d.data() } as Pack)));
       setLoading(false);
-    }, err => { handleFirestoreError(err, OperationType.GET, 'packs'); setLoading(false); });
+    }, err => {
+      handleFirestoreError(err, OperationType.GET, 'packs');
+      setLoading(false);
+    });
 
-    return () => { unsubProducts(); unsub(); };
+    return () => {
+      if (unsubProducts) unsubProducts();
+      if (unsubPacks) unsubPacks();
+    };
   }, []);
 
   const toast = (msg: string, isError = false) => {

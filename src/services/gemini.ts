@@ -3,7 +3,12 @@ import { GoogleGenAI, Type } from "@google/genai";
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export async function identifyProduct(base64Image: string) {
-  const response = await ai.models.generateContent({
+  // Wrap with 30-second timeout
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('AI analysis timed out after 30 seconds. Please try a different image.')), 30000)
+  );
+
+  const analyzePromise = ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: [
       {
@@ -52,6 +57,7 @@ export async function identifyProduct(base64Image: string) {
     }
   });
 
+  const response = await Promise.race([analyzePromise, timeoutPromise]) as any;
   return JSON.parse(response.text);
 }
 
