@@ -53,7 +53,6 @@ export default function Checkout() {
             errors.push(`${item.name}: Product no longer available`);
           }
         } catch (error) {
-          console.error(`Error checking stock for ${item.id}:`, error);
           // On error, prevent checkout for this item
           errors.push(`${item.name}: Could not verify stock availability. Please try again.`);
         }
@@ -124,7 +123,6 @@ export default function Checkout() {
         const itemName = items.length === 1 ? items[0].name : `Quirkify Order #${orderRef.id.slice(0, 8)}`;
         await initiateYocoCheckout(orderTotal, itemName, orderRef.id);
       } catch (error) {
-        console.error('Payment error:', error);
         const errorMessage = error instanceof Error ? error.message : 'Payment processing failed. Please try again.';
         setPaymentError(errorMessage);
         handleFirestoreError(error, OperationType.WRITE, 'orders');

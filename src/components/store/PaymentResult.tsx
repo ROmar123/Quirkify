@@ -26,7 +26,7 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
             if (orderSnap.exists()) {
               const orderData = orderSnap.data();
               if (!orderData) {
-                console.error('Order document exists but is empty');
+                // Order document exists but is empty - skip processing
                 return;
               }
               await updateDoc(orderRef, { status: 'processing' });
@@ -42,7 +42,7 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
               }
             }
           } catch (error) {
-            console.error('Failed to update order status:', error);
+            // Silently fail - order is already marked as pending_payment in Firestore
           }
         }
         clearCart();
