@@ -8,7 +8,11 @@ export default async function handler(req: any, res: any) {
   try {
     const { amount, item_name, m_payment_id } = req.body;
 
-    const yocoSecretKey = process.env.YOCO_SECRET_KEY || 'sk_test_960bf73aeb0c406638f8';
+    const yocoSecretKey = process.env.YOCO_SECRET_KEY;
+
+    if (!yocoSecretKey) {
+      return res.status(500).json({ error: 'Yoco API key not configured' });
+    }
 
     const origin = req.headers.origin || `https://${req.headers.host}`;
 
