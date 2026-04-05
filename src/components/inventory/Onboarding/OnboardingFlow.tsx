@@ -6,9 +6,10 @@ import { db, auth } from '../../../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Product } from '../../../types';
 import AIIntake, { AIIntakeResult } from './AIIntake';
+import ManualEntry from './ManualEntry';
 import { retryFirestoreOperation } from '../../../services/retry';
 
-type Step = 'entry' | 'intake' | 'review' | 'confirmation';
+type Step = 'entry' | 'intake' | 'manual' | 'review' | 'confirmation';
 
 interface OnboardingFlowProps {
   onComplete?: () => void;
@@ -16,7 +17,8 @@ interface OnboardingFlowProps {
 
 const STEPS: { id: Step; label: string; number: number }[] = [
   { id: 'entry', label: 'Select Method', number: 1 },
-  { id: 'intake', label: 'Upload Product', number: 2 },
+  { id: 'intake', label: 'Add Product', number: 2 },
+  { id: 'manual', label: 'Add Product', number: 2 },
   { id: 'review', label: 'Review Details', number: 3 },
   { id: 'confirmation', label: 'Complete', number: 4 },
 ];
@@ -27,7 +29,9 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const currentStepIndex = STEPS.findIndex(s => s.id === currentStep);
+  // For progress display, treat intake and manual as same step
+  const displayStep = currentStep === 'manual' ? 'intake' : currentStep;
+  const displayStepIndex = STEPS.findIndex(s => s.id === displayStep);
 
   const handleAIIntakeComplete = (data: AIIntakeResult) => {
     setProductData({
@@ -108,26 +112,29 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
           {/* Progress Steps */}
           <div className="flex items-center justify-between gap-2 sm:gap-4">
-            {STEPS.map((step, idx) => {
-              const done = idx < currentStepIndex;
-              const active = step.id === currentStep;
+            {STEPS.filter((s, i) => i === 0 || (i > 0 && STEPS[i - 1].label !== STEPS[i].label)).map((step, idx) => {
+              const stepDone = (step.id === 'entry' && displayStepIndex > 0) ||
+                              (step.id === 'intake' && displayStepIndex > 1) ||
+                              (step.id === 'review' && displayStepIndex > 2) ||
+                              (step.id === 'confirmation' && displayStepIndex > 3);
+              const active = step.id === displayStep;
               return (
                 <div key={step.id} className="flex-1 flex items-center">
                   <motion.div
                     animate={{ scale: active ? 1.1 : 1 }}
                     className={cn(
                       'w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center font-bold text-sm sm:text-base transition-all flex-shrink-0 shadow-sm',
-                      done ? 'bg-gradient-to-br from-green-400 to-green-600 text-white' :
+                      stepDone ? 'bg-gradient-to-br from-green-400 to-green-600 text-white' :
                       active ? 'bg-gradient-to-br from-pink-500 to-purple-600 text-white ring-4 ring-purple-200' :
                       'bg-white text-purple-400 border-2 border-purple-100'
                     )}
                   >
-                    {done ? <Check className="w-5 h-5 sm:w-6 sm:h-6" /> : step.number}
+                    {stepDone ? <Check className="w-5 h-5 sm:w-6 sm:h-6" /> : step.number}
                   </motion.div>
 
-                  {idx < STEPS.length - 1 && (
+                  {idx < 3 && (
                     <div className="hidden sm:block flex-1 h-1 mx-3" style={{
-                      background: done ? 'linear-gradient(to right, #22C55E, #16A34A)' : 'rgb(229, 231, 235)'
+                      background: stepDone ? 'linear-gradient(to right, #22C55E, #16A34A)' : 'rgb(229, 231, 235)'
                     }} />
                   )}
                 </div>
@@ -171,20 +178,25 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     </div>
                   </motion.button>
 
-                  {/* Manual Option - Coming Soon */}
-                  <div className="bg-white rounded-3xl border-2 border-purple-100 overflow-hidden opacity-60 cursor-not-allowed">
-                    <div className="h-2 bg-gray-200" />
+                  {/* Manual Option */}
+                  <motion.button
+                    whileHover={{ y: -8, boxShadow: '0 20px 40px rgba(168, 85, 247, 0.2)' }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setCurrentStep('manual')}
+                    className="group bg-white rounded-3xl border-2 border-purple-100 overflow-hidden hover:border-purple-300 transition-all shadow-sm"
+                  >
+                    <div className="h-2 bg-gradient-to-r from-amber-500 to-orange-600" />
                     <div className="p-8 sm:p-10">
-                      <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                         <span className="text-2xl">✍️</span>
                       </div>
                       <h3 className="text-xl sm:text-2xl font-black text-purple-900 mb-2">Manual Entry</h3>
-                      <p className="text-purple-600 text-sm font-semibold mb-6">Enter product details manually</p>
-                      <div className="inline-block px-4 py-2 bg-gray-200 text-gray-600 text-sm font-bold rounded-full">
-                        Coming Soon
+                      <p className="text-purple-600 text-sm font-semibold mb-6">Enter product details manually without AI analysis</p>
+                      <div className="inline-block px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-bold rounded-full">
+                        Get Started
                       </div>
                     </div>
-                  </div>
+                  </motion.button>
                 </div>
               </div>
             </motion.div>
@@ -200,13 +212,23 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             </motion.div>
           )}
 
+          {/* Manual Entry */}
+          {currentStep === 'manual' && (
+            <motion.div key="manual" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
+              <ManualEntry
+                onComplete={handleAIIntakeComplete}
+                onCancel={() => setCurrentStep('entry')}
+              />
+            </motion.div>
+          )}
+
           {/* Review */}
           {currentStep === 'review' && productData && (
             <motion.div key="review" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
               <div className="space-y-8 max-w-2xl mx-auto">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => setCurrentStep('intake')}
+                    onClick={() => setCurrentStep(productData?.confidence === 100 ? 'manual' : 'intake')}
                     className="p-2 hover:bg-purple-100 rounded-xl transition-colors"
                   >
                     <ArrowLeft className="w-5 h-5 text-purple-600" />
@@ -270,7 +292,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
                     <div className="flex flex-col-reverse sm:flex-row gap-3">
                       <button
-                        onClick={() => setCurrentStep('intake')}
+                        onClick={() => setCurrentStep(productData?.confidence === 100 ? 'manual' : 'intake')}
                         className="py-3 px-6 rounded-2xl text-sm font-bold text-purple-700 bg-white border-2 border-purple-100 hover:border-purple-300 transition-all"
                       >
                         Back
