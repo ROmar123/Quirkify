@@ -107,18 +107,18 @@ export default function ReviewQueue() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-12">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-12">
         <div>
-          <h1 className="text-4xl font-black tracking-tight mb-2 text-purple-900">Review Queue</h1>
-          <p className="text-purple-600 text-sm font-bold">Human-in-the-loop validation for AI products.</p>
+          <h1 className="text-2xl sm:text-4xl font-black tracking-tight mb-2 text-purple-900">Review Queue</h1>
+          <p className="text-purple-600 text-xs sm:text-sm font-bold">Human-in-the-loop validation for AI products.</p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-2xl border border-purple-100 shadow-sm">
+        <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-2xl border border-purple-100 shadow-sm w-fit">
           <Clock className="w-4 h-4 text-purple-400" />
           <span className="text-[10px] font-bold uppercase tracking-widest text-purple-700">{products.length} Pending</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-12">
         <div className="lg:col-span-1 space-y-2">
           {loading ? (
             [1, 2, 3].map(i => (
