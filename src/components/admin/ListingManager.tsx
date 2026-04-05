@@ -91,6 +91,32 @@ export default function ListingManager() {
   const handleSave = async () => {
     if (!editingProduct) return;
 
+    // Validate required fields
+    if (!editingProduct.name?.trim()) {
+      setError('Product name is required');
+      return;
+    }
+    if (!editingProduct.description?.trim()) {
+      setError('Description is required');
+      return;
+    }
+    if (!editingProduct.category?.trim()) {
+      setError('Category is required');
+      return;
+    }
+    if (!editingProduct.retailPrice || editingProduct.retailPrice <= 0) {
+      setError('Retail price is required and must be greater than 0');
+      return;
+    }
+    if (!editingProduct.stock || editingProduct.stock <= 0) {
+      setError('Stock must be at least 1');
+      return;
+    }
+    if (isNew && !editingProduct.imageUrl && imageFiles.length === 0) {
+      setError('Product image is required');
+      return;
+    }
+
     // Validate allocations don't exceed total stock
     const totalAllocated = (editingProduct.allocations?.store || 0) + (editingProduct.allocations?.auction || 0) + (editingProduct.allocations?.packs || 0);
     if (totalAllocated > (editingProduct.stock || 0)) {
