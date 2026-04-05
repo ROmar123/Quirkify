@@ -100,7 +100,7 @@ export default function Inventory() {
                     whileHover={{ y: -4, boxShadow: '0 12px 24px rgba(168, 85, 247, 0.15)' }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setState(item.id)}
-                    className="bg-white rounded-2xl border-2 border-purple-100 overflow-hidden hover:border-purple-300 transition-all group text-left"
+                    className="bg-white rounded-3xl border-2 border-purple-100 overflow-hidden hover:border-purple-300 transition-all group text-left shadow-sm"
                   >
                     <div className={cn('h-1.5 bg-gradient-to-r', item.color)} />
                     <div className="p-6">
