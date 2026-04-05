@@ -64,7 +64,15 @@ export default function ListingManager() {
   };
 
   const openEdit = (p: Product) => {
-    setEditingProduct({ ...p });
+    // Ensure pricing fields have defaults if missing
+    const productWithDefaults = {
+      ...p,
+      retailPrice: p.retailPrice ?? 0,
+      markdownPercentage: p.markdownPercentage ?? 40,
+      discountPrice: p.discountPrice ?? 0,
+      listingType: p.listingType ?? 'store'
+    };
+    setEditingProduct(productWithDefaults);
     setIsNew(false);
   };
 
@@ -399,7 +407,7 @@ export default function ListingManager() {
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className={labelCls}>Retail Price (R)</label>
-                    <input type="number" value={editingProduct.retailPrice || ''} onChange={e => setField('retailPrice', Number(e.target.value))} className={inputCls} />
+                    <input type="number" value={editingProduct.retailPrice ?? ''} onChange={e => setField('retailPrice', Number(e.target.value))} className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Markdown %</label>
@@ -407,7 +415,7 @@ export default function ListingManager() {
                   </div>
                   <div>
                     <label className={labelCls}>Sale Price (R)</label>
-                    <input type="number" value={editingProduct.discountPrice || ''} onChange={e => setField('discountPrice', Number(e.target.value))} className={cn(inputCls, 'bg-green-50 border-green-200')} />
+                    <input type="number" value={editingProduct.discountPrice ?? ''} onChange={e => setField('discountPrice', Number(e.target.value))} className={cn(inputCls, 'bg-green-50 border-green-200')} />
                   </div>
                 </div>
 
