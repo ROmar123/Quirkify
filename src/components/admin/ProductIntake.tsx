@@ -153,6 +153,7 @@ export default function ProductIntake({ onSuccess }: ProductIntakeProps) {
       const productData = {
         id: productId,
         ...editedResult,
+        totalStock: editedResult.stock,
         imageUrl: uploadedUrls[0],
         imageUrls: uploadedUrls,
         status,
@@ -327,7 +328,7 @@ export default function ProductIntake({ onSuccess }: ProductIntakeProps) {
                           </select>
                         </div>
                         <div>
-                          <label className={labelCls}>Stock</label>
+                          <label className={labelCls}>Total Stock</label>
                           <input type="number" value={editedResult.stock} onChange={e => setEditedResult({ ...editedResult, stock: Number(e.target.value) })} className={inputCls} />
                         </div>
                       </div>
