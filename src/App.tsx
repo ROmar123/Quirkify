@@ -11,7 +11,7 @@ import ProductsPage from './components/admin/ProductsPage';
 import CommercePage from './components/admin/CommercePage';
 import GrowthPage from './components/admin/GrowthPage';
 import ResourceMonitor from './components/admin/ResourceMonitor';
-import InventoryHub from './components/inventory/InventoryHub';
+import Inventory from './components/inventory/Inventory';
 import AuctionList from './components/store/AuctionList';
 import LiveStreamRoom from './components/live/LiveStreamRoom';
 import Collection from './components/profile/Collection';
@@ -52,9 +52,10 @@ function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: User | null
           <Route path="/orders" element={<Orders />} />
           <Route path="/seller/onboarding" element={<SellerOnboarding />} />
           <Route path="/admin" element={isAdmin ? <AdminDashboard /> : <Navigate to="/" />} />
-          <Route path="/admin/inventory/*" element={isAdmin ? <InventoryHub /> : <Navigate to="/" />} />
-          <Route path="/admin/listings" element={isAdmin ? <InventoryHub /> : <Navigate to="/" />} />
-          <Route path="/admin/intake"   element={isAdmin ? <InventoryHub /> : <Navigate to="/" />} />
+          <Route path="/admin/inventory/*" element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
+          <Route path="/admin/inventory" element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
+          <Route path="/admin/listings" element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
+          <Route path="/admin/intake"   element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
           <Route path="/admin/reviews"  element={isAdmin ? <ProductsPage /> : <Navigate to="/" />} />
           <Route path="/admin/orders"   element={isAdmin ? <CommercePage /> : <Navigate to="/" />} />
           <Route path="/admin/auctions" element={isAdmin ? <CommercePage /> : <Navigate to="/" />} />
