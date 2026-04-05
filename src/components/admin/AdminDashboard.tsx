@@ -32,10 +32,9 @@ export default function AdminDashboard() {
   ];
 
   const quickLinks = [
-    { to: '/admin/intake',   label: 'AI Intake',     desc: 'Add product via photo',  icon: PlusCircle,   gradient: 'linear-gradient(135deg, #F472B6, #A855F7)' },
-    { to: '/admin/listings', label: 'Products',      desc: 'Manage all listings',    icon: ShoppingBag,  gradient: 'linear-gradient(135deg, #A855F7, #6366F1)' },
-    { to: '/admin/orders',   label: 'Commerce',      desc: 'Orders, auctions, packs', icon: ClipboardList, gradient: 'linear-gradient(135deg, #4ADE80, #60A5FA)' },
-    { to: '/admin/campaigns',label: 'Growth',        desc: 'Campaigns & social',     icon: TrendingUp,   gradient: 'linear-gradient(135deg, #FBBF24, #FB923C)' },
+    { to: '/admin/inventory', label: 'Inventory',    desc: 'Add, manage products',   icon: ShoppingBag,  gradient: 'linear-gradient(135deg, #F472B6, #A855F7)' },
+    { to: '/admin/orders',    label: 'Commerce',     desc: 'Orders, auctions, packs', icon: ClipboardList, gradient: 'linear-gradient(135deg, #4ADE80, #60A5FA)' },
+    { to: '/admin/campaigns', label: 'Growth',       desc: 'Campaigns & social',     icon: TrendingUp,   gradient: 'linear-gradient(135deg, #FBBF24, #FB923C)' },
   ];
 
   return (

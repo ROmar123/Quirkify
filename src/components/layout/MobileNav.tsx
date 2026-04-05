@@ -16,7 +16,7 @@ export default function MobileNav() {
 
   const employeeItems = [
     { label: 'Dashboard', path: '/admin',           icon: LayoutDashboard },
-    { label: 'Products',  path: '/admin/listings',  icon: ShoppingBag },
+    { label: 'Inventory', path: '/admin/inventory', icon: ShoppingBag },
     { label: 'Commerce',  path: '/admin/orders',    icon: ClipboardList },
     { label: 'Growth',    path: '/admin/campaigns', icon: Megaphone },
   ];
