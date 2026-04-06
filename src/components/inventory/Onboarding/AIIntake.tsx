@@ -102,6 +102,7 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
   });
 
   const removeFile = (index: number) => {
+    URL.revokeObjectURL(previews[index]);
     const newFiles = files.filter((_, i) => i !== index);
     setFiles(newFiles);
     setPreviews(previews.filter((_, i) => i !== index));
