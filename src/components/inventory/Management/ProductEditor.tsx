@@ -3,7 +3,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../../firebase';
 import { Product, ProductCondition, AllocationSnapshot } from '../../../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Save, Copy } from 'lucide-react';
+import { ArrowLeft, Save, Edit2 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import AllocationEditor from '../Shared/AllocationEditor';
 import { validateProduct, calculateSellingPrice } from '../Shared/StockValidator';
@@ -412,7 +412,7 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
                 className="w-full py-3 rounded-2xl text-sm font-bold text-white transition-all flex items-center justify-center gap-2"
                 style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
               >
-                <Copy className="w-4 h-4" />
+                <Edit2 className="w-4 h-4" />
                 Edit Product
               </button>
             )}

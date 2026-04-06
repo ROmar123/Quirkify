@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../../firebase';
-import { Product, Auction, Pack } from '../../../types';
+import { Product } from '../../../types';
 import { motion } from 'motion/react';
 import { Plus, Package, AlertCircle } from 'lucide-react';
 import { cn } from '../../../lib/utils';

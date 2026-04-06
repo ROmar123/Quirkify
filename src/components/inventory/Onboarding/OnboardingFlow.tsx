@@ -7,7 +7,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Product, ProductCondition } from '../../../types';
 import AIIntake, { AIIntakeResult } from './AIIntake';
 import ManualEntry from './ManualEntry';
-import { retryFirestoreOperation } from '../../../services/retry';
+
 
 type Step = 'entry' | 'intake' | 'manual' | 'review' | 'confirmation';
 
