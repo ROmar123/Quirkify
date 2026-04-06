@@ -2,18 +2,19 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Check, ArrowLeft, Upload, AlertCircle } from 'lucide-react';
 import { cn } from '../../../lib/utils';
-import { db, auth } from '../../../firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { auth } from '../../../firebase';
 import { Product, ProductCondition } from '../../../types';
+import { createProduct } from '../../../services/productService';
 import AIIntake, { AIIntakeResult } from './AIIntake';
 import ManualEntry from './ManualEntry';
-
 
 type Step = 'entry' | 'intake' | 'manual' | 'review' | 'confirmation';
 
 interface OnboardingFlowProps {
   onComplete?: () => void;
 }
+
+const CATEGORIES = ['Sneakers', 'Clothing', 'Accessories', 'Electronics', 'Collectibles', 'Other'];
 
 const STEPS: { id: Step; label: string; number: number }[] = [
   { id: 'entry', label: 'Select Method', number: 1 },
@@ -28,12 +29,15 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [productData, setProductData] = useState<Partial<Product> | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Track which intake method was used so Back works correctly
+  const [intakeMethod, setIntakeMethod] = useState<'intake' | 'manual'>('intake');
 
   // For progress display, treat intake and manual as same step
   const displayStep = currentStep === 'manual' ? 'intake' : currentStep;
   const displayStepIndex = STEPS.findIndex(s => s.id === displayStep);
 
-  const handleAIIntakeComplete = (data: AIIntakeResult) => {
+  const handleIntakeComplete = (data: AIIntakeResult, method: 'intake' | 'manual') => {
+    setIntakeMethod(method);
     setProductData({
       ...data,
       allocations: {
@@ -60,46 +64,17 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
     setError(null);
 
-    // Validate required fields before saving
+    // Validate required fields
     const errors: string[] = [];
+    if (!finalData.name?.trim()) errors.push('Product name is required');
+    if (!finalData.description?.trim()) errors.push('Description is required');
+    if (!finalData.category?.trim()) errors.push('Category is required');
+    if (!finalData.condition) errors.push('Condition is required');
+    if (!finalData.retailPrice || finalData.retailPrice <= 0) errors.push('Retail price must be greater than 0');
+    if (!finalData.markdownPercentage && finalData.markdownPercentage !== 0) errors.push('Markdown percentage is required');
+    if (!finalData.stock || finalData.stock <= 0) errors.push('Stock must be greater than 0');
+    if (!finalData.imageUrl) errors.push('Product image is required');
 
-    // Check name
-    if (!finalData.name || finalData.name.trim().length === 0) {
-      errors.push('Product name is required');
-    }
-
-    // Check description
-    if (!finalData.description || finalData.description.trim().length === 0) {
-      errors.push('Description is required');
-    }
-
-    // Check category
-    if (!finalData.category || finalData.category.trim().length === 0) {
-      errors.push('Category is required');
-    }
-
-    // Check condition
-    const validConditions = ['New', 'Like New', 'Pre-owned', 'Refurbished'];
-    if (!finalData.condition || !validConditions.includes(finalData.condition)) {
-      errors.push('Valid condition is required');
-    }
-
-    // Check retail price
-    if (!finalData.retailPrice || finalData.retailPrice <= 0) {
-      errors.push('Retail price must be greater than 0');
-    }
-
-    // Check discount/sale price
-    if (!finalData.discountPrice || finalData.discountPrice <= 0) {
-      errors.push('Sale price must be greater than 0');
-    }
-
-    // Check stock
-    if (!finalData.stock || finalData.stock <= 0) {
-      errors.push('Stock must be greater than 0');
-    }
-
-    // If there are validation errors, show them and don't proceed
     if (errors.length > 0) {
       setError(errors.join(' · '));
       return;
@@ -108,41 +83,33 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     setSaving(true);
 
     try {
-      // Calculate markdown percentage properly (use nullish coalescing for 0 values)
-      const markdownPercentage = finalData.markdownPercentage ??
-        Math.round(((finalData.retailPrice! - finalData.discountPrice!) / finalData.retailPrice!) * 100);
-
-      const productToSave = {
+      await createProduct({
         name: finalData.name!.trim(),
         description: finalData.description!.trim(),
         category: finalData.category!.trim(),
         condition: finalData.condition!,
         retailPrice: finalData.retailPrice!,
-        discountPrice: finalData.discountPrice!,
-        markdownPercentage: Math.max(0, Math.min(100, markdownPercentage)), // Clamp 0-100
+        markdownPercentage: Math.max(0, Math.min(100, finalData.markdownPercentage!)),
         stock: finalData.stock!,
         allocations: {
-          store: Math.min(finalData.stock!, finalData.allocations?.store || finalData.stock || 0),
-          auction: finalData.allocations?.auction || 0,
-          packs: finalData.allocations?.packs || 0,
+          store: Math.min(finalData.stock!, finalData.allocations?.store ?? finalData.stock!),
+          auction: finalData.allocations?.auction ?? 0,
+          packs: finalData.allocations?.packs ?? 0,
         },
-        imageUrl: finalData.imageUrl || 'https://via.placeholder.com/400x400?text=No+Image',
-        confidenceScore: finalData.confidenceScore ?? 0, // Persist AI confidence metric
-        status: 'pending' as const,
+        imageUrl: finalData.imageUrl!,
+        imageUrls: finalData.imageUrls || [finalData.imageUrl!],
+        confidenceScore: finalData.confidenceScore ?? 0,
+        rarity: finalData.rarity,
+        stats: finalData.stats,
+        priceRange: finalData.priceRange,
         authorUid: auth.currentUser.uid,
-        createdAt: new Date().toISOString(), // Add creation timestamp
-      };
+        listingType: 'store',
+      });
 
-      const docRef = await addDoc(collection(db, 'products'), productToSave);
       setCurrentStep('confirmation');
     } catch (err: any) {
       const message = err.message || err.toString();
-      // Provide better error context for Firestore validation errors
-      if (message.includes('PERMISSION_DENIED') || message.includes('permission')) {
-        setError('Unable to save: Check all required fields are filled. Prices must be > 0, stock > 0.');
-      } else {
-        setError(message.length > 180 ? `${message.substring(0, 180)}...` : message);
-      }
+      setError(message.length > 200 ? `${message.substring(0, 200)}...` : message);
     } finally {
       setSaving(false);
     }
@@ -251,7 +218,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           {currentStep === 'intake' && (
             <motion.div key="intake" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
               <AIIntake
-                onComplete={handleAIIntakeComplete}
+                onComplete={(data) => handleIntakeComplete(data, 'intake')}
                 onCancel={() => setCurrentStep('entry')}
               />
             </motion.div>
@@ -261,7 +228,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           {currentStep === 'manual' && (
             <motion.div key="manual" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
               <ManualEntry
-                onComplete={handleAIIntakeComplete}
+                onComplete={(data) => handleIntakeComplete(data, 'manual')}
                 onCancel={() => setCurrentStep('entry')}
               />
             </motion.div>
@@ -273,7 +240,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               <div className="space-y-8 max-w-2xl mx-auto">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => setCurrentStep(productData?.confidenceScore === 100 ? 'manual' : 'intake')}
+                    onClick={() => setCurrentStep(intakeMethod)}
                     className="p-2 hover:bg-purple-100 rounded-xl transition-colors"
                   >
                     <ArrowLeft className="w-5 h-5 text-purple-600" />
@@ -292,7 +259,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                       <label className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">PRODUCT NAME *</label>
                       <input
                         type="text"
-                        value={productData.name}
+                        value={productData.name || ''}
                         onChange={(e) => setProductData({ ...productData, name: e.target.value })}
                         className="w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-900 focus:outline-none focus:border-purple-400"
                       />
@@ -302,7 +269,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     <div>
                       <label className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">DESCRIPTION *</label>
                       <textarea
-                        value={productData.description}
+                        value={productData.description || ''}
                         onChange={(e) => setProductData({ ...productData, description: e.target.value })}
                         rows={3}
                         className="w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-900 focus:outline-none focus:border-purple-400"
@@ -312,18 +279,22 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     {/* Category & Condition */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">CATEGORY</label>
-                        <input
-                          type="text"
-                          value={productData.category}
+                        <label className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">CATEGORY *</label>
+                        <select
+                          value={productData.category || ''}
                           onChange={(e) => setProductData({ ...productData, category: e.target.value })}
                           className="w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-900 focus:outline-none focus:border-purple-400"
-                        />
+                        >
+                          <option value="">Select...</option>
+                          {CATEGORIES.map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
                       </div>
                       <div>
-                        <label className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">CONDITION</label>
+                        <label className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">CONDITION *</label>
                         <select
-                          value={productData.condition}
+                          value={productData.condition || 'New'}
                           onChange={(e) => setProductData({ ...productData, condition: e.target.value as ProductCondition })}
                           className="w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-900 focus:outline-none focus:border-purple-400"
                         >
@@ -336,24 +307,46 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     </div>
 
                     {/* Pricing */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <div>
                         <label className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">RETAIL PRICE *</label>
                         <input
                           type="number"
-                          value={productData.retailPrice}
-                          onChange={(e) => setProductData({ ...productData, retailPrice: parseFloat(e.target.value) || 0 })}
+                          value={productData.retailPrice || ''}
+                          onChange={(e) => {
+                            const retail = parseFloat(e.target.value) || 0;
+                            const markdown = productData.markdownPercentage ?? 40;
+                            setProductData({
+                              ...productData,
+                              retailPrice: retail,
+                              discountPrice: Math.round(retail * (1 - markdown / 100)),
+                            });
+                          }}
                           className="w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-900 focus:outline-none focus:border-purple-400"
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">SALE PRICE *</label>
+                        <label className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">MARKDOWN %</label>
                         <input
                           type="number"
-                          value={productData.discountPrice}
-                          onChange={(e) => setProductData({ ...productData, discountPrice: parseFloat(e.target.value) || 0 })}
+                          value={productData.markdownPercentage ?? 40}
+                          onChange={(e) => {
+                            const markdown = parseFloat(e.target.value) || 0;
+                            const retail = productData.retailPrice || 0;
+                            setProductData({
+                              ...productData,
+                              markdownPercentage: markdown,
+                              discountPrice: Math.round(retail * (1 - markdown / 100)),
+                            });
+                          }}
                           className="w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-900 focus:outline-none focus:border-purple-400"
                         />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">SALE PRICE</label>
+                        <div className="w-full px-4 py-2.5 bg-green-50 border-2 border-green-200 rounded-2xl text-sm font-black text-green-700">
+                          R{productData.discountPrice || 0}
+                        </div>
                       </div>
                     </div>
 
@@ -362,8 +355,16 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                       <label className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">TOTAL STOCK *</label>
                       <input
                         type="number"
-                        value={productData.stock}
-                        onChange={(e) => setProductData({ ...productData, stock: parseFloat(e.target.value) || 1 })}
+                        min="1"
+                        value={productData.stock || ''}
+                        onChange={(e) => {
+                          const stock = parseInt(e.target.value) || 1;
+                          setProductData({
+                            ...productData,
+                            stock,
+                            allocations: { store: stock, auction: 0, packs: 0 },
+                          });
+                        }}
                         className="w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-900 focus:outline-none focus:border-purple-400"
                       />
                     </div>
@@ -377,7 +378,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
                     <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
                       <button
-                        onClick={() => setCurrentStep(productData?.confidenceScore === 100 ? 'manual' : 'intake')}
+                        onClick={() => setCurrentStep(intakeMethod)}
                         className="py-3 px-6 rounded-2xl text-sm font-bold text-purple-700 bg-white border-2 border-purple-100 hover:border-purple-300 transition-all"
                       >
                         Back
@@ -441,6 +442,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     onClick={() => {
                       setCurrentStep('entry');
                       setProductData(null);
+                      setError(null);
                     }}
                     className="py-3 px-6 rounded-2xl text-sm font-bold text-white"
                     style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../../../firebase';
 import { Product } from '../../../types';
+import { subscribeToProducts } from '../../../services/productService';
 import { motion } from 'motion/react';
 import { Plus, Package, AlertCircle } from 'lucide-react';
 import { cn } from '../../../lib/utils';
@@ -17,41 +16,19 @@ export default function MiniDashboardCards({ onSelectOnboarding, onSelectManagem
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let unsubProducts: any, unsubPending: any;
-
-    try {
-      // Fetch approved products
-      unsubProducts = onSnapshot(
-        query(collection(db, 'products'), where('status', '==', 'approved')),
-        (snap) => {
-          setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
-        },
-        (err) => {
-          handleFirestoreError(err, OperationType.GET, 'products');
-          setLoading(false);
-        }
-      );
-
-      // Fetch pending products for review
-      unsubPending = onSnapshot(
-        query(collection(db, 'products'), where('status', '==', 'pending')),
-        (snap) => {
-          setPendingProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
-          setLoading(false);
-        },
-        (err) => {
-          handleFirestoreError(err, OperationType.GET, 'products');
-          setLoading(false);
-        }
-      );
-    } catch (err) {
-      handleFirestoreError(err, OperationType.GET, 'inventory');
+    const unsubApproved = subscribeToProducts('approved', (data) => {
+      setProducts(data);
       setLoading(false);
-    }
+    });
+
+    const unsubPending = subscribeToProducts('pending', (data) => {
+      setPendingProducts(data);
+      setLoading(false);
+    });
 
     return () => {
-      if (unsubProducts) unsubProducts();
-      if (unsubPending) unsubPending();
+      unsubApproved();
+      unsubPending();
     };
   }, []);
 

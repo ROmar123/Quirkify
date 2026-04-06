@@ -1,8 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../../../firebase';
+import { useState, useEffect } from 'react';
 import { Product, ProductCondition, AllocationSnapshot } from '../../../types';
-import { motion, AnimatePresence } from 'motion/react';
+import { fetchProduct, updateProduct } from '../../../services/productService';
 import { ArrowLeft, Save, Edit2 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import AllocationEditor from '../Shared/AllocationEditor';
@@ -26,16 +24,15 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
   useEffect(() => {
     const loadProduct = async () => {
       try {
-        const docSnap = await getDoc(doc(db, 'products', productId));
-        if (docSnap.exists()) {
-          const data = { id: docSnap.id, ...docSnap.data() } as Product;
+        const data = await fetchProduct(productId);
+        if (data) {
           setProduct(data);
           setFormData(data);
         } else {
           setError('Product not found');
         }
-      } catch (err) {
-        handleFirestoreError(err, OperationType.GET, `products/${productId}`);
+      } catch (err: any) {
+        setError(err.message || 'Failed to load product');
       } finally {
         setLoading(false);
       }
@@ -105,24 +102,22 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
     setSaving(true);
 
     try {
-      const updateData = {
+      const updated = await updateProduct(productId, {
         name: formData.name,
         description: formData.description,
         category: formData.category,
         retailPrice: formData.retailPrice,
-        discountPrice: formData.discountPrice,
         markdownPercentage: formData.markdownPercentage,
         condition: formData.condition,
         stock: formData.stock,
         allocations: formData.allocations,
-        updatedAt: new Date().toISOString(),
-      };
+      });
 
-      await updateDoc(doc(db, 'products', productId), updateData);
-      setProduct({ ...product, ...updateData } as Product);
+      setProduct(updated);
+      setFormData(updated);
       setIsEditing(false);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `products/${productId}`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to save changes');
     } finally {
       setSaving(false);
     }

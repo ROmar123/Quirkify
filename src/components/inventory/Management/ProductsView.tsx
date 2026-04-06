@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../../../firebase';
 import { Product } from '../../../types';
+import { subscribeToProducts } from '../../../services/productService';
 import { motion } from 'motion/react';
 import { Package } from 'lucide-react';
 import { cn } from '../../../lib/utils';
@@ -17,19 +16,11 @@ export default function ProductsView({ onBack }: ProductsViewProps) {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Only show approved products in management view
-    const q = query(collection(db, 'products'), where('status', '==', 'approved'));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-      setProducts(docs);
-      setLoading(false);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.GET, 'products');
+    const unsub = subscribeToProducts('approved', (data) => {
+      setProducts(data);
       setLoading(false);
     });
-
-    return unsubscribe;
+    return unsub;
   }, []);
 
   if (selectedProductId) {
