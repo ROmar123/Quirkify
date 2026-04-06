@@ -68,3 +68,19 @@ CREATE POLICY "Users can create own profile"
 CREATE POLICY "Users can update own profile"
   ON profiles FOR UPDATE
   USING (true);
+
+-- Auto-promote founder to admin on profile creation
+CREATE OR REPLACE FUNCTION auto_assign_founder_role()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.email = 'patengel85@gmail.com' THEN
+    NEW.role = 'admin';
+    NEW.is_seller = true;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER profiles_founder_role
+  BEFORE INSERT ON profiles
+  FOR EACH ROW EXECUTE FUNCTION auto_assign_founder_role();
