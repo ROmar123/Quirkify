@@ -11,7 +11,7 @@ interface ManualEntryProps {
   onCancel: () => void;
 }
 
-const CATEGORIES = ['Electronics', 'Fashion', 'Home & Garden', 'Sports', 'Toys', 'Books', 'Other'];
+const CATEGORIES = ['Sneakers', 'Clothing', 'Accessories', 'Electronics', 'Collectibles', 'Other'];
 const CONDITIONS: ProductCondition[] = ['New', 'Like New', 'Pre-owned', 'Refurbished'];
 
 export default function ManualEntry({ onComplete, onCancel }: ManualEntryProps) {
