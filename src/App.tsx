@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, signIn, getRedirectResult } from './firebase';
+import { syncProfile } from './services/profileService';
 import { Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -75,19 +76,34 @@ function AppInner() {
     const timeout = setTimeout(() => setLoading(false), 8000);
     let prevUser: User | null = null;
 
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
       clearTimeout(timeout);
       const isFirstLoad = !prevUser;
       prevUser = u;
       setUser(u);
-      const admin = u?.email === 'patengel85@gmail.com';
-      setIsAdmin(admin);
-      setLoading(false);
-      // On page load or sign-in: send admin to dashboard, new customer sign-in to store
-      if (isFirstLoad && u && admin) {
-        navigate('/admin');
-      } else if (isFirstLoad && u && !admin) {
-        navigate('/');
+
+      if (u) {
+        try {
+          // Sync Firebase user to Supabase profile and get role
+          const profile = await syncProfile(u);
+          const admin = profile.role === 'admin';
+          setIsAdmin(admin);
+          setLoading(false);
+
+          if (isFirstLoad && admin) {
+            navigate('/admin');
+          } else if (isFirstLoad) {
+            navigate('/');
+          }
+        } catch (err) {
+          // Fallback: if Supabase is unreachable, allow basic access
+          console.error('Profile sync failed:', err);
+          setIsAdmin(false);
+          setLoading(false);
+        }
+      } else {
+        setIsAdmin(false);
+        setLoading(false);
       }
     });
 
