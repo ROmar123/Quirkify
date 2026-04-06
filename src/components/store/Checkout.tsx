@@ -4,10 +4,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { CreditCard, Truck, ArrowRight, ArrowLeft, ShoppingBag, Sparkles, LogIn, Shield, Zap, MapPin, AlertCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
-import { db, auth, handleFirestoreError, OperationType, signIn } from '../../firebase';
-import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { auth, signIn } from '../../firebase';
 import { initiateYocoCheckout } from '../../services/paymentService';
-import { Product } from '../../types';
+import { createOrder } from '../../services/orderService';
+import { getProfileByUid } from '../../services/profileService';
+import { fetchProduct } from '../../services/productService';
 type CheckoutStep = 'cart' | 'shipping' | 'payment';
 
 const STEPS = [
@@ -70,19 +71,16 @@ export default function Checkout() {
       const errors: string[] = [];
       for (const item of items) {
         try {
-          const productDoc = await getDoc(doc(db, 'products', item.id));
-          if (productDoc.exists()) {
-            const product = productDoc.data() as Product;
+          const product = await fetchProduct(item.id);
+          if (product) {
             const storeAllocation = product.allocations?.store ?? 0;
             if (item.quantity > storeAllocation) {
               errors.push(`${item.name}: Only ${storeAllocation} available in stock (you want ${item.quantity})`);
             }
           } else {
-            // Product not found
             errors.push(`${item.name}: Product no longer available`);
           }
-        } catch (error) {
-          // On error, prevent checkout for this item
+        } catch {
           errors.push(`${item.name}: Could not verify stock availability. Please try again.`);
         }
       }
@@ -136,35 +134,34 @@ export default function Checkout() {
       setIsProcessing(true);
       setPaymentError(null);
       try {
-        const orderData = {
-          userId: auth.currentUser.uid,
-          userEmail: auth.currentUser.email,
+        // Get Supabase profile for the order
+        const profile = await getProfileByUid(auth.currentUser.uid);
+
+        const order = await createOrder({
+          profileId: profile?.id,
+          customerEmail: formData.email,
+          customerName: auth.currentUser.displayName || formData.email,
+          customerPhone: formData.phone,
+          channel: 'store',
           items: items.map(item => ({
-            id: item.id,
-            name: item.name,
-            price: item.priceRange.min,
+            productId: item.id,
+            productName: item.name,
+            productImageUrl: item.imageUrl,
+            unitPrice: item.priceRange.min,
             quantity: item.quantity,
-            imageUrl: item.imageUrl,
           })),
-          total: orderTotal,
-          status: 'pending',
-          shippingInfo: {
-            email: formData.email,
-            address: formData.address,
-            city: formData.city,
-            zip: formData.zip,
-            phone: formData.phone,
-          },
-          createdAt: serverTimestamp(),
-          orderType: 'store',
-        };
-        const orderRef = await addDoc(collection(db, 'orders'), orderData);
-        const itemName = items.length === 1 ? items[0].name : `Quirkify Order #${orderRef.id.slice(0, 8)}`;
-        await initiateYocoCheckout(orderTotal, itemName, orderRef.id);
+          shippingCost: SHIPPING_FEE,
+          shippingAddress: formData.address,
+          shippingCity: formData.city,
+          shippingZip: formData.zip,
+          paymentMethod: 'yoco',
+        });
+
+        const itemName = items.length === 1 ? items[0].name : `Quirkify Order ${order.orderNumber}`;
+        await initiateYocoCheckout(orderTotal, itemName, order.id);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Payment processing failed. Please try again.';
         setPaymentError(errorMessage);
-        handleFirestoreError(error, OperationType.WRITE, 'orders');
       } finally {
         setIsProcessing(false);
       }

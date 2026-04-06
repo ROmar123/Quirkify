@@ -1,19 +1,20 @@
 import { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../firebase';
-import { Product, LiveSession, Pack } from '../../types';
+import { Product, LiveSession } from '../../types';
+import { fetchProducts } from '../../services/productService';
 import { motion } from 'motion/react';
 import { ShoppingBag, Play, Users, Search, X, Tag, Shield, Truck, Sparkles } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useCart } from '../../context/CartContext';
 import { PRODUCT_CATEGORIES } from '../../lib/categories';
+
 const CONDITION_FILTERS = [
   { key: null,        label: 'All' },
   { key: 'sale',      label: '🔥 Sale' },
   { key: 'New',       label: '✨ New' },
   { key: 'Pre-owned', label: '💎 Pre-owned' },
-  { key: 'packs',     label: '📦 Packs' },
 ];
 
 const RARITY_STYLE: Record<string, string> = {
@@ -28,43 +29,34 @@ export default function StoreFront() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
-  const [packs, setPacks] = useState<Pack[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   useEffect(() => {
-    const q = query(collection(db, 'products'), where('status', '==', 'approved'));
-    const unsubProducts = onSnapshot(q, (snap) => {
-      setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
-      setLoading(false);
-    }, (err) => { handleFirestoreError(err, OperationType.GET, 'products'); setLoading(false); });
+    // Products from Supabase
+    fetchProducts('approved')
+      .then(data => { setProducts(data); setLoading(false); })
+      .catch(err => { console.error('Failed to load products:', err); setLoading(false); });
 
+    // Live sessions stay on Firestore (real-time bidding)
     const qLive = query(collection(db, 'live_sessions'), where('status', '==', 'live'), limit(3));
     const unsubLive = onSnapshot(qLive, (snap) => {
       setLiveSessions(snap.docs.map(d => ({ id: d.id, ...d.data() } as LiveSession)));
     }, () => {});
 
-    const qPacks = query(collection(db, 'packs'), where('status', '==', 'available'), limit(4));
-    const unsubPacks = onSnapshot(qPacks, (snap) => {
-      setPacks(snap.docs.map(d => ({ id: d.id, ...d.data() } as Pack)));
-    }, () => {});
-
-    return () => { unsubProducts(); unsubLive(); unsubPacks(); };
+    return () => { unsubLive(); };
   }, []);
 
   const filtered = useMemo(() => {
     let list = products;
     if (activeFilter === 'sale') list = list.filter(p => p.discountPrice && p.discountPrice < p.priceRange.min);
-    else if (activeFilter === 'packs') list = [];
     else if (activeFilter) list = list.filter(p => p.condition === activeFilter);
     if (activeCategory) list = list.filter(p => p.category === activeCategory);
     if (search.trim()) list = list.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.category?.toLowerCase().includes(search.toLowerCase()));
     return list;
   }, [products, activeFilter, activeCategory, search]);
-
-  const showPacks = activeFilter === 'packs' || activeFilter === null;
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -130,35 +122,11 @@ export default function StoreFront() {
         </div>
       </div>
 
-      {/* Packs row */}
-      {showPacks && packs.length > 0 && (
-        <div className="mb-10">
-          <h2 className="text-lg font-black gradient-text mb-4">📦 Mystery Packs</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {packs.map(pack => (
-              <motion.div key={pack.id} whileHover={{ y: -4 }}
-                className="bg-white rounded-3xl border border-purple-100 p-4 text-center cursor-pointer shadow-sm hover:shadow-lg transition-all"
-                onClick={() => addToCart({ id: pack.id, name: pack.name, description: pack.description, category: 'Mystery Pack', priceRange: { min: pack.price, max: pack.price }, imageUrl: pack.imageUrl, status: 'approved', rarity: 'Rare' } as any)}
-              >
-                <div className="aspect-square rounded-2xl overflow-hidden bg-purple-50 mb-3">
-                  <img src={pack.imageUrl} className="w-full h-full object-contain p-2" alt={pack.name} />
-                </div>
-                <p className="text-xs font-black truncate">{pack.name}</p>
-                <p className="text-sm font-black mt-1 gradient-text">R{pack.price}</p>
-                <button className="mt-2 w-full py-1.5 rounded-full text-[10px] font-bold text-white" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
-                  Add to Cart
-                </button>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Product Grid */}
       <div>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-black gradient-text">
-            {activeFilter === 'sale' ? '🔥 Sale' : activeFilter === 'New' ? '✨ New Arrivals' : activeFilter === 'Pre-owned' ? '💎 Pre-owned' : activeFilter === 'packs' ? '' : 'All Products'}
+            {activeFilter === 'sale' ? '🔥 Sale' : activeFilter === 'New' ? '✨ New Arrivals' : activeFilter === 'Pre-owned' ? '💎 Pre-owned' : 'All Products'}
             {!loading && filtered.length > 0 && <span className="text-purple-300 font-semibold text-sm ml-2">({filtered.length})</span>}
           </h2>
         </div>

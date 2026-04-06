@@ -1,33 +1,39 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
-import { db, auth, handleFirestoreError, OperationType } from '../../firebase';
+import { auth } from '../../firebase';
+import { fetchProducts } from '../../services/productService';
+import { fetchOrders, Order } from '../../services/orderService';
 import { Product } from '../../types';
-import { TrendingUp, ShoppingBag, Zap, ClipboardList, ArrowUpRight, ArrowDownRight, Package, PlusCircle } from 'lucide-react';
+import { TrendingUp, ShoppingBag, Zap, ClipboardList, ArrowUpRight, ArrowDownRight, Package } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../../lib/utils';
+
 export default function AdminDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubProducts = onSnapshot(
-      query(collection(db, 'products'), orderBy('createdAt', 'desc'), limit(5)),
-      snap => setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product))),
-      err => handleFirestoreError(err, OperationType.GET, 'products')
-    );
-    const unsubOrders = onSnapshot(
-      query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(5)),
-      snap => { setRecentOrders(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setLoading(false); },
-      err => { handleFirestoreError(err, OperationType.GET, 'orders'); setLoading(false); }
-    );
-    return () => { unsubProducts(); unsubOrders(); };
+    const load = async () => {
+      try {
+        const [prods, orders] = await Promise.all([
+          fetchProducts(),
+          fetchOrders({ limit: 5 }),
+        ]);
+        setProducts(prods);
+        setRecentOrders(orders);
+      } catch (err) {
+        console.error('Dashboard load error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
   }, []);
 
   const stats = [
-    { label: 'Active Products', value: products.filter(p => p.status === 'approved').length, trend: '+3', up: true, icon: ShoppingBag, gradient: 'linear-gradient(135deg, #F472B6, #A855F7)' },
+    { label: 'Active Products', value: products.filter(p => p.status === 'approved').length, trend: '', up: true, icon: ShoppingBag, gradient: 'linear-gradient(135deg, #F472B6, #A855F7)' },
     { label: 'Pending Review', value: products.filter(p => p.status === 'pending').length, trend: '', up: false, icon: Zap, gradient: 'linear-gradient(135deg, #FBBF24, #FB923C)' },
-    { label: 'Recent Orders', value: recentOrders.length, trend: '+8.4%', up: true, icon: ClipboardList, gradient: 'linear-gradient(135deg, #4ADE80, #60A5FA)' },
+    { label: 'Recent Orders', value: recentOrders.length, trend: '', up: true, icon: ClipboardList, gradient: 'linear-gradient(135deg, #4ADE80, #60A5FA)' },
     { label: 'Total Products', value: products.length, trend: '', up: true, icon: Package, gradient: 'linear-gradient(135deg, #A855F7, #6366F1)' },
   ];
 
@@ -112,7 +118,6 @@ export default function AdminDashboard() {
                   const store = p.allocations?.store ?? 0;
                   const auction = p.allocations?.auction ?? 0;
                   const packs = p.allocations?.packs ?? 0;
-                  const allocated = store + auction + packs;
                   return (
                     <tr key={p.id} className="border-b border-purple-50 hover:bg-purple-50 transition-colors">
                       <td className="py-3 px-3 truncate max-w-xs">{p.name}</td>
@@ -146,11 +151,11 @@ export default function AdminDashboard() {
                     <ClipboardList className="w-3.5 h-3.5 text-purple-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-black text-purple-900 truncate">#{o.id.slice(-8)}</p>
-                    <p className="text-[10px] text-purple-400 font-semibold truncate">{o.userEmail}</p>
+                    <p className="text-xs font-black text-purple-900 truncate">{o.orderNumber}</p>
+                    <p className="text-[10px] text-purple-400 font-semibold truncate">{o.customerEmail}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs font-black text-purple-900">R{o.total}</p>
+                    <p className="text-xs font-black text-purple-900">R{o.total.toLocaleString()}</p>
                     <p className={cn('text-[10px] font-bold', o.status === 'delivered' ? 'text-green-600' : 'text-amber-600')}>{o.status}</p>
                   </div>
                 </div>
@@ -168,9 +173,15 @@ export default function AdminDashboard() {
             <p className="text-xs text-purple-300 font-semibold text-center py-6">No products yet</p>
           ) : (
             <div className="space-y-2">
-              {products.map(p => (
+              {products.slice(0, 5).map(p => (
                 <div key={p.id} className="flex items-center gap-3 p-3 rounded-2xl bg-purple-50">
-                  <img src={p.imageUrl} className="w-8 h-8 rounded-xl object-cover flex-shrink-0" alt="" />
+                  {p.imageUrl ? (
+                    <img src={p.imageUrl} className="w-8 h-8 rounded-xl object-cover flex-shrink-0" alt="" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-xl bg-purple-200 flex items-center justify-center flex-shrink-0">
+                      <Package className="w-3.5 h-3.5 text-purple-400" />
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-black text-purple-900 truncate">{p.name}</p>
                     <p className="text-[10px] text-purple-400 font-semibold">{p.category} · {p.condition}</p>
