@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { fetchProduct as fetchProductById } from '../../services/productService';
 import { Product } from '../../types';
 import { useCart } from '../../context/CartContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -29,21 +28,18 @@ export default function ProductDetails() {
   const [isLiked, setIsLiked] = useState(false);
 
   useEffect(() => {
-    const fetchProduct = async () => {
+    const loadProduct = async () => {
       if (!id) return;
       try {
-        const docRef = doc(db, 'products', id);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setProduct({ id: docSnap.id, ...docSnap.data() } as Product);
-        }
+        const data = await fetchProductById(id);
+        setProduct(data);
       } catch (error) {
         // Silently fail - will show "Product not found" in UI
       } finally {
         setLoading(false);
       }
     };
-    fetchProduct();
+    loadProduct();
     window.scrollTo(0, 0);
   }, [id]);
 
