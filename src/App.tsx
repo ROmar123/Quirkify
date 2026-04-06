@@ -52,12 +52,7 @@ function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: User | null
           <Route path="/orders" element={<Orders />} />
           <Route path="/seller/onboarding" element={<SellerOnboarding />} />
           <Route path="/admin" element={isAdmin ? <AdminDashboard /> : <Navigate to="/" />} />
-          <Route path="/admin/inventory/*" element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
           <Route path="/admin/inventory" element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
-          <Route path="/admin/listings" element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
-          <Route path="/admin/intake"   element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
-          <Route path="/admin/auctions" element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
-          <Route path="/admin/packs"    element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
           <Route path="/admin/reviews"  element={isAdmin ? <ProductsPage /> : <Navigate to="/" />} />
           <Route path="/admin/orders"   element={isAdmin ? <CommercePage /> : <Navigate to="/" />} />
           <Route path="/admin/campaigns" element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />

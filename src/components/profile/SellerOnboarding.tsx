@@ -424,7 +424,7 @@ export default function SellerOnboarding() {
               </div>
 
               <button
-                onClick={() => navigate('/admin/intake')}
+                onClick={() => navigate('/admin/inventory')}
                 className="w-full py-4 rounded-full font-bold text-white text-sm"
                 style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
               >

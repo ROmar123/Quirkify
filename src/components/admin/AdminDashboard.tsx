@@ -90,7 +90,7 @@ export default function AdminDashboard() {
       <div className="bg-white rounded-3xl border border-purple-100 p-5 shadow-sm mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-black text-purple-900">Stock Levels by Channel</h2>
-          <Link to="/admin/listings" className="text-xs font-bold text-purple-500 hover:text-purple-700">Manage →</Link>
+          <Link to="/admin/inventory" className="text-xs font-bold text-purple-500 hover:text-purple-700">Manage →</Link>
         </div>
         {products.length === 0 ? (
           <p className="text-xs text-purple-300 font-semibold text-center py-6">No products yet</p>
@@ -162,7 +162,7 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-3xl border border-purple-100 p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-black text-purple-900">Recent Products</h2>
-            <Link to="/admin/listings" className="text-xs font-bold text-purple-500 hover:text-purple-700">View all →</Link>
+            <Link to="/admin/inventory" className="text-xs font-bold text-purple-500 hover:text-purple-700">View all →</Link>
           </div>
           {products.length === 0 ? (
             <p className="text-xs text-purple-300 font-semibold text-center py-6">No products yet</p>

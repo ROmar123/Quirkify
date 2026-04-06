@@ -24,9 +24,7 @@ export default function MobileNav() {
   const navItems = (isAdmin && mode === 'employee') ? employeeItems : customerItems;
 
   // Hide nav in inventory section
-  const isInInventory = location.pathname.includes('/admin/inventory') ||
-                        location.pathname.includes('/admin/listings') ||
-                        location.pathname.includes('/admin/intake');
+  const isInInventory = location.pathname.includes('/admin/inventory');
 
   if (isInInventory) return null;
 

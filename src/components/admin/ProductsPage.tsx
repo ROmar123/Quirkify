@@ -10,7 +10,7 @@ export default function ProductsPage() {
   const location = useLocation();
 
   const pathTab: Tab =
-    location.pathname === '/admin/intake'  ? 'intake'  :
+    location.pathname === '/admin/inventory'  ? 'intake'  :
     location.pathname === '/admin/reviews' ? 'review'  : 'listings';
 
   const [tab, setTab] = useState<Tab>(pathTab);
