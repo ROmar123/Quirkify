@@ -123,9 +123,9 @@ export default function App() {
     <CartProvider>
       <ModeProvider>
         <div className="min-h-screen bg-gradient-to-br from-purple-50 to-white">
+          <PageHeader />
           <AnimatedRoutes isAdmin={isAdmin} user={user} />
           <MobileNav />
-          <PageHeader />
         </div>
       </ModeProvider>
     </CartProvider>
