@@ -2,6 +2,7 @@ import { supabase } from '../supabase';
 import type { AuthUser } from '../firebase';
 
 export type UserRole = 'customer' | 'seller' | 'admin';
+const ADMIN_EMAILS = new Set(['patengel85@gmail.com']);
 
 export interface Profile {
   id: string;
@@ -61,6 +62,16 @@ function rowToProfile(row: any): Profile {
   };
 }
 
+function normalizeEmail(email: string | null | undefined) {
+  return email?.trim().toLowerCase() ?? '';
+}
+
+function resolveRole(email: string | null | undefined, existingRole?: UserRole): UserRole {
+  if (ADMIN_EMAILS.has(normalizeEmail(email))) return 'admin';
+  if (existingRole === 'seller') return 'seller';
+  return 'customer';
+}
+
 /**
  * Sync authenticated user to Supabase profile.
  * Creates profile on first sign-in, updates on subsequent sign-ins.
@@ -86,6 +97,7 @@ export async function syncProfile(authUser: AuthUser): Promise<Profile> {
   }
 
   if (existing) {
+    const resolvedRole = resolveRole(authUser.email, existing.role);
     const { data, error } = await supabase
       .from('profiles')
       .update({
@@ -93,6 +105,7 @@ export async function syncProfile(authUser: AuthUser): Promise<Profile> {
         email: authUser.email || existing.email,
         display_name: authUser.displayName || existing.display_name,
         photo_url: authUser.photoURL || existing.photo_url,
+        role: resolvedRole,
         last_active_at: new Date().toISOString(),
       })
       .eq('id', existing.id)
@@ -110,7 +123,7 @@ export async function syncProfile(authUser: AuthUser): Promise<Profile> {
       email: authUser.email || '',
       display_name: authUser.displayName || '',
       photo_url: authUser.photoURL || null,
-      role: 'customer',
+      role: resolveRole(authUser.email),
     })
     .select()
     .single();

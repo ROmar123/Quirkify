@@ -27,6 +27,8 @@ import AuthPage from './components/auth/AuthPage';
 import { CartProvider } from './context/CartContext';
 import { ModeProvider, useMode } from './context/ModeContext';
 
+const ADMIN_EMAILS = new Set(['patengel85@gmail.com']);
+
 function RequireAuth({ user, children }: { user: AuthUser | null; children: ReactNode }) {
   const location = useLocation();
 
@@ -71,6 +73,7 @@ function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: AuthUser | 
           <Route path="/admin/social"   element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
           <Route path="/admin/streams"  element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
           <Route path="/admin/resources" element={isAdmin ? <ResourceMonitor /> : <Navigate to="/" />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </motion.div>
     </AnimatePresence>
@@ -95,9 +98,8 @@ function AppInner() {
 
       if (u) {
         try {
-          // Sync Firebase user to Supabase profile and get role
           const profile = await syncProfile(u);
-          const admin = profile.role === 'admin';
+          const admin = profile.role === 'admin' || ADMIN_EMAILS.has((u.email ?? '').toLowerCase());
           setIsAdmin(admin);
           setLoading(false);
 
@@ -107,9 +109,8 @@ function AppInner() {
             navigate('/');
           }
         } catch (err) {
-          // Fallback: if Supabase is unreachable, allow basic access
           console.error('Profile sync failed:', err);
-          setIsAdmin(false);
+          setIsAdmin(ADMIN_EMAILS.has((u.email ?? '').toLowerCase()));
           setLoading(false);
         }
       } else {

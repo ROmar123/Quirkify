@@ -153,7 +153,10 @@ export { ref, uploadBytes, getDownloadURL };
 
 // Utilities
 export enum OperationType {
+  CREATE = 'create',
   GET = 'get',
+  LIST = 'list',
+  UPDATE = 'update',
   WRITE = 'write',
   DELETE = 'delete',
   LISTEN = 'listen',

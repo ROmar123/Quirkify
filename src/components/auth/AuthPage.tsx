@@ -1,12 +1,11 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { LoaderCircle, Mail, Lock, Sparkles, ArrowRight, UserPlus } from 'lucide-react';
+import { LoaderCircle, Mail, Lock, ArrowRight, UserPlus } from 'lucide-react';
 import { motion } from 'motion/react';
 import {
   auth,
   onAuthStateChanged,
   sendMagicLink,
-  signIn,
   signInWithPassword,
   signUpWithPassword,
 } from '../../firebase';
@@ -28,39 +27,9 @@ export default function AuthPage() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState(auth.currentUser?.email ?? '');
   const [password, setPassword] = useState('');
-  const [busyAction, setBusyAction] = useState<'password' | 'google' | 'magic' | null>(null);
+  const [busyAction, setBusyAction] = useState<'password' | 'magic' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [googleEnabled, setGoogleEnabled] = useState<boolean>(true);
-
-  useEffect(() => {
-    let active = true;
-
-    const loadAuthSettings = async () => {
-      try {
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/settings`, {
-          headers: {
-            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-          },
-        });
-
-        if (!response.ok) return;
-
-        const settings = await response.json();
-        if (active) {
-          setGoogleEnabled(Boolean(settings?.external?.google));
-        }
-      } catch {
-        // Keep Google visible if settings cannot be loaded.
-      }
-    };
-
-    void loadAuthSettings();
-
-    return () => {
-      active = false;
-    };
-  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -93,19 +62,6 @@ export default function AuthPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Authentication failed.');
     } finally {
-      setBusyAction(null);
-    }
-  };
-
-  const handleGoogle = async () => {
-    setBusyAction('google');
-    setError(null);
-    setNotice(null);
-
-    try {
-      await signIn(next);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Google sign-in failed.');
       setBusyAction(null);
     }
   };
@@ -145,16 +101,16 @@ export default function AuthPage() {
           </div>
           <div className="relative">
             <p className="text-xs font-black uppercase tracking-[0.35em] text-pink-100/80">Quirkify Access</p>
-            <h1 className="mt-4 text-4xl md:text-6xl font-black leading-none">Sign in fast. Keep the store moving.</h1>
+            <h1 className="mt-4 text-4xl md:text-6xl font-black leading-none">Sign in only when it matters.</h1>
             <p className="mt-5 max-w-xl text-sm md:text-base font-semibold text-white/80">
-              Use Google for the quickest path, email and password for a full account, or a magic link when you just want in without friction.
+              Browse store and auctions freely, then sign in when you want to buy, bid, track orders, or manage your account.
             </p>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-3">
               {[
-                ['Google', 'Fastest checkout and account access'],
-                ['Magic link', 'No password needed on mobile'],
-                ['Email account', 'Works well for returning customers'],
+                ['Store', 'Browse live products without signing in'],
+                ['Auctions', 'Join public auction rooms before you bid'],
+                ['Account', 'Sign in only for checkout, bids, orders, and account'],
               ].map(([title, body]) => (
                 <div key={title} className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
                   <p className="text-sm font-black">{title}</p>
@@ -251,20 +207,9 @@ export default function AuthPage() {
           </div>
 
           <div className="space-y-3">
-            {googleEnabled ? (
-              <button
-                onClick={handleGoogle}
-                disabled={busyAction !== null}
-                className="flex w-full items-center justify-center gap-3 rounded-2xl border border-purple-200 bg-white px-4 py-3 text-sm font-black text-purple-800 transition-colors hover:bg-purple-50 disabled:opacity-70"
-              >
-                {busyAction === 'google' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                Continue with Google
-              </button>
-            ) : (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
-                Google sign-in is not enabled in Supabase yet. Email and magic link are available now.
-              </div>
-            )}
+            <div className="rounded-2xl border border-purple-100 bg-purple-50 px-4 py-3 text-sm font-semibold text-purple-700">
+              Google sign-in is disabled for now. Email and magic link are the active auth paths.
+            </div>
 
             <button
               onClick={handleMagicLink}

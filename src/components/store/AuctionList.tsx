@@ -4,6 +4,8 @@ import { subscribeToAuctions, placeBid, subscribeToBids, concludeAuction } from 
 import { motion, AnimatePresence } from 'motion/react';
 import { Clock, Gavel, ChevronDown, ChevronUp, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useNavigate } from 'react-router-dom';
+import { auth } from '../../firebase';
 export default function AuctionList() {
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -11,6 +13,7 @@ export default function AuctionList() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const gavelAudio = useRef<HTMLAudioElement | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     gavelAudio.current = new Audio('https://assets.mixkit.co/active_storage/sfx/212/212-preview.mp3');
@@ -25,6 +28,11 @@ export default function AuctionList() {
   }, []);
 
   const handleBid = async (auctionId: string, currentBid: number) => {
+    if (!auth.currentUser) {
+      navigate('/auth?next=%2Fauctions');
+      return;
+    }
+
     const amount = bidAmount[auctionId];
     if (!amount || amount <= currentBid) {
       setError('Bid must be higher than current bid');
