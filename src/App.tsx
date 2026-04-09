@@ -75,7 +75,8 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Sync profile from Supabase
+    let settled = false;
+
     async function syncProfile(userId: string) {
       try {
         const { data } = await supabase
@@ -83,23 +84,37 @@ export default function App() {
           .select('*')
           .eq('uid', userId)
           .single();
-        return data;
-      } catch {
-        return null;
+        if (!settled) {
+          setIsAdmin(data?.role === 'admin');
+        }
+      } catch (err) {
+        console.warn('[Auth] Profile sync failed:', err);
+        if (!settled) setIsAdmin(false);
       }
     }
 
-    // Subscribe to auth state
+    // Safety timeout — if auth doesn't resolve in 5s, show the app anyway
+    const timeout = setTimeout(() => {
+      console.warn('[Auth] Timeout — proceeding without auth');
+      settled = true;
+      setLoading(false);
+    }, 5000);
+
     const { data: { subscription } } = onAuthStateChange(async (u) => {
+      clearTimeout(timeout);
+      settled = true;
       setUser(u);
-      if (u) {
-        const profile = await syncProfile(u.uid);
-        setIsAdmin(profile?.role === 'admin');
+      if (u?.uid) {
+        await syncProfile(u.uid);
       }
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      settled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
   if (loading) {
@@ -130,4 +145,3 @@ export default function App() {
     </CartProvider>
   );
 }
-// deploy trigger
