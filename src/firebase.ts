@@ -1,61 +1,15 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, getRedirectResult } from 'firebase/auth';
-import { getFirestore, collection, doc, setDoc, getDoc, getDocs, onSnapshot, query, where, orderBy, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import firebaseConfig from '../firebase-applet-config.json';
+import { getAuth } from 'firebase/auth';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDZ5wLauYYVERxEfcdOGOZ8GNI2Qvjf9RM",
+  authDomain: "gen-lang-client-0358761247.firebaseapp.com",
+  projectId: "gen-lang-client-0358761247",
+  storageBucket: "gen-lang-client-0358761247.firebasestorage.app",
+  messagingSenderId: "24353526972",
+  appId: "1:24353526972:web:f80463794cd97f98b9ecb9"
+};
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-export const storage = getStorage(app);
-export const googleProvider = new GoogleAuthProvider();
-
-export const signIn = () => signInWithPopup(auth, googleProvider);
-export const signOut = () => auth.signOut();
-export { getRedirectResult };
-
-export enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-export interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId: string | undefined;
-    email: string | null | undefined;
-    emailVerified: boolean | undefined;
-    isAnonymous: boolean | undefined;
-    tenantId: string | null | undefined;
-    providerInfo: any[];
-  }
-}
-
-export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData.map(provider => ({
-        providerId: provider.providerId,
-        displayName: provider.displayName,
-        email: provider.email,
-        photoUrl: provider.photoURL
-      })) || []
-    },
-    operationType,
-    path
-  };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  // Don't throw - just log. Errors in Firestore listeners should be handled gracefully
-}
+export default app;
