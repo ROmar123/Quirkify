@@ -4,7 +4,7 @@ export async function identifyProduct(base64Image: string) {
   const res = await fetch(`${API_BASE}/identify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ base64Image })
+    body: JSON.stringify({ base64Image }),
   });
   if (!res.ok) throw new Error('AI analysis failed');
   return res.json();
@@ -14,17 +14,17 @@ export async function suggestCampaign(topSellers: any[]) {
   const res = await fetch(`${API_BASE}/campaign`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ topSellers })
+    body: JSON.stringify({ topSellers }),
   });
   if (!res.ok) throw new Error('Campaign generation failed');
   return res.json();
 }
 
 export async function getHostTalkingPoints(productName: string, category: string) {
-  const res = await fetch(`${API_BASE}/hostTalkingPoints`, {
+  const res = await fetch(`${API_BASE}/talking-points`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ productName, category })
+    body: JSON.stringify({ productName, category }),
   });
   if (!res.ok) throw new Error('Host talking points generation failed');
   return res.json();

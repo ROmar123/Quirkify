@@ -1,43 +1,52 @@
 import type { Context } from 'hono';
-import { GoogleGenAI, Type } from '@google/genai';
 
 export default async (c: Context) => {
   if (c.req.method !== 'POST') return c.json({ error: 'Method not allowed' }, 405);
-  
+
   const { base64Image } = await c.req.json();
   if (!base64Image) return c.json({ error: 'No image provided' }, 400);
 
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  
-  const response = await Promise.race([
-    ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: [{
-        parts: [
-          { text: 'Identify this product for Quirkify, a gamified social commerce platform. Provide: name, description, category (one of: Sneakers, Clothing, Accessories, Electronics, Collectibles, Toys & Games, Books & Media, Beauty & Health, Home & Decor, Sports & Outdoors, Art & Crafts, Vintage & Retro, Other), retailPrice in ZAR, rarity (Common/Limited/Rare/Super Rare/Unique), stats (quirkiness/rarity/utility/hype 1-100 each), confidenceScore 0-1. Return JSON.' },
-          { inlineData: { data: base64Image, mimeType: 'image/jpeg' } }
-        ]
-      }],
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            description: { type: Type.STRING },
-            category: { type: Type.STRING },
-            priceRange: { type: Type.OBJECT, properties: { min: { type: Type.NUMBER }, max: { type: Type.NUMBER } } },
-            retailPrice: { type: Type.NUMBER },
-            rarity: { type: Type.STRING },
-            stats: { type: Type.OBJECT, properties: { quirkiness: { type: Type.NUMBER }, rarity: { type: Type.NUMBER }, utility: { type: Type.NUMBER }, hype: { type: Type.NUMBER } } },
-            confidenceScore: { type: Type.NUMBER }
-          },
-          required: ['name', 'description', 'category', 'retailPrice', 'rarity', 'stats', 'confidenceScore']
-        }
-      }
-    }),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('AI timeout')), 25000)
-  ]) as any;
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return c.json({ error: 'AI not configured' }, 503);
 
-  return c.json(JSON.parse(response.text));
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: `You are a product analyst for Quirkify, a gamified social commerce platform. Analyze this product image and respond with ONLY valid JSON in this exact format (no markdown, no explanation):
+{
+  "name": "product name here",
+  "description": "2-3 sentence description",
+  "category": "one of: Sneakers, Clothing, Accessories, Electronics, Collectibles, Toys & Games, Books & Media, Beauty & Health, Home & Decor, Sports & Outdoors, Art & Crafts, Vintage & Retro, Other",
+  "retailPrice": number_in_ZAR,
+  "rarity": "Common|Limited|Rare|Super Rare|Unique",
+  "stats": { "quirkiness": 1-100, "rarity": 1-100, "utility": 1-100, "hype": 1-100 },
+  "confidenceScore": 0-1
+}` },
+              { inlineData: { data: base64Image, mimeType: 'image/jpeg' } }
+            ]
+          }]
+        })
+      }
+    );
+
+    const data = await response.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    let result;
+    try {
+      result = JSON.parse(text);
+    } catch {
+      result = { name: 'Product', description: text.slice(0, 200), category: 'Other', retailPrice: 0, rarity: 'Common', stats: { quirkiness: 50, rarity: 50, utility: 50, hype: 50 }, confidenceScore: 0.5 };
+    }
+
+    return c.json(result);
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
 };
