@@ -31,6 +31,36 @@ export default function AuthPage() {
   const [busyAction, setBusyAction] = useState<'password' | 'google' | 'magic' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [googleEnabled, setGoogleEnabled] = useState<boolean>(true);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadAuthSettings = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/settings`, {
+          headers: {
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+        });
+
+        if (!response.ok) return;
+
+        const settings = await response.json();
+        if (active) {
+          setGoogleEnabled(Boolean(settings?.external?.google));
+        }
+      } catch {
+        // Keep Google visible if settings cannot be loaded.
+      }
+    };
+
+    void loadAuthSettings();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -221,14 +251,20 @@ export default function AuthPage() {
           </div>
 
           <div className="space-y-3">
-            <button
-              onClick={handleGoogle}
-              disabled={busyAction !== null}
-              className="flex w-full items-center justify-center gap-3 rounded-2xl border border-purple-200 bg-white px-4 py-3 text-sm font-black text-purple-800 transition-colors hover:bg-purple-50 disabled:opacity-70"
-            >
-              {busyAction === 'google' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              Continue with Google
-            </button>
+            {googleEnabled ? (
+              <button
+                onClick={handleGoogle}
+                disabled={busyAction !== null}
+                className="flex w-full items-center justify-center gap-3 rounded-2xl border border-purple-200 bg-white px-4 py-3 text-sm font-black text-purple-800 transition-colors hover:bg-purple-50 disabled:opacity-70"
+              >
+                {busyAction === 'google' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                Continue with Google
+              </button>
+            ) : (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+                Google sign-in is not enabled in Supabase yet. Email and magic link are available now.
+              </div>
+            )}
 
             <button
               onClick={handleMagicLink}
