@@ -1,5 +1,6 @@
-import admin from 'firebase-admin';
-import crypto from 'crypto';
+import type { Context } from "hono";
+import crypto from "crypto";
+import admin from "firebase-admin";
 
 let adminDb: admin.firestore.Firestore | null = null;
 
@@ -19,104 +20,236 @@ try {
     adminDb = admin.firestore();
   }
 } catch (error) {
-  console.warn('Firebase Admin not initialized:', error);
+  console.warn("Firebase Admin not initialized:", error);
 }
 
-export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+// In-memory idempotency cache with 24hr TTL
+// For production, replace with Redis or Firestore-based tracking
+const processedEvents = new Map<string, number>();
+const EVENT_TTL_MS = 24 * 60 * 60 * 1000;
 
-  try {
-    const event = req.body;
-    const signatureHeader = req.headers['x-yoco-signature'];
-    const yocoSecretKey = process.env.YOCO_SECRET_KEY;
-
-    // Verify signature in production
-    if (process.env.NODE_ENV === 'production') {
-      if (!signatureHeader || !verifyYocoSignature(event, signatureHeader as string, yocoSecretKey || '')) {
-        console.warn('Invalid webhook signature');
-        return res.status(401).json({ error: 'Invalid signature' });
-      }
+function cleanExpiredEvents(): void {
+  const now = Date.now();
+  for (const [eventId, timestamp] of processedEvents) {
+    if (now - timestamp > EVENT_TTL_MS) {
+      processedEvents.delete(eventId);
     }
-
-    console.log('Processing Yoco webhook event:', event.type);
-
-    // Handle payment.completed
-    if (event.type === 'payment.completed') {
-      const orderId = event.data?.metadata?.orderId;
-
-      if (!orderId) {
-        console.warn('No orderId in webhook');
-        return res.status(400).json({ error: 'No orderId' });
-      }
-
-      if (!adminDb) {
-        console.warn('Firebase not initialized');
-        return res.status(500).json({ error: 'Database not available' });
-      }
-
-      try {
-        await adminDb.collection('orders').doc(orderId).update({
-          status: 'processing',
-          paymentConfirmedAt: new Date().toISOString(),
-          paymentInfo: {
-            transactionId: event.data.id,
-            amount: event.data.amount,
-            currency: event.data.currency,
-            completedAt: event.data.createdAt
-          }
-        });
-        console.log(`Order ${orderId} payment confirmed`);
-      } catch (error) {
-        console.error(`Failed to update order ${orderId}:`, error);
-        return res.status(500).json({ error: 'Failed to update order' });
-      }
-    }
-
-    // Handle payment.failed
-    if (event.type === 'payment.failed') {
-      const orderId = event.data?.metadata?.orderId;
-
-      if (!orderId) {
-        console.warn('No orderId in failed payment webhook');
-        return res.status(400).json({ error: 'No orderId' });
-      }
-
-      if (!adminDb) {
-        console.warn('Firebase not initialized');
-        return res.status(500).json({ error: 'Database not available' });
-      }
-
-      try {
-        await adminDb.collection('orders').doc(orderId).update({
-          status: 'payment_failed',
-          failureReason: event.data.failureReason,
-          failedAt: new Date().toISOString()
-        });
-        console.log(`Order ${orderId} payment failed`);
-      } catch (error) {
-        console.error(`Failed to update failed order ${orderId}:`, error);
-        return res.status(500).json({ error: 'Failed to update order' });
-      }
-    }
-
-    res.status(200).json({ success: true });
-  } catch (error) {
-    console.error('Webhook error:', error);
-    res.status(500).json({ error: 'Webhook processing failed' });
   }
 }
 
-function verifyYocoSignature(payload: any, signature: string, secret: string): boolean {
-  try {
-    const hash = crypto
-      .createHmac('sha256', secret)
-      .update(JSON.stringify(payload))
-      .digest('base64');
-    return hash === signature;
-  } catch (error) {
-    console.error('Signature verification error:', error);
+function markProcessed(eventId: string): void {
+  cleanExpiredEvents();
+  processedEvents.set(eventId, Date.now());
+}
+
+function isAlreadyProcessed(eventId: string): boolean {
+  cleanExpiredEvents();
+  return processedEvents.has(eventId);
+}
+
+function verifyYocoSignature(rawBody: Buffer, signature: string, secret: string): boolean {
+  if (!secret) {
+    console.error("YOCO_SECRET_KEY is not configured");
     return false;
+  }
+
+  try {
+    const expected = crypto
+      .createHmac("sha256", secret)
+      .update(rawBody)
+      .digest("base64");
+
+    // Use timing-safe comparison to prevent timing attacks
+    const sigBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expected);
+
+    if (sigBuffer.length !== expectedBuffer.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(sigBuffer, expectedBuffer);
+  } catch (error) {
+    console.error("Signature verification error:", error);
+    return false;
+  }
+}
+
+interface YocoEvent {
+  id: string;
+  type: string;
+  createdAt: number;
+  data: {
+    id: string;
+    amount?: number;
+    currency?: string;
+    createdAt?: string;
+    metadata?: {
+      orderId?: string;
+      [key: string]: unknown;
+    };
+    failureReason?: string;
+  };
+}
+
+async function handlePaymentCompleted(event: YocoEvent): Promise<void> {
+  const orderId = event.data?.metadata?.orderId;
+  if (!orderId) {
+    console.warn(`[${event.id}] payment.completed: No orderId in metadata`);
+    return;
+  }
+
+  if (!adminDb) {
+    console.error(`[${event.id}] payment.completed: Firebase not initialized`);
+    return;
+  }
+
+  try {
+    await adminDb.collection("orders").doc(orderId).update({
+      status: "processing",
+      paymentConfirmedAt: new Date().toISOString(),
+      paymentInfo: {
+        transactionId: event.data.id,
+        amount: event.data.amount,
+        currency: event.data.currency,
+        completedAt: event.data.createdAt,
+      },
+    });
+    console.log(`[${event.id}] Order ${orderId} payment confirmed`);
+  } catch (error) {
+    console.error(`[${event.id}] Failed to update order ${orderId}:`, error);
+    throw error; // Re-throw so caller knows it failed
+  }
+}
+
+async function handlePaymentFailed(event: YocoEvent): Promise<void> {
+  const orderId = event.data?.metadata?.orderId;
+  if (!orderId) {
+    console.warn(`[${event.id}] payment.failed: No orderId in metadata`);
+    return;
+  }
+
+  if (!adminDb) {
+    console.error(`[${event.id}] payment.failed: Firebase not initialized`);
+    return;
+  }
+
+  try {
+    await adminDb.collection("orders").doc(orderId).update({
+      status: "payment_failed",
+      failureReason: event.data.failureReason,
+      failedAt: new Date().toISOString(),
+    });
+    console.log(`[${event.id}] Order ${orderId} marked as payment_failed`);
+  } catch (error) {
+    console.error(`[${event.id}] Failed to update failed order ${orderId}:`, error);
+    throw error;
+  }
+}
+
+async function processEvent(event: YocoEvent): Promise<void> {
+  const eventId = event.id;
+
+  if (isAlreadyProcessed(eventId)) {
+    console.log(`[${eventId}] Already processed, skipping`);
+    return;
+  }
+
+  console.log(`[${eventId}] Processing event type=${event.type}`);
+
+  try {
+    switch (event.type) {
+      case "payment.completed":
+        await handlePaymentCompleted(event);
+        break;
+
+      case "payment.failed":
+        await handlePaymentFailed(event);
+        break;
+
+      default:
+        console.log(`[${eventId}] Unknown event type: ${event.type}`);
+    }
+
+    markProcessed(eventId);
+  } catch (error) {
+    console.error(`[${eventId}] Error processing event:`, error);
+    throw error;
+  }
+}
+
+// Extracted handler for use in Next.js API route
+export async function handleYocoWebhook(
+  body: YocoEvent,
+  rawBody: Buffer,
+  signatureHeader: string | null
+): Promise<{ status: number; body: object }> {
+  // Validate signature header presence
+  if (!signatureHeader) {
+    console.warn("Missing x-yoco-signature header");
+    return { status: 401, body: { error: "Missing signature header" } };
+  }
+
+  // Always verify signature (no NODE_ENV bypass)
+  const secret = process.env.YOCO_SECRET_KEY;
+  if (!secret) {
+    console.error("YOCO_SECRET_KEY environment variable is not set");
+    // In production this should never happen - fail closed
+    return { status: 500, body: { error: "Server configuration error" } };
+  }
+
+  // Verify HMAC-SHA256 signature using raw body bytes
+  const isValid = verifyYocoSignature(rawBody, signatureHeader, secret);
+  if (!isValid) {
+    console.warn("Invalid webhook signature");
+    return { status: 401, body: { error: "Invalid signature" } };
+  }
+
+  // Validate event structure
+  if (!body?.id || !body?.type) {
+    console.warn("Invalid event structure: missing id or type");
+    return { status: 400, body: { error: "Invalid event structure" } };
+  }
+
+  console.log(`[${body.id}] Received webhook: type=${body.type}, createdAt=${body.createdAt}`);
+
+  // Return 200 immediately, process asynchronously
+  // The caller should call processEvent separately if needed
+  return { status: 200, body: { received: true } };
+}
+
+// Background processor for async handling
+export async function processWebhookAsync(event: YocoEvent): Promise<void> {
+  try {
+    await processEvent(event);
+  } catch (error) {
+    console.error(`[${event.id}] Async processing failed:`, error);
+    // In production, consider retrying with exponential backoff
+    // or publishing to a dead-letter queue
+  }
+}
+
+// Default export for Next.js API route
+export default async function handler(req: any, res: any) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  // Get raw body for signature verification
+  // Next.js parses this from req.body when using express-like middleware
+  // If rawBody is not available, use Buffer from JSON stringify
+  const rawBody = req.rawBody || Buffer.from(JSON.stringify(req.body));
+  const signatureHeader = req.headers["x-yoco-signature"] as string | null;
+
+  // Verify and respond immediately
+  const { status, body } = await handleYocoWebhook(req.body, rawBody, signatureHeader);
+  res.status(status).json(body);
+
+  // If signature was valid, process asynchronously after response
+  if (status === 200) {
+    // Fire and forget - don't await
+    processWebhookAsync(req.body).catch((error) => {
+      console.error("Async webhook processing error:", error);
+    });
   }
 }

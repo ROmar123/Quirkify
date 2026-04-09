@@ -40,7 +40,11 @@ async function startServer() {
     try {
       const { amount, item_name, m_payment_id } = req.body;
       
-      const yocoSecretKey = process.env.YOCO_SECRET_KEY || 'sk_test_960bf73aeb0c406638f8'; // Test key
+      // PROD: Yoco secret MUST come from env var - no fallback
+      const yocoSecretKey = process.env.YOCO_SECRET_KEY;
+      if (!yocoSecretKey) {
+        throw new Error('YOCO_SECRET_KEY env var is required');
+      } // Test key
       
       const response = await axios.post('https://payments.yoco.com/api/checkouts', {
         amount: Math.round(amount * 100), // Yoco expects amount in cents
@@ -74,7 +78,11 @@ async function startServer() {
     try {
       const event = req.body;
       const signatureHeader = req.headers['x-yoco-signature'];
-      const yocoSecretKey = process.env.YOCO_SECRET_KEY || 'sk_test_960bf73aeb0c406638f8';
+      // PROD: Yoco secret MUST come from env var - no fallback
+      const yocoSecretKey = process.env.YOCO_SECRET_KEY;
+      if (!yocoSecretKey) {
+        throw new Error('YOCO_SECRET_KEY env var is required');
+      }
 
       // Verify signature (skip in test environment)
       if (process.env.NODE_ENV === 'production') {
