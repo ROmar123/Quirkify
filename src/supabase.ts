@@ -13,9 +13,9 @@ export const supabase = createClient(supabaseUrl || 'https://placeholder.supabas
 export const getImageUrl = (path: string) => {
   if (!path) return '';
   if (path.startsWith('http')) return path;
-  const bucket = supabase.storage_bucket('product-images');
+  
   // Build public URL from storage
-  return `${supabaseUrl}/storage/v1/object/public/product-images/${path}`;
+  return `https://mvoigokzsaybwiogjpvr.supabase.co/storage/v1/object/public/product-images/${path}`;
 };
 
 export default supabase;
