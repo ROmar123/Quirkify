@@ -208,20 +208,22 @@ export default function StoreFront() {
         )}
       </div>
 
-      {/* Trust strip */}
-      <div className="mt-16 grid grid-cols-3 gap-4 border-t border-purple-100 pt-8">
-        {[
-          { icon: Shield, label: 'Secure Payments', sub: 'Powered by Yoco' },
-          { icon: Sparkles, label: 'AI Verified', sub: 'Every item checked' },
-          { icon: Truck, label: 'Fast Delivery', sub: 'The Courier Guy' },
-        ].map(({ icon: Icon, label, sub }) => (
-          <div key={label} className="flex flex-col items-center text-center gap-1">
-            <Icon className="w-5 h-5 text-purple-400" />
-            <p className="text-[10px] font-black text-purple-700">{label}</p>
-            <p className="text-[9px] text-purple-400">{sub}</p>
-          </div>
-        ))}
-      </div>
+      {/* Trust strip - only show when products exist */}
+      {filtered.length > 0 && (
+        <div className="mt-16 grid grid-cols-3 gap-4 border-t border-purple-100 pt-8">
+          {[
+            { icon: Shield, label: 'Secure Payments', sub: 'Powered by Yoco' },
+            { icon: Sparkles, label: 'AI Verified', sub: 'Every item checked' },
+            { icon: Truck, label: 'Fast Delivery', sub: 'The Courier Guy' },
+          ].map(({ icon: Icon, label, sub }) => (
+            <div key={label} className="flex flex-col items-center text-center gap-1">
+              <Icon className="w-5 h-5 text-purple-400" />
+              <p className="text-[10px] font-black text-purple-700">{label}</p>
+              <p className="text-[9px] text-purple-400">{sub}</p>
+            </div>
+          ))}
+        </div>
+      )}
       </div>
     </div>
   );

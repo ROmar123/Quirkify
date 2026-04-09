@@ -86,7 +86,7 @@ export default function PageHeader() {
 
   return (
     <header
-      className="sticky top-0 z-30 h-14 px-4 flex items-center justify-between border-b border-purple-50"
+      className="sticky top-0 z-50 h-14 px-4 flex items-center justify-between border-b border-purple-50"
       style={{ background: 'rgba(253,244,255,0.95)', backdropFilter: 'blur(12px)' }}
     >
       <Link to={isEmployee ? '/admin' : '/'} className="flex-shrink-0">
