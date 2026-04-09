@@ -1,8 +1,25 @@
+# Environment variables — NEVER commit secrets
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Dependencies
 node_modules/
-build/
+
+# Build outputs
 dist/
-coverage/
-.DS_Store
+build/
+
+# Logs
 *.log
-.env*
-!.env.example
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
