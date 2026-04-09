@@ -1,5 +1,5 @@
 import { supabase } from '../supabase';
-import { User } from 'firebase/auth';
+import type { AuthUser } from '../firebase';
 
 export type UserRole = 'customer' | 'seller' | 'admin';
 
@@ -62,29 +62,40 @@ function rowToProfile(row: any): Profile {
 }
 
 /**
- * Sync Firebase Auth user to Supabase profile.
+ * Sync authenticated user to Supabase profile.
  * Creates profile on first sign-in, updates on subsequent sign-ins.
  * Returns the profile with role info.
  */
-export async function syncProfile(firebaseUser: User): Promise<Profile> {
-  // Check if profile exists
-  const { data: existing } = await supabase
+export async function syncProfile(authUser: AuthUser): Promise<Profile> {
+  const { data: existingByUid } = await supabase
     .from('profiles')
     .select('*')
-    .eq('firebase_uid', firebaseUser.uid)
+    .eq('firebase_uid', authUser.uid)
     .single();
 
+  let existing = existingByUid;
+
+  if (!existing && authUser.email) {
+    const { data: existingByEmail } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', authUser.email)
+      .single();
+
+    existing = existingByEmail;
+  }
+
   if (existing) {
-    // Update last active and any changed auth fields
     const { data, error } = await supabase
       .from('profiles')
       .update({
-        email: firebaseUser.email || existing.email,
-        display_name: firebaseUser.displayName || existing.display_name,
-        photo_url: firebaseUser.photoURL || existing.photo_url,
+        firebase_uid: authUser.uid,
+        email: authUser.email || existing.email,
+        display_name: authUser.displayName || existing.display_name,
+        photo_url: authUser.photoURL || existing.photo_url,
         last_active_at: new Date().toISOString(),
       })
-      .eq('firebase_uid', firebaseUser.uid)
+      .eq('id', existing.id)
       .select()
       .single();
 
@@ -92,14 +103,13 @@ export async function syncProfile(firebaseUser: User): Promise<Profile> {
     return rowToProfile(data);
   }
 
-  // Create new profile
   const { data, error } = await supabase
     .from('profiles')
     .insert({
-      firebase_uid: firebaseUser.uid,
-      email: firebaseUser.email || '',
-      display_name: firebaseUser.displayName || '',
-      photo_url: firebaseUser.photoURL || null,
+      firebase_uid: authUser.uid,
+      email: authUser.email || '',
+      display_name: authUser.displayName || '',
+      photo_url: authUser.photoURL || null,
       role: 'customer',
     })
     .select()

@@ -57,7 +57,7 @@ export default function Orders() {
         </div>
         <h2 className="text-3xl font-black mb-3 text-purple-900">Sign in to view orders</h2>
         <p className="text-purple-400 text-sm font-semibold mb-8">Your order history is just a sign-in away.</p>
-        <button onClick={signIn} className="px-10 py-4 rounded-full font-bold text-white text-base" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
+        <button onClick={() => void signIn('/orders')} className="px-10 py-4 rounded-full font-bold text-white text-base" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
           Sign In with Google
         </button>
       </div>

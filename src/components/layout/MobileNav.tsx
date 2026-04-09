@@ -1,17 +1,22 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { ShoppingBag, Gavel, ClipboardList, User, LayoutDashboard, PlusCircle, TrendingUp, Megaphone } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useMode } from '../../context/ModeContext';
+import { auth, onAuthStateChanged } from '../../firebase';
 
 export default function MobileNav() {
   const location = useLocation();
   const { mode, isAdmin } = useMode();
+  const [user, setUser] = useState(auth.currentUser);
+
+  useEffect(() => onAuthStateChanged(auth, setUser), []);
 
   const customerItems = [
     { label: 'Store', path: '/', icon: ShoppingBag },
     { label: 'Auctions', path: '/auctions', icon: Gavel },
-    { label: 'Orders', path: '/orders', icon: ClipboardList },
-    { label: 'Account', path: '/collection', icon: User },
+    { label: 'Orders', path: user ? '/orders' : '/auth?next=%2Forders', icon: ClipboardList },
+    { label: 'Account', path: user ? '/collection' : '/auth?next=%2Fcollection', icon: User },
   ];
 
   const employeeItems = [
@@ -23,10 +28,11 @@ export default function MobileNav() {
 
   const navItems = (isAdmin && mode === 'employee') ? employeeItems : customerItems;
 
-  // Hide nav in inventory section
+  // Hide nav in inventory section and auth flow
   const isInInventory = location.pathname.includes('/admin/inventory');
+  const isAuthPage = location.pathname === '/auth';
 
-  if (isInInventory) return null;
+  if (isInInventory || isAuthPage) return null;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-purple-100 px-6 py-2 pb-8 flex items-center justify-between z-50 md:hidden">

@@ -1,33 +1,37 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LogIn, Bell, ShoppingBag, Briefcase } from 'lucide-react';
-import { onAuthStateChange, signOut } from '../../services/authService';
+import { auth, onAuthStateChanged, signOut, type AuthUser } from '../../firebase';
 import { useCart } from '../../context/CartContext';
 import { useMode } from '../../context/ModeContext';
-import { subscribeToNotifications, markAsRead, type Notification } from '../../services/notificationService';
+import { subscribeToNotifications, markAsRead, Notification } from '../../services/notificationService';
 import { cn } from '../../lib/utils';
 import Logo from './Logo';
-import AuthModal from '../auth/AuthModal';
 
-function BellDropdown({ userId }: { userId: string }) {
+function BellDropdown({ user }: { user: AuthUser | null }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!userId) return;
-    const unsubscribe = subscribeToNotifications(userId, setNotifications);
-    return unsubscribe;
-  }, [userId]);
+    if (!user) return;
+    return subscribeToNotifications(user.uid, setNotifications);
+  }, [user]);
 
   const unread = notifications.filter(n => !n.read).length;
+  if (!user) return null;
 
   return (
     <div className="relative">
-      <button onClick={() => setOpen(v => !v)} className="relative p-2 hover:bg-purple-50 rounded-full transition-colors">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="relative p-2 hover:bg-purple-50 rounded-full transition-colors"
+      >
         <Bell className="w-5 h-5 text-purple-500" />
         {unread > 0 && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 text-white text-[8px] font-bold flex items-center justify-center rounded-full"
-            style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
+          <span
+            className="absolute -top-1 -right-1 w-4 h-4 text-white text-[8px] font-bold flex items-center justify-center rounded-full"
+            style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
+          >
             {unread}
           </span>
         )}
@@ -39,22 +43,28 @@ function BellDropdown({ userId }: { userId: string }) {
             <div className="px-4 py-3 border-b border-purple-50 flex items-center justify-between">
               <span className="text-sm font-black text-purple-900">Alerts</span>
               {unread > 0 && (
-                <button onClick={() => notifications.filter(n => !n.read).forEach(n => markAsRead(n.id))}
-                  className="text-xs font-bold text-purple-400 hover:text-purple-600">Mark all read</button>
+                <button
+                  onClick={() => notifications.filter(n => !n.read).forEach(n => markAsRead(n.id))}
+                  className="text-xs font-bold text-purple-400 hover:text-purple-600"
+                >
+                  Mark all read
+                </button>
               )}
             </div>
             <div className="max-h-64 overflow-y-auto">
-              {notifications.length === 0 ? (
-                <p className="text-xs text-purple-300 font-semibold text-center py-8">No alerts yet</p>
-              ) : notifications.map(n => (
-                <div key={n.id} onClick={() => markAsRead(n.id)}
-                  className={cn('px-4 py-3 border-b border-purple-50 cursor-pointer hover:bg-purple-50 transition-colors',
-                    !n.read && 'bg-purple-50/60')}>
-                  {!n.read && <div className="w-1.5 h-1.5 rounded-full mb-1" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }} />}
-                  <p className="text-xs font-bold text-purple-900">{n.title}</p>
-                  <p className="text-[10px] text-purple-400 font-semibold mt-0.5">{n.message}</p>
-                </div>
-              ))}
+              {notifications.length === 0
+                ? <p className="text-xs text-purple-300 font-semibold text-center py-8">No alerts yet</p>
+                : notifications.map(n => (
+                  <div
+                    key={n.id}
+                    onClick={() => markAsRead(n.id)}
+                    className={cn('px-4 py-3 border-b border-purple-50 cursor-pointer hover:bg-purple-50 transition-colors', !n.read && 'bg-purple-50/60')}
+                  >
+                    {!n.read && <div className="w-1.5 h-1.5 rounded-full mb-1" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }} />}
+                    <p className="text-xs font-bold text-purple-900">{n.title}</p>
+                    <p className="text-[10px] text-purple-400 font-semibold mt-0.5">{n.message}</p>
+                  </div>
+                ))}
             </div>
           </div>
         </>
@@ -63,79 +73,85 @@ function BellDropdown({ userId }: { userId: string }) {
   );
 }
 
-interface PageHeaderProps {
-  user?: { uid: string; email: string | null; displayName: string | null } | null;
-}
+export default function PageHeader() {
+  const [user, setUser] = useState<AuthUser | null>(auth.currentUser);
+  useEffect(() => onAuthStateChanged(auth, setUser), []);
 
-export default function PageHeader({ user }: PageHeaderProps) {
   const { items } = useCart();
   const { isAdmin, mode, setMode } = useMode();
   const navigate = useNavigate();
-  const [showAuth, setShowAuth] = useState(false);
+  const location = useLocation();
   const cartCount = items.reduce((s, i) => s + i.quantity, 0);
   const isEmployee = mode === 'employee';
 
-  async function handleSignOut() {
-    await signOut();
-    navigate('/');
-  }
-
   return (
-    <>
-      <header
-        className="sticky top-0 z-[60] h-14 px-4 flex items-center justify-between border-b border-purple-50"
-        style={{ background: 'rgba(253,244,255,0.95)', backdropFilter: 'blur(12px)' }}
-      >
-        <Link to={isEmployee ? '/admin' : '/'} className="flex-shrink-0">
-          <Logo />
-        </Link>
+    <header
+      className="sticky top-0 z-30 h-14 px-4 flex items-center justify-between border-b border-purple-50"
+      style={{ background: 'rgba(253,244,255,0.95)', backdropFilter: 'blur(12px)' }}
+    >
+      <Link to={isEmployee ? '/admin' : '/'} className="flex-shrink-0">
+        <Logo />
+      </Link>
 
-        <div className="flex items-center gap-1">
-          {user && <BellDropdown userId={user.uid} />}
+      <div className="flex items-center gap-1">
+        <BellDropdown user={user} />
 
-          {!isEmployee && (
-            <Link to="/checkout" className="relative p-2 hover:bg-purple-50 rounded-full transition-colors">
-              <ShoppingBag className="w-5 h-5 text-purple-500" />
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 text-white text-[8px] font-bold flex items-center justify-center rounded-full"
-                  style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
-                  {cartCount}
-                </span>
-              )}
-            </Link>
-          )}
+        {/* Cart — customer mode only */}
+        {!isEmployee && (
+          <Link to="/checkout" className="relative p-2 hover:bg-purple-50 rounded-full transition-colors">
+            <ShoppingBag className="w-5 h-5 text-purple-500" />
+            {cartCount > 0 && (
+              <span
+                className="absolute -top-1 -right-1 w-4 h-4 text-white text-[8px] font-bold flex items-center justify-center rounded-full"
+                style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
+              >
+                {cartCount}
+              </span>
+            )}
+          </Link>
+        )}
 
-          {isAdmin && (
-            <button
-              onClick={() => { const next = isEmployee ? 'customer' : 'employee'; setMode(next); navigate(next === 'employee' ? '/admin' : '/'); }}
-              title={isEmployee ? 'Switch to Customer View' : 'Switch to Employee View'}
-              className={cn('p-2 rounded-full border transition-all',
-                isEmployee ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-500 border-purple-200 hover:border-purple-400'
-              )}
-            >
-              {isEmployee ? <ShoppingBag className="w-4 h-4" /> : <Briefcase className="w-4 h-4" />}
-            </button>
-          )}
+        {/* Mode toggle — icon only, admin only */}
+        {isAdmin && (
+          <button
+            onClick={() => {
+              const next = isEmployee ? 'customer' : 'employee';
+              setMode(next);
+              navigate(next === 'employee' ? '/admin' : '/');
+            }}
+            title={isEmployee ? 'Switch to Customer View' : 'Switch to Employee View'}
+            className={cn(
+              'p-2 rounded-full border transition-all',
+              isEmployee
+                ? 'bg-purple-600 text-white border-purple-600'
+                : 'bg-white text-purple-500 border-purple-200 hover:border-purple-400'
+            )}
+          >
+            {isEmployee ? <ShoppingBag className="w-4 h-4" /> : <Briefcase className="w-4 h-4" />}
+          </button>
+        )}
 
-          {user ? (
-            <button onClick={handleSignOut}
-              title={`Sign out (${user.email})`}
-              className="w-8 h-8 rounded-full text-white text-xs font-black flex items-center justify-center shadow-md hover:opacity-80 transition-opacity"
-              style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
-              {user.displayName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || '?'}
-            </button>
-          ) : (
-            <button onClick={() => setShowAuth(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-full font-bold text-white text-sm hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
-              <LogIn className="w-4 h-4" />
-              <span className="hidden sm:inline">Sign In</span>
-            </button>
-          )}
-        </div>
-      </header>
-
-      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
-    </>
+        {/* User avatar / sign in */}
+        {user ? (
+          <button
+            onClick={() => signOut()}
+            title={`Sign out (${user.email})`}
+            className="w-8 h-8 rounded-full text-white text-xs font-black flex items-center justify-center shadow-md hover:opacity-80 transition-opacity"
+            style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
+          >
+            {user.email?.[0].toUpperCase()}
+          </button>
+        ) : (
+          <button
+            onClick={() => navigate(`/auth?next=${encodeURIComponent(`${location.pathname}${location.search}`)}`)}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full font-bold text-white text-sm hover:opacity-90"
+            style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
+          >
+            <LogIn className="w-4 h-4" />
+            <span className="hidden sm:inline">Sign In</span>
+          </button>
+        )}
+      </div>
+    </header>
   );
 }

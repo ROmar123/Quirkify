@@ -181,7 +181,7 @@ export default function Checkout() {
         </div>
         <h2 className="text-3xl font-black mb-3 gradient-text">Sign in to checkout</h2>
         <p className="text-purple-400 text-sm font-semibold mb-8">Your quirkiness needs an owner.</p>
-        <button onClick={signIn} className="btn-primary px-10 py-4 text-base">Sign In with Google</button>
+        <button onClick={() => void signIn('/checkout')} className="btn-primary px-10 py-4 text-base">Sign In with Google</button>
       </div>
     );
   }

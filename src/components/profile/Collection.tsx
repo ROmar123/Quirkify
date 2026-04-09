@@ -175,7 +175,7 @@ export default function Collection() {
         </div>
         <h2 className="text-3xl font-black mb-3 gradient-text">Sign in to view your vault</h2>
         <p className="text-purple-400 text-sm font-semibold mb-8">Your collection is waiting.</p>
-        <button onClick={signIn} className="btn-primary px-10 py-4 text-base">Sign In with Google</button>
+        <button onClick={() => void signIn('/collection')} className="btn-primary px-10 py-4 text-base">Sign In with Google</button>
       </div>
     );
   }

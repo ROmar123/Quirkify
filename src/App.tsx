@@ -1,9 +1,9 @@
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useState, useEffect } from 'react';
-import { onAuthStateChange, getCurrentUser } from './services/authService';
-import { supabase } from './supabase';
-import { Sparkles } from 'lucide-react';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect, type ReactNode } from 'react';
+import { auth, onAuthStateChanged, type AuthUser } from './firebase';
+import { syncProfile } from './services/profileService';
 import { motion, AnimatePresence } from 'motion/react';
+
 import StoreFront from './components/store/StoreFront';
 import AdminDashboard from './components/admin/AdminDashboard';
 import ProductsPage from './components/admin/ProductsPage';
@@ -22,13 +22,25 @@ import PaymentResult from './components/store/PaymentResult';
 import ProductDetails from './components/store/ProductDetails';
 import MobileNav from './components/layout/MobileNav';
 import PageHeader from './components/layout/PageHeader';
+import AuthPage from './components/auth/AuthPage';
+
 import { CartProvider } from './context/CartContext';
-import { ModeProvider } from './context/ModeContext';
+import { ModeProvider, useMode } from './context/ModeContext';
 
-console.log('[Quirkify] App mounted');
-
-function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: any }) {
+function RequireAuth({ user, children }: { user: AuthUser | null; children: ReactNode }) {
   const location = useLocation();
+
+  if (!user) {
+    const next = encodeURIComponent(`${location.pathname}${location.search}`);
+    return <Navigate to={`/auth?next=${next}`} replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: AuthUser | null }) {
+  const location = useLocation();
+
   return (
     <AnimatePresence mode="wait">
       <motion.div
@@ -40,108 +52,106 @@ function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: any }) {
       >
         <Routes location={location}>
           <Route path="/" element={<StoreFront />} />
+          <Route path="/auth" element={<AuthPage />} />
           <Route path="/auctions" element={<AuctionList />} />
-          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/checkout" element={<RequireAuth user={user}><Checkout /></RequireAuth>} />
           <Route path="/product/:id" element={<ProductDetails />} />
           <Route path="/payment/success" element={<PaymentResult type="success" />} />
           <Route path="/payment/cancel" element={<PaymentResult type="cancel" />} />
           <Route path="/live/:sessionId" element={<LiveStreamRoom />} />
-          <Route path="/collection" element={<Collection />} />
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/profile/:username" element={<PublicProfile />} />
-          <Route path="/seller/onboard" element={<SellerOnboarding />} />
-          {user && <Route path="/seller/onboard" element={<SellerOnboarding />} />}
-          {isAdmin && (
-            <>
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/products" element={<ProductsPage />} />
-              <Route path="/admin/commerce" element={<CommercePage />} />
-              <Route path="/admin/growth" element={<GrowthPage />} />
-              <Route path="/admin/resources" element={<ResourceMonitor />} />
-              <Route path="/admin/inventory" element={<Inventory />} />
-            </>
-          )}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/collection" element={<RequireAuth user={user}><Collection /></RequireAuth>} />
+          <Route path="/profile/:uid" element={<PublicProfile />} />
+          <Route path="/orders" element={<RequireAuth user={user}><Orders /></RequireAuth>} />
+          <Route path="/seller/onboarding" element={<RequireAuth user={user}><SellerOnboarding /></RequireAuth>} />
+          <Route path="/admin" element={isAdmin ? <AdminDashboard /> : <Navigate to="/" />} />
+          <Route path="/admin/inventory" element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
+          <Route path="/admin/reviews"  element={isAdmin ? <ProductsPage /> : <Navigate to="/" />} />
+          <Route path="/admin/orders"   element={isAdmin ? <CommercePage /> : <Navigate to="/" />} />
+          <Route path="/admin/campaigns" element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
+          <Route path="/admin/social"   element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
+          <Route path="/admin/streams"  element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
+          <Route path="/admin/resources" element={isAdmin ? <ResourceMonitor /> : <Navigate to="/" />} />
         </Routes>
       </motion.div>
     </AnimatePresence>
   );
 }
 
-export default function App() {
-  console.log('[App] Rendering');
-  const [user, setUser] = useState<any>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+function AppInner() {
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const { isAdmin, setIsAdmin } = useMode();
 
   useEffect(() => {
-    let settled = false;
+    const timeout = setTimeout(() => setLoading(false), 8000);
+    let prevUser: AuthUser | null = null;
 
-    async function syncProfile(userId: string) {
-      try {
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('uid', userId)
-          .single();
-        if (!settled) {
-          setIsAdmin(data?.role === 'admin');
-        }
-      } catch (err) {
-        console.warn('[Auth] Profile sync failed:', err);
-        if (!settled) setIsAdmin(false);
-      }
-    }
-
-    // Safety timeout — if auth doesn't resolve in 5s, show the app anyway
-    const timeout = setTimeout(() => {
-      console.warn('[Auth] Timeout — proceeding without auth');
-      settled = true;
-      setLoading(false);
-    }, 5000);
-
-    const { data: { subscription } } = onAuthStateChange(async (u) => {
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
       clearTimeout(timeout);
-      settled = true;
+      const isFirstLoad = !prevUser;
+      prevUser = u;
       setUser(u);
-      if (u?.uid) {
-        await syncProfile(u.uid);
+
+      if (u) {
+        try {
+          // Sync Firebase user to Supabase profile and get role
+          const profile = await syncProfile(u);
+          const admin = profile.role === 'admin';
+          setIsAdmin(admin);
+          setLoading(false);
+
+          if (isFirstLoad && admin) {
+            navigate('/admin');
+          } else if (isFirstLoad) {
+            navigate('/');
+          }
+        } catch (err) {
+          // Fallback: if Supabase is unreachable, allow basic access
+          console.error('Profile sync failed:', err);
+          setIsAdmin(false);
+          setLoading(false);
+        }
+      } else {
+        setIsAdmin(false);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return () => {
-      clearTimeout(timeout);
-      settled = true;
-      subscription.unsubscribe();
-    };
+    return () => { clearTimeout(timeout); unsubscribe(); };
   }, []);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center" style={{ background: '#FDF4FF' }}>
-        <Sparkles className="w-12 h-12 text-purple-500 mb-4" />
-        <h1 className="text-2xl font-bold text-purple-600 mb-2">Quirkify</h1>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#FDF4FF' }}>
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
           className="w-10 h-10 border-4 border-t-transparent rounded-full"
           style={{ borderColor: '#A855F7', borderTopColor: 'transparent' }}
         />
-        <p className="text-gray-500 mt-3 text-sm">Loading your experience...</p>
       </div>
     );
   }
 
   return (
-    <CartProvider>
-      <ModeProvider>
-        <div className="min-h-screen bg-gradient-to-br from-purple-50 to-white">
-          <PageHeader user={user} />
-          <AnimatedRoutes isAdmin={isAdmin} user={user} />
-          <MobileNav />
-        </div>
-      </ModeProvider>
-    </CartProvider>
+    <div className="min-h-screen font-sans" style={{ background: '#FDF4FF', color: '#2D1B69' }}>
+      <PageHeader />
+
+      <main className="pb-20">
+        <AnimatedRoutes isAdmin={isAdmin} user={user} />
+      </main>
+      <MobileNav />
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ModeProvider>
+      <CartProvider>
+        <AppInner />
+      </CartProvider>
+    </ModeProvider>
   );
 }
