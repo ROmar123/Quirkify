@@ -1,11 +1,10 @@
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth, signIn, getRedirectResult } from './firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, firebaseInitialized } from './firebase';
 import { syncProfile } from './services/profileService';
 import { Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-
 import StoreFront from './components/store/StoreFront';
 import AdminDashboard from './components/admin/AdminDashboard';
 import ProductsPage from './components/admin/ProductsPage';
@@ -24,22 +23,16 @@ import PaymentResult from './components/store/PaymentResult';
 import ProductDetails from './components/store/ProductDetails';
 import MobileNav from './components/layout/MobileNav';
 import PageHeader from './components/layout/PageHeader';
-
 import { CartProvider } from './context/CartContext';
-import { ModeProvider, useMode } from './context/ModeContext';
+import { ModeProvider } from './context/ModeContext';
 
-function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: User | null }) {
+console.log('[Quirkify] App mounted, firebaseInitialized:', firebaseInitialized);
+
+function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: any }) {
   const location = useLocation();
-
   return (
     <AnimatePresence mode="wait">
-      <motion.div
-        key={location.pathname}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -10 }}
-        transition={{ duration: 0.3, ease: 'easeOut' }}
-      >
+      <motion.div key={location.pathname} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: 'easeOut' }}>
         <Routes location={location}>
           <Route path="/" element={<StoreFront />} />
           <Route path="/auctions" element={<AuctionList />} />
@@ -49,126 +42,92 @@ function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: User | null
           <Route path="/payment/cancel" element={<PaymentResult type="cancel" />} />
           <Route path="/live/:sessionId" element={<LiveStreamRoom />} />
           <Route path="/collection" element={<Collection />} />
-          <Route path="/profile/:uid" element={<PublicProfile />} />
           <Route path="/orders" element={<Orders />} />
-          <Route path="/seller/onboarding" element={<SellerOnboarding />} />
-          <Route path="/admin" element={isAdmin ? <AdminDashboard /> : <Navigate to="/" />} />
-          <Route path="/admin/inventory" element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
-          <Route path="/admin/reviews"  element={isAdmin ? <ProductsPage /> : <Navigate to="/" />} />
-          <Route path="/admin/orders"   element={isAdmin ? <CommercePage /> : <Navigate to="/" />} />
-          <Route path="/admin/campaigns" element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
-          <Route path="/admin/social"   element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
-          <Route path="/admin/streams"  element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
-          <Route path="/admin/resources" element={isAdmin ? <ResourceMonitor /> : <Navigate to="/" />} />
+          <Route path="/profile/:username" element={<PublicProfile />} />
+          <Route path="/seller/onboard" element={<SellerOnboarding />} />
+          {user && <Route path="/seller/onboard" element={<SellerOnboarding />} />}
+          {isAdmin && (
+            <>
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/products" element={<ProductsPage />} />
+              <Route path="/admin/commerce" element={<CommercePage />} />
+              <Route path="/admin/growth" element={<GrowthPage />} />
+              <Route path="/admin/resources" element={<ResourceMonitor />} />
+              <Route path="/admin/inventory" element={<Inventory />} />
+            </>
+          )}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </motion.div>
     </AnimatePresence>
   );
 }
 
-function AppInner() {
-  const [user, setUser] = useState<User | null>(null);
+export default function App() {
+  console.log('[App] Rendering, firebaseInitialized:', firebaseInitialized);
+  const [user, setUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { isAdmin, setIsAdmin } = useMode();
 
   useEffect(() => {
-    const timeout = setTimeout(() => setLoading(false), 8000);
-    let prevUser: User | null = null;
+    console.log('[App] useEffect running, firebaseInitialized:', firebaseInitialized);
+    const hardTimeout = setTimeout(() => {
+      console.warn('[Auth] Hard timeout fired - rendering without auth');
+      setLoading(false);
+    }, 6000);
 
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      clearTimeout(timeout);
-      const isFirstLoad = !prevUser;
-      prevUser = u;
-      setUser(u);
-
-      if (u) {
-        try {
-          // Sync Firebase user to Supabase profile and get role
-          const profile = await syncProfile(u);
-          const admin = profile.role === 'admin';
-          setIsAdmin(admin);
-          setLoading(false);
-
-          if (isFirstLoad && admin) {
-            navigate('/admin');
-          } else if (isFirstLoad) {
-            navigate('/');
-          }
-        } catch (err) {
-          // Fallback: if Supabase is unreachable, allow basic access
-          console.error('Profile sync failed:', err);
-          setIsAdmin(false);
-          setLoading(false);
+    if (firebaseInitialized && auth) {
+      console.log('[Auth] Subscribing to auth state...');
+      onAuthStateChanged(auth, async (u) => {
+        console.log('[Auth] State changed:', u ? u.uid : 'null');
+        clearTimeout(hardTimeout);
+        setUser(u);
+        if (u) {
+          try {
+            const profile = await syncProfile(u);
+            setIsAdmin(profile.role === 'admin');
+          } catch { setIsAdmin(false); }
         }
-      } else {
-        setIsAdmin(false);
         setLoading(false);
-      }
-    });
+      }, (err) => {
+        console.error('[Auth] Observer error:', err);
+        clearTimeout(hardTimeout);
+        setLoading(false);
+      });
+    } else {
+      console.warn('[App] Firebase not initialized, skipping auth');
+      clearTimeout(hardTimeout);
+      setLoading(false);
+    }
 
-    return () => { clearTimeout(timeout); unsubscribe(); };
+    return () => clearTimeout(hardTimeout);
   }, []);
+
+  console.log('[App] render, loading:', loading);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#FDF4FF' }}>
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+      <div className="min-h-screen flex flex-col items-center justify-center" style={{ background: '#FDF4FF' }}>
+        <Sparkles className="w-12 h-12 text-purple-500 mb-4" />
+        <h1 className="text-2xl font-bold text-purple-600 mb-2">Quirkify</h1>
+        <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
           className="w-10 h-10 border-4 border-t-transparent rounded-full"
-          style={{ borderColor: '#A855F7', borderTopColor: 'transparent' }}
-        />
+          style={{ borderColor: '#A855F7', borderTopColor: 'transparent' }} />
+        <p className="text-gray-500 mt-3 text-sm">Loading your experience...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: '#FDF4FF', color: '#2D1B69' }}>
-      {/* Single sticky header — never re-mounts on navigation */}
-      <PageHeader />
-
-      <main className="pb-20">
-        {!user && (
-          <div className="max-w-7xl mx-auto px-4 py-12">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-3xl p-12 md:p-20 text-center relative overflow-hidden"
-              style={{ background: 'linear-gradient(135deg, #fdf4ff 0%, #fce7f3 50%, #ede9fe 100%)' }}
-            >
-              <div className="absolute top-8 left-8 w-24 h-24 rounded-full opacity-20 animate-float" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }} />
-              <div className="absolute bottom-8 right-8 w-16 h-16 rounded-full opacity-20 animate-float" style={{ background: 'linear-gradient(135deg, #FBBF24, #FB923C)', animationDelay: '1s' }} />
-              <div className="absolute top-1/2 left-4 w-10 h-10 rounded-full opacity-15 animate-float" style={{ background: '#4ADE80', animationDelay: '0.5s' }} />
-              <div className="relative z-10 max-w-2xl mx-auto">
-                <h2 className="text-6xl md:text-8xl font-black mb-6 leading-tight gradient-text">
-                  Quirkify
-                </h2>
-                <p className="text-purple-400 mb-10 text-base font-semibold leading-relaxed">
-                  The next generation of social commerce.<br />
-                  AI-curated, live-streamed, and community-driven.
-                </p>
-                <button onClick={signIn} className="btn-primary text-base px-10 py-4">
-                  <Sparkles className="w-5 h-5" />
-                  Enter the Fun
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-        <AnimatedRoutes isAdmin={isAdmin} user={user} />
-      </main>
-      <MobileNav />
-    </div>
-  );
-}
-
-export default function App() {
-  return (
-    <ModeProvider>
-      <CartProvider>
-        <AppInner />
-      </CartProvider>
-    </ModeProvider>
+    <CartProvider>
+      <ModeProvider>
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 to-white">
+          <AnimatedRoutes isAdmin={isAdmin} user={user} />
+          <MobileNav />
+          <PageHeader />
+        </div>
+      </ModeProvider>
+    </CartProvider>
   );
 }

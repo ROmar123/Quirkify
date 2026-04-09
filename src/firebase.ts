@@ -1,60 +1,59 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOut, onAuthStateChanged, getRedirectResult, User } from 'firebase/auth';
-import { getFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, serverTimestamp, increment } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth, onAuthStateChanged, signInWithRedirect, signOut as firebaseSignOut, GoogleAuthProvider } from 'firebase/auth';
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, serverTimestamp, increment, deleteField, writeBatch, DocumentReference } from 'firebase/firestore';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDZ5wLauYYVERxEfcdOGOZ8GNI2Qvjf9RM",
-  authDomain: "gen-lang-client-0358761247.firebaseapp.com",
-  projectId: "gen-lang-client-0358761247",
-  storageBucket: "gen-lang-client-0358761247.firebasestorage.app",
-  messagingSenderId: "24353526972",
-  appId: "1:24353526972:web:f80463794cd97f98b9ecb9"
+  apiKey: "AIzaSyBd8oWE3GOXHulfOXV4EfcdOGOZ8GNI2Qvjf9RM",
+  authDomain: "quirkify-95aea.firebaseapp.com",
+  projectId: "quirkify-95aea",
+  storageBucket: "quirkify-95aea.appspot.com",
+  messagingSenderId: "942255680782",
+  appId: "1:942255680782:web:6483f0ef80a1f40d2d91eb",
+  databaseURL: "https://quirkify-95aea-default-rtdb.firebaseio.com"
 };
 
-const app = initializeApp(firebaseConfig);
-const _auth = getAuth(app);
-const _db = getFirestore(app);
-const _storage = getStorage(app);
+let app, auth, db, storage;
 
-// Auth
-export const auth = _auth;
-export const googleProvider = new GoogleAuthProvider();
-export const signIn = () => signInWithPopup(_auth, googleProvider);
-export const signOut = () => firebaseSignOut(_auth);
-export { onAuthStateChanged, getRedirectResult };
-export type { User };
-
-// Firestore
-export const db = _db;
-export { addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, collection, doc, query, where, orderBy, limit, serverTimestamp, increment };
-
-// Storage
-export const storage = _storage;
-export { ref, uploadBytes, getDownloadURL };
-
-// Utilities
-export enum OperationType {
-  GET = 'get',
-  WRITE = 'write',
-  DELETE = 'delete',
-  LISTEN = 'listen',
+try {
+  app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
+  auth.useDeviceLanguage();
+} catch (e) {
+  console.warn('[Firebase] Init failed:', e);
 }
 
-export function handleFirestoreError(error: unknown, operation: OperationType, collection: string): void {
-  const code = (error as { code?: string }).code ?? 'unknown';
-  const msgs: Record<string, string> = {
-    'permission-denied': `Permission denied on ${operation} for ${collection}`,
-    'not-found': `${collection} not found`,
-    'invalid-argument': `Invalid argument for ${operation} on ${collection}`,
-    'unavailable': 'Service unavailable — check connection',
-    'deadline-exceeded': 'Request timed out',
-    'already-exists': 'Record already exists',
-    'resource-exhausted': 'Quota exceeded',
-    'cancelled': 'Operation cancelled',
-    'unknown': `Firestore error (${operation} on ${collection})`,
+export const firebaseInitialized = !!(auth && db);
+export { app, auth, db, storage };
+export const signIn = signInWithRedirect;
+export { firebaseSignOut as signOut };
+export { GoogleAuthProvider };
+
+export const OperationType = {
+  ADD: 'add',
+  MODIFY: 'modify',
+  REMOVE: 'remove',
+} as const;
+
+export function handleFirestoreError(error: any): never {
+  const mapping: Record<string, string> = {
+    'auth/network-request-failed': 'Network error. Check your connection.',
+    'auth/too-many-requests': 'Too many attempts. Try again later.',
+    'auth/user-disabled': 'Account disabled. Contact support.',
+    'auth/operation-not-allowed': 'Operation not allowed.',
+    'auth/unauthorized-domain': 'This domain is not authorized.',
+    'auth/invalid-api-key': 'Firebase config error. Contact support.',
+    'firestore/permission-denied': 'Access denied.',
+    'firestore/not-found': 'Data not found.',
+    'firestore/already-exists': 'Item already exists.',
+    'firestore/resource-exhausted': 'Quota exceeded. Try again later.',
+    'firestore/unavailable': 'Service temporarily unavailable.',
   };
-  console.error(`[Firestore] [${operation.toUpperCase()}] ${collection}:`, msgs[code] ?? msgs.unknown, error);
+  const msg = mapping[error?.code] || error?.message || 'An unexpected error occurred.';
+  throw new Error(msg);
 }
 
-export default app;
+export { collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, serverTimestamp, increment, deleteField, writeBatch, DocumentReference };
+export { ref as storageRef, uploadBytes, getDownloadURL };
