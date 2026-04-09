@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { CheckCircle2, XCircle, ArrowRight, ShoppingBag, Sparkles } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
-import { doc, updateDoc, getDoc, increment } from 'firebase/firestore';
+
 import { db, auth } from '../../firebase';
 import { addXP } from '../../services/gamificationService';
 export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) {

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { CreditCard, Truck, ArrowRight, ArrowLeft, ShoppingBag, Sparkles, LogIn, Shield, Zap, MapPin, AlertCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
-import { auth, signIn } from '../../firebase';
+import { getCurrentUser } from '../../services/authService';
 import { initiateYocoCheckout } from '../../services/paymentService';
 import { createOrder } from '../../services/orderService';
 import { getProfileByUid } from '../../services/profileService';
@@ -135,7 +135,7 @@ export default function Checkout() {
       setPaymentError(null);
       try {
         // Get Supabase profile for the order
-        const profile = await getProfileByUid(auth.currentUser.uid);
+        const profile = await getProfileByUid(getCurrentUser()?.uid);
 
         const order = await createOrder({
           profileId: profile?.id,

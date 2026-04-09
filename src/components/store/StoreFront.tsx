@@ -1,229 +1,95 @@
-import { useState, useEffect, useMemo } from 'react';
-import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../../firebase';
-import { Product, LiveSession } from '../../types';
-import { fetchProducts } from '../../services/productService';
-import { motion } from 'motion/react';
-import { ShoppingBag, Play, Users, Search, X, Tag, Shield, Truck, Sparkles } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { Search, SlidersHorizontal, Star } from 'lucide-react';
+import { subscribeToProducts } from '../../services/productService';
+import type { Product } from '../../types';
 import { cn } from '../../lib/utils';
-import { useCart } from '../../context/CartContext';
-import { PRODUCT_CATEGORIES } from '../../lib/categories';
 
-const CONDITION_FILTERS = [
-  { key: null,        label: 'All' },
-  { key: 'sale',      label: '🔥 Sale' },
-  { key: 'New',       label: '✨ New' },
-  { key: 'Pre-owned', label: '💎 Pre-owned' },
-];
-
-const RARITY_STYLE: Record<string, string> = {
-  Unique:     'bg-yellow-400 text-black',
-  'Super Rare': 'bg-pink-500 text-white',
-  Rare:       'bg-purple-500 text-white',
-  Common:     'bg-purple-700 text-white',
-};
+const CATEGORIES = ['All', 'Capsules', 'Cosmetics', 'Supplements', 'Tech', 'Home'];
 
 export default function StoreFront() {
-  const { addToCart } = useCart();
-  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
-  const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [category, setCategory] = useState('All');
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
-    // Products from Supabase
-    fetchProducts('approved')
-      .then(data => { setProducts(data); setLoading(false); })
-      .catch(err => { console.error('Failed to load products:', err); setLoading(false); });
-
-    // Live sessions stay on Firestore (real-time bidding)
-    const qLive = query(collection(db, 'live_sessions'), where('status', '==', 'live'), limit(3));
-    const unsubLive = onSnapshot(qLive, (snap) => {
-      setLiveSessions(snap.docs.map(d => ({ id: d.id, ...d.data() } as LiveSession)));
-    }, () => {});
-
-    return () => { unsubLive(); };
+    setLoading(true);
+    const unsubscribe = subscribeToProducts('approved', (data) => {
+      setProducts(data);
+      setLoading(false);
+    });
+    return unsubscribe;
   }, []);
 
-  const filtered = useMemo(() => {
-    let list = products;
-    if (activeFilter === 'sale') list = list.filter(p => p.discountPrice && p.discountPrice < p.priceRange.min);
-    else if (activeFilter) list = list.filter(p => p.condition === activeFilter);
-    if (activeCategory) list = list.filter(p => p.category === activeCategory);
-    if (search.trim()) list = list.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.category?.toLowerCase().includes(search.toLowerCase()));
-    return list;
-  }, [products, activeFilter, activeCategory, search]);
+  const filtered = products.filter(p => {
+    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.description?.toLowerCase().includes(search.toLowerCase());
+    const matchCat = category === 'All' || p.category === category;
+    return matchSearch && matchCat;
+  });
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="px-4 py-4">
-      {/* Live banner */}
-      {liveSessions.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-          className="mb-6 rounded-2xl overflow-hidden"
-          style={{ background: 'linear-gradient(135deg, #2D1B69, #A855F7)' }}>
-          <div className="flex items-center gap-4 px-5 py-3 overflow-x-auto">
-            <span className="text-[9px] font-black uppercase tracking-widest text-pink-300 whitespace-nowrap flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse inline-block" /> Live Now
-            </span>
-            {liveSessions.map(s => (
-              <Link key={s.id} to={`/live/${s.id}`}
-                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 rounded-xl px-3 py-1.5 transition-colors whitespace-nowrap">
-                <Play className="w-3 h-3 text-white fill-white" />
-                <span className="text-xs font-bold text-white">{s.title}</span>
-                <span className="text-[9px] text-white/60 flex items-center gap-1"><Users className="w-3 h-3" />{s.viewerCount}</span>
-              </Link>
-            ))}
-          </div>
-        </motion.div>
-      )}
-
-      {/* Search + Filters */}
-      <div className="mb-8 space-y-4">
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-300 pointer-events-none" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search products…"
-            className="w-full pl-11 pr-10 py-3.5 bg-white border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-800 placeholder:text-purple-300 focus:outline-none focus:border-purple-400 transition-colors"
-          />
-          {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-purple-50">
-              <X className="w-4 h-4 text-purple-400" />
-            </button>
-          )}
-        </div>
-
-        <div className="flex gap-3">
-          <select
-            value={activeFilter ?? ''}
-            onChange={e => setActiveFilter(e.target.value || null)}
-            className="flex-1 px-4 py-2.5 bg-white border-2 border-purple-100 rounded-2xl text-sm font-bold text-purple-800 focus:outline-none focus:border-purple-400 transition-colors appearance-none cursor-pointer"
-          >
-            {CONDITION_FILTERS.map(f => (
-              <option key={String(f.key)} value={f.key ?? ''}>{f.label}</option>
-            ))}
-          </select>
-          <select
-            value={activeCategory ?? ''}
-            onChange={e => setActiveCategory(e.target.value || null)}
-            className="flex-1 px-4 py-2.5 bg-white border-2 border-purple-100 rounded-2xl text-sm font-bold text-purple-800 focus:outline-none focus:border-purple-400 transition-colors appearance-none cursor-pointer"
-          >
-            <option value="">All Categories</option>
-            {PRODUCT_CATEGORIES.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
-        </div>
+    <div className="min-h-screen pb-20">
+      {/* Trust strip */}
+      <div className="w-full py-2 px-4 flex items-center justify-center gap-4 text-[10px] font-bold text-purple-500 border-b border-purple-50">
+        <span>Secure Payments</span>
+        <span className="text-purple-200">•</span>
+        <span>AI Verified</span>
+        <span className="text-purple-200">•</span>
+        <span>Fast Delivery</span>
       </div>
 
-      {/* Product Grid */}
-      <div>
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-black gradient-text">
-            {activeFilter === 'sale' ? '🔥 Sale' : activeFilter === 'New' ? '✨ New Arrivals' : activeFilter === 'Pre-owned' ? '💎 Pre-owned' : 'All Products'}
-            {!loading && filtered.length > 0 && <span className="text-purple-300 font-semibold text-sm ml-2">({filtered.length})</span>}
-          </h2>
+      {/* Search */}
+      <div className="sticky top-14 z-50 bg-white/90 backdrop-blur-sm border-b border-purple-50 px-4 py-3 space-y-3">
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-300" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search quirky finds..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-full border-2 border-purple-100 text-sm font-semibold focus:outline-none focus:border-purple-400 bg-purple-50/30" />
+          </div>
+          <button onClick={() => setShowFilters(v => !v)} className={cn('p-2.5 rounded-full border-2 transition-colors', showFilters ? 'border-purple-400 bg-purple-50' : 'border-purple-100')}>
+            <SlidersHorizontal className="w-4 h-4 text-purple-500" />
+          </button>
         </div>
-
-        {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {[...Array(8)].map((_, i) => <div key={i} className="aspect-[3/4] bg-purple-50 animate-pulse rounded-3xl" />)}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-24 rounded-3xl border border-purple-100 bg-purple-50">
-            <ShoppingBag className="w-10 h-10 mx-auto mb-3 text-purple-200" />
-            <p className="text-purple-400 font-bold text-sm">No products found</p>
-            {search && <button onClick={() => setSearch('')} className="mt-3 text-xs font-bold text-purple-500 underline">Clear search</button>}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filtered.map((product, idx) => {
-              const isSoldOut = product.stock === 0;
-              const isLowStock = product.stock > 0 && product.stock < 5;
-              const hasDiscount = product.discountPrice && product.discountPrice < product.priceRange.min;
-              return (
-                <motion.div key={product.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: Math.min(idx * 0.04, 0.3) }}
-                  className="bg-white rounded-3xl border border-purple-100 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col"
-                >
-                  {/* Image */}
-                  <Link to={`/product/${product.id}`} className="relative block aspect-[3/4] overflow-hidden bg-purple-50">
-                    <img src={product.imageUrl} alt={product.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      referrerPolicy="no-referrer" />
-                    {/* Badges */}
-                    <div className="absolute top-2 left-2 flex flex-col gap-1">
-                      {product.rarity && (
-                        <span className={cn('text-[8px] font-bold px-2 py-0.5 rounded-full', RARITY_STYLE[product.rarity] ?? 'bg-purple-700 text-white')}>
-                          {product.rarity}
-                        </span>
-                      )}
-                      {hasDiscount && <span className="text-[8px] font-bold px-2 py-0.5 rounded-full bg-red-500 text-white flex items-center gap-0.5"><Tag className="w-2 h-2" />Sale</span>}
-                      {isLowStock && <span className="text-[8px] font-bold px-2 py-0.5 rounded-full bg-orange-400 text-white">Last {product.stock}!</span>}
-                      {isSoldOut && <span className="text-[8px] font-bold px-2 py-0.5 rounded-full bg-purple-300 text-white">Sold Out</span>}
-                    </div>
-                  </Link>
-
-                  {/* Info */}
-                  <div className="p-3 flex flex-col gap-2 flex-1">
-                    <div>
-                      <Link to={`/product/${product.id}`}>
-                        <p className="text-xs font-black leading-tight line-clamp-2 hover:text-purple-600 transition-colors">{product.name}</p>
-                      </Link>
-                      {product.condition && <p className="text-[9px] text-purple-400 font-semibold mt-0.5">{product.condition}</p>}
-                    </div>
-
-                    <div className="flex items-center justify-between mt-auto">
-                      {hasDiscount ? (
-                        <div>
-                          <p className="text-[9px] text-purple-300 line-through">R{product.priceRange.min}</p>
-                          <p className="text-sm font-black text-red-500">R{product.discountPrice}</p>
-                        </div>
-                      ) : (
-                        <p className="text-sm font-black gradient-text">R{product.priceRange.min}</p>
-                      )}
-                      {!isSoldOut ? (
-                        <button
-                          onClick={() => addToCart(product)}
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-white shadow-md hover:scale-110 transition-transform flex-shrink-0"
-                          style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
-                          title="Add to cart"
-                        >
-                          <ShoppingBag className="w-3.5 h-3.5" />
-                        </button>
-                      ) : (
-                        <Link to={`/product/${product.id}`} className="text-[9px] font-bold text-purple-400 underline">Details</Link>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
+        {showFilters && (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {CATEGORIES.map(c => (
+              <button key={c} onClick={() => setCategory(c)}
+                className={cn('flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold border-2 transition-colors',
+                  category === c ? 'border-purple-400 bg-purple-500 text-white' : 'border-purple-100 text-purple-500 hover:border-purple-300'
+                )}>
+                {c}
+              </button>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Trust strip - only show when products exist */}
-      {filtered.length > 0 && (
-        <div className="mt-16 grid grid-cols-3 gap-4 border-t border-purple-100 pt-8">
-          {[
-            { icon: Shield, label: 'Secure Payments', sub: 'Powered by Yoco' },
-            { icon: Sparkles, label: 'AI Verified', sub: 'Every item checked' },
-            { icon: Truck, label: 'Fast Delivery', sub: 'The Courier Guy' },
-          ].map(({ icon: Icon, label, sub }) => (
-            <div key={label} className="flex flex-col items-center text-center gap-1">
-              <Icon className="w-5 h-5 text-purple-400" />
-              <p className="text-[10px] font-black text-purple-700">{label}</p>
-              <p className="text-[9px] text-purple-400">{sub}</p>
+      {/* Products */}
+      <div className="px-4 py-4">
+        <div className="grid grid-cols-2 gap-3">
+          {loading ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="aspect-[3/4] rounded-2xl bg-purple-50 animate-pulse" />
+            ))
+          ) : filtered.length === 0 ? (
+            <div className="col-span-2 text-center py-16">
+              <p className="text-purple-400 font-bold">No products found</p>
+              <p className="text-purple-300 text-sm mt-1">Try adjusting your search or filters</p>
             </div>
+          ) : filtered.map(product => (
+            <Link key={product.id} to={`/product/${product.id}`} className="group">
+              <div className="aspect-[3/4] rounded-2xl overflow-hidden border-2 border-purple-50 group-hover:border-purple-200 transition-all">
+                <img src={product.imageUrl} alt={product.name}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/400x500/FDF4FF/A855F7?text=Quirkify'; }} />
+              </div>
+              <p className="text-xs font-black text-purple-900 mt-2 truncate">{product.name}</p>
+              <p className="text-xs font-bold text-purple-400">R{product.discountPrice?.toFixed(0) || product.retailPrice?.toFixed(0)}</p>
+            </Link>
           ))}
         </div>
-      )}
       </div>
     </div>
   );

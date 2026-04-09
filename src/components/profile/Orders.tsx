@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { auth, signIn } from '../../firebase';
+import { getCurrentUser } from '../../services/authService';
 import { LogIn, ShoppingBag, Package, Truck, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { fetchOrders, Order } from '../../services/orderService';
