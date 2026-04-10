@@ -47,6 +47,21 @@ export interface Order {
   items: OrderItem[];
 }
 
+export interface OrderEvent {
+  id: string;
+  orderId: string;
+  eventType: string;
+  fromStatus: OrderStatus | null;
+  toStatus: OrderStatus | null;
+  note: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface OrderDetail extends Order {
+  events: OrderEvent[];
+}
+
 function rowToOrder(row: any, items: any[] = []): Order {
   return {
     id: row.id,
@@ -210,6 +225,38 @@ export async function fetchOrders(filters?: {
   return (data || []).map(o => rowToOrder(o, itemsByOrder[o.id] || []));
 }
 
+function rowToEvent(row: any): OrderEvent {
+  return {
+    id: row.id,
+    orderId: row.order_id,
+    eventType: row.event_type,
+    fromStatus: row.from_status,
+    toStatus: row.to_status,
+    note: row.note,
+    metadata: row.metadata || {},
+    createdAt: row.created_at,
+  };
+}
+
+export async function fetchOrderDetail(orderId: string): Promise<OrderDetail | null> {
+  const response = await fetch(`/api/commerce/order-status?orderId=${encodeURIComponent(orderId)}&includeEvents=1`, {
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    if (response.status === 404) return null;
+    throw new Error(data.error || 'Failed to load order detail');
+  }
+
+  return {
+    ...rowToOrder(data.order, data.items || []),
+    events: (data.events || []).map(rowToEvent),
+  };
+}
+
 /** Update order status */
 export async function updateOrderStatus(id: string, status: OrderStatus, extras?: {
   paymentId?: string;
@@ -217,33 +264,31 @@ export async function updateOrderStatus(id: string, status: OrderStatus, extras?
   trackingNumber?: string;
   carrier?: string;
   adminNotes?: string;
-}): Promise<Order> {
-  const updates: Record<string, any> = { status };
+}): Promise<OrderDetail> {
+  const response = await fetch('/api/commerce/order-status', {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({
+      orderId: id,
+      status,
+      paymentId: extras?.paymentId,
+      paymentStatus: extras?.paymentStatus,
+      trackingNumber: extras?.trackingNumber,
+      carrier: extras?.carrier,
+      adminNotes: extras?.adminNotes,
+    }),
+  });
 
-  if (status === 'paid') updates.paid_at = new Date().toISOString();
-  if (status === 'shipped') updates.shipped_at = new Date().toISOString();
-  if (status === 'delivered') updates.delivered_at = new Date().toISOString();
-  if (status === 'cancelled') updates.cancelled_at = new Date().toISOString();
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to update order');
+  }
 
-  if (extras?.paymentId) updates.payment_id = extras.paymentId;
-  if (extras?.paymentStatus) updates.payment_status = extras.paymentStatus;
-  if (extras?.trackingNumber) updates.tracking_number = extras.trackingNumber;
-  if (extras?.carrier) updates.carrier = extras.carrier;
-  if (extras?.adminNotes) updates.admin_notes = extras.adminNotes;
-
-  const { data, error } = await supabase
-    .from('orders')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw new Error(error.message);
-
-  const { data: items } = await supabase
-    .from('order_items')
-    .select('*')
-    .eq('order_id', id);
-
-  return rowToOrder(data, items || []);
+  return {
+    ...rowToOrder(data.order, data.items || []),
+    events: (data.events || []).map(rowToEvent),
+  };
 }

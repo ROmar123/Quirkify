@@ -7,6 +7,7 @@ interface StoreCheckoutPayload {
   city: string;
   zip: string;
   items: { productId: string; quantity: number }[];
+  shippingCost?: number;
 }
 
 export const startStoreCheckout = async (payload: StoreCheckoutPayload) => {

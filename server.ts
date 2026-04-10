@@ -7,6 +7,8 @@ import axios from 'axios';
 import crypto from 'crypto';
 import { sendOrderStatusEmail } from './api/_lib/orderNotifications';
 import { ensureProfileByIdentity, getSupabaseAdmin } from './api/_lib/supabaseAdmin';
+import { getShippingQuote, getTrackingDetails } from './api/_lib/shipping';
+import { searchAddresses } from './api/_lib/mapbox';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config();
@@ -60,6 +62,11 @@ async function startServer() {
         displayName: displayName ? String(displayName) : null,
       });
 
+      const shippingQuote = await getShippingQuote({
+        city: city ? String(city) : null,
+        zip: zip ? String(zip) : null,
+      });
+
       const supabase = getSupabaseAdmin();
       const { data: checkoutData, error: checkoutError } = await supabase.rpc('create_store_checkout_order', {
         p_profile_id: profile.id,
@@ -69,7 +76,7 @@ async function startServer() {
         p_shipping_address: address ? String(address) : null,
         p_shipping_city: city ? String(city) : null,
         p_shipping_zip: zip ? String(zip) : null,
-        p_shipping_cost: 120,
+        p_shipping_cost: shippingQuote.price,
         p_items: normalizedItems,
       });
 
@@ -137,6 +144,7 @@ async function startServer() {
         orderId: checkoutRow.order_id,
         orderNumber: checkoutRow.order_number,
         total: checkoutRow.total,
+        shippingQuote,
         redirectUrl: yocoResponse.data?.redirectUrl,
         reservationExpiresAt: checkoutRow.reservation_expires_at,
       });
@@ -187,6 +195,7 @@ async function startServer() {
   app.get('/api/commerce/order-status', async (req, res) => {
     try {
       const orderId = String(req.query?.orderId || '').trim();
+      const includeEvents = req.query?.includeEvents === '1';
       if (!orderId) {
         return res.status(400).json({ error: 'Missing orderId' });
       }
@@ -194,7 +203,7 @@ async function startServer() {
       const supabase = getSupabaseAdmin();
       const { data, error } = await supabase
         .from('orders')
-        .select('id, order_number, status, payment_status, total, checkout_session_id, reservation_expires_at, created_at, updated_at')
+        .select(includeEvents ? '*' : 'id, order_number, status, payment_status, total, checkout_session_id, reservation_expires_at, created_at, updated_at')
         .eq('id', orderId)
         .maybeSingle();
 
@@ -206,10 +215,137 @@ async function startServer() {
         return res.status(404).json({ error: 'Order not found' });
       }
 
-      return res.json({ order: data });
+      if (!includeEvents) {
+        return res.json({ order: data });
+      }
+
+      const [{ data: items }, { data: events }] = await Promise.all([
+        supabase.from('order_items').select('*').eq('order_id', orderId).order('created_at', { ascending: true }),
+        supabase.from('order_events').select('*').eq('order_id', orderId).order('created_at', { ascending: false }),
+      ]);
+
+      return res.json({ order: data, items: items || [], events: events || [] });
     } catch (error: any) {
       const message = error?.message || 'Failed to load order status';
       console.error('Order status error:', message);
+      return res.status(500).json({ error: message });
+    }
+  });
+
+  app.patch('/api/commerce/order-status', async (req, res) => {
+    try {
+      const orderId = String(req.body?.orderId || '').trim();
+      const nextStatus = String(req.body?.status || '').trim();
+      const trackingNumber = typeof req.body?.trackingNumber === 'string' ? req.body.trackingNumber.trim() : '';
+      const carrier = typeof req.body?.carrier === 'string' ? req.body.carrier.trim() : '';
+      const adminNotes = typeof req.body?.adminNotes === 'string' ? req.body.adminNotes.trim() : '';
+
+      if (!orderId) {
+        return res.status(400).json({ error: 'Missing orderId' });
+      }
+
+      const supabase = getSupabaseAdmin();
+      const { data: currentOrder, error: orderError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+      if (orderError || !currentOrder) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+
+      const updates: Record<string, unknown> = {};
+      const previousStatus = currentOrder.status;
+      const allowedTransitions: Record<string, string[]> = {
+        pending: ['processing', 'cancelled', 'payment_failed'],
+        paid: ['processing', 'shipped', 'cancelled', 'refunded'],
+        processing: ['shipped', 'cancelled', 'refunded'],
+        shipped: ['delivered', 'refunded'],
+        delivered: ['refunded'],
+        cancelled: [],
+        refunded: [],
+        payment_failed: [],
+      };
+
+      if (trackingNumber) updates.tracking_number = trackingNumber;
+      if (carrier) updates.carrier = carrier;
+      if (adminNotes) updates.admin_notes = adminNotes;
+
+      if (nextStatus && nextStatus !== previousStatus) {
+        const allowed = allowedTransitions[previousStatus] || [];
+        if (!allowed.includes(nextStatus)) {
+          return res.status(400).json({ error: `Cannot move order from ${previousStatus} to ${nextStatus}` });
+        }
+
+        updates.status = nextStatus;
+        if (nextStatus === 'processing' && !currentOrder.paid_at) updates.paid_at = new Date().toISOString();
+        if (nextStatus === 'shipped') updates.shipped_at = new Date().toISOString();
+        if (nextStatus === 'delivered') updates.delivered_at = new Date().toISOString();
+        if (nextStatus === 'cancelled') updates.cancelled_at = new Date().toISOString();
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.json({ order: currentOrder });
+      }
+
+      const { data: updatedOrder, error: updateError } = await supabase
+        .from('orders')
+        .update(updates)
+        .eq('id', orderId)
+        .select('*')
+        .single();
+
+      if (updateError) {
+        return res.status(400).json({ error: updateError.message });
+      }
+
+      if (nextStatus && nextStatus !== previousStatus) {
+        await supabase.rpc('log_order_event', {
+          p_order_id: orderId,
+          p_event_type: 'admin_status_updated',
+          p_from_status: previousStatus,
+          p_to_status: nextStatus,
+          p_note: adminNotes || `Admin moved order to ${nextStatus}`,
+          p_metadata: {
+            tracking_number: trackingNumber || null,
+            carrier: carrier || null,
+          },
+        });
+      } else if (trackingNumber || carrier || adminNotes) {
+        await supabase.rpc('log_order_event', {
+          p_order_id: orderId,
+          p_event_type: 'admin_fulfilment_updated',
+          p_from_status: previousStatus,
+          p_to_status: previousStatus,
+          p_note: adminNotes || 'Fulfilment details updated',
+          p_metadata: {
+            tracking_number: trackingNumber || null,
+            carrier: carrier || null,
+          },
+        });
+      }
+
+      const [{ data: items }, { data: events }] = await Promise.all([
+        supabase.from('order_items').select('*').eq('order_id', orderId).order('created_at', { ascending: true }),
+        supabase.from('order_events').select('*').eq('order_id', orderId).order('created_at', { ascending: false }),
+      ]);
+
+      return res.json({ order: updatedOrder, items: items || [], events: events || [] });
+    } catch (error: any) {
+      const message = error?.message || 'Failed to update order';
+      console.error('Order update error:', message);
+      return res.status(500).json({ error: message });
+    }
+  });
+
+  app.get('/api/location/address-autocomplete', async (req, res) => {
+    try {
+      const query = String(req.query?.q || '');
+      const suggestions = await searchAddresses(query);
+      return res.json({ suggestions });
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Failed to load address suggestions';
       return res.status(500).json({ error: message });
     }
   });
@@ -397,31 +533,25 @@ async function startServer() {
   // The Courier Guy API Proxy
   app.post('/api/shipping/quote', async (req, res) => {
     try {
-      // Mocking The Courier Guy API for now
-      const quote = {
-        service: 'Economy',
-        price: 120.00,
-        estimated_delivery: '2-3 business days'
-      };
+      const quote = await getShippingQuote({
+        city: req.body?.city,
+        zip: req.body?.zip,
+      });
       res.json(quote);
     } catch (error) {
       res.status(500).json({ error: 'Failed to get shipping quote' });
     }
   });
 
-  app.get('/api/shipping/track/:trackingNumber', (req, res) => {
-    const { trackingNumber } = req.params;
-    // Mock response from The Courier Guy
-    res.json({
-      tracking_number: trackingNumber,
-      status: 'In Transit',
-      location: 'Johannesburg Hub',
-      estimated_delivery: '2026-04-05',
-      history: [
-        { status: 'Collected', time: '2026-04-02 09:00', location: 'Cape Town' },
-        { status: 'In Transit', time: '2026-04-03 14:00', location: 'Johannesburg Hub' }
-      ]
-    });
+  app.get('/api/shipping/track/:trackingNumber', async (req, res) => {
+    try {
+      const tracking = await getTrackingDetails({
+        trackingNumber: String(req.params.trackingNumber || ''),
+      });
+      res.json(tracking);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to load tracking details' });
+    }
   });
 
   // Vite middleware for development

@@ -7,6 +7,8 @@ import { useNavigate } from 'react-router-dom';
 import { auth, onAuthStateChanged, type AuthUser } from '../../firebase';
 import { startStoreCheckout } from '../../services/paymentService';
 import { fetchProduct } from '../../services/productService';
+import { fetchShippingQuote, type ShippingQuote } from '../../services/shippingService';
+import { searchAddressSuggestions, type AddressSuggestion } from '../../services/locationService';
 type CheckoutStep = 'cart' | 'shipping' | 'payment';
 
 const STEPS = [
@@ -16,8 +18,6 @@ const STEPS = [
 ] as const;
 
 const VAT_RATE = 0.15;
-const SHIPPING_FEE = 120;
-
 export default function Checkout() {
   const { items, total, removeFromCart, updateQuantity } = useCart();
   const [user, setUser] = useState<AuthUser | null>(auth.currentUser);
@@ -25,6 +25,13 @@ export default function Checkout() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [stockErrors, setStockErrors] = useState<string[]>([]);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [shippingQuote, setShippingQuote] = useState<ShippingQuote | null>(null);
+  const [shippingLoading, setShippingLoading] = useState(false);
+  const [shippingError, setShippingError] = useState<string | null>(null);
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [addressLoading, setAddressLoading] = useState(false);
+  const [addressError, setAddressError] = useState<string | null>(null);
+  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Partial<Record<keyof typeof formData, string>>>({});
   const navigate = useNavigate();
 
@@ -103,9 +110,91 @@ export default function Checkout() {
     }
   }, [items]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadQuote = async () => {
+      if (!formData.city.trim() || !formData.zip.trim()) {
+        setShippingQuote(null);
+        setShippingError(null);
+        return;
+      }
+
+      setShippingLoading(true);
+      setShippingError(null);
+      try {
+        const quote = await fetchShippingQuote({
+          city: formData.city,
+          zip: formData.zip,
+        });
+        if (!cancelled) {
+          setShippingQuote(quote);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setShippingError(error instanceof Error ? error.message : 'Failed to load shipping quote.');
+        }
+      } finally {
+        if (!cancelled) {
+          setShippingLoading(false);
+        }
+      }
+    };
+
+    const timeout = window.setTimeout(() => {
+      void loadQuote();
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [formData.city, formData.zip]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSuggestions = async () => {
+      const query = formData.address.trim();
+      if (query.length < 4) {
+        setAddressSuggestions([]);
+        setAddressError(null);
+        return;
+      }
+
+      setAddressLoading(true);
+      setAddressError(null);
+      try {
+        const suggestions = await searchAddressSuggestions(query);
+        if (!cancelled) {
+          setAddressSuggestions(suggestions);
+          setShowAddressSuggestions(true);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setAddressError(error instanceof Error ? error.message : 'Failed to load address suggestions.');
+        }
+      } finally {
+        if (!cancelled) {
+          setAddressLoading(false);
+        }
+      }
+    };
+
+    const timeout = window.setTimeout(() => {
+      void loadSuggestions();
+    }, 220);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [formData.address]);
+
+  const shippingFee = shippingQuote?.price ?? 120;
   const subtotal = total;
   const vat = Math.round(subtotal * VAT_RATE);
-  const orderTotal = subtotal + SHIPPING_FEE + vat;
+  const orderTotal = subtotal + shippingFee + vat;
 
   const field = (key: keyof typeof formData) => ({
     value: formData[key],
@@ -155,6 +244,7 @@ export default function Checkout() {
             productId: item.id,
             quantity: item.quantity,
           })),
+          shippingCost: shippingFee,
         });
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Payment processing failed. Please try again.';
@@ -168,6 +258,20 @@ export default function Checkout() {
   const handleBack = () => {
     if (step === 'shipping') setStep('cart');
     else if (step === 'payment') setStep('shipping');
+  };
+
+  const applyAddressSuggestion = (suggestion: AddressSuggestion) => {
+    setFormData((prev) => ({
+      ...prev,
+      address: suggestion.addressLine,
+      city: suggestion.city || prev.city,
+      zip: suggestion.postcode || prev.zip,
+    }));
+    setShowAddressSuggestions(false);
+    setAddressSuggestions([]);
+    void validateField('address', suggestion.addressLine);
+    if (suggestion.city) void validateField('city', suggestion.city);
+    if (suggestion.postcode) void validateField('zip', suggestion.postcode);
   };
 
   if (!user) {
@@ -287,23 +391,61 @@ export default function Checkout() {
                     ].map(({ key, label, type, placeholder, span }) => (
                       <div key={key} className={span === 2 ? 'col-span-2' : ''}>
                         <label className="text-[9px] font-bold text-purple-400 uppercase tracking-widest block mb-1.5">{label}</label>
-                        <input
-                          type={type}
-                          placeholder={placeholder}
-                          value={formData[key]}
-                          onChange={(e) => {
-                            setFormData(prev => ({ ...prev, [key]: e.target.value }));
-                            validateField(key, e.target.value);
-                          }}
-                          className={cn(
-                            'w-full p-3 rounded-2xl text-sm font-semibold transition-colors focus:outline-none',
-                            validationErrors[key]
-                              ? 'bg-red-50 border-2 border-red-300 text-purple-800 focus:border-red-400'
-                              : 'bg-purple-50 border-2 border-purple-100 text-purple-800 focus:border-purple-400'
+                        <div className="relative">
+                          <input
+                            type={type}
+                            placeholder={placeholder}
+                            value={formData[key]}
+                            onFocus={() => {
+                              if (key === 'address' && addressSuggestions.length > 0) {
+                                setShowAddressSuggestions(true);
+                              }
+                            }}
+                            onBlur={() => {
+                              if (key === 'address') {
+                                window.setTimeout(() => setShowAddressSuggestions(false), 120);
+                              }
+                            }}
+                            onChange={(e) => {
+                              setFormData(prev => ({ ...prev, [key]: e.target.value }));
+                              validateField(key, e.target.value);
+                            }}
+                            className={cn(
+                              'w-full p-3 rounded-2xl text-sm font-semibold transition-colors focus:outline-none',
+                              validationErrors[key]
+                                ? 'bg-red-50 border-2 border-red-300 text-purple-800 focus:border-red-400'
+                                : 'bg-purple-50 border-2 border-purple-100 text-purple-800 focus:border-purple-400'
+                            )}
+                          />
+                          {key === 'address' && showAddressSuggestions && (addressSuggestions.length > 0 || addressLoading || addressError) && (
+                            <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 rounded-3xl border border-purple-100 bg-white p-2 shadow-[0_20px_60px_rgba(168,85,247,0.16)]">
+                              {addressLoading ? (
+                                <div className="px-4 py-3 text-xs font-bold text-purple-400">Finding addresses...</div>
+                              ) : addressError ? (
+                                <div className="px-4 py-3 text-xs font-bold text-amber-600">{addressError}</div>
+                              ) : (
+                                addressSuggestions.map((suggestion) => (
+                                  <button
+                                    key={suggestion.id}
+                                    type="button"
+                                    onMouseDown={() => applyAddressSuggestion(suggestion)}
+                                    className="w-full rounded-2xl px-4 py-3 text-left hover:bg-purple-50 transition-colors"
+                                  >
+                                    <p className="text-sm font-black text-purple-900">{suggestion.addressLine}</p>
+                                    <p className="text-[11px] font-semibold text-purple-400">{[suggestion.city, suggestion.postcode, suggestion.province].filter(Boolean).join(' · ')}</p>
+                                  </button>
+                                ))
+                              )}
+                            </div>
                           )}
-                        />
+                        </div>
                         {validationErrors[key] && (
                           <p className="text-xs text-red-600 font-bold mt-1">{validationErrors[key]}</p>
+                        )}
+                        {key === 'address' && !validationErrors.address && (
+                          <p className="text-[11px] font-bold text-purple-300 mt-1">
+                            Start typing your street address to auto-complete from Mapbox.
+                          </p>
                         )}
                       </div>
                     ))}
@@ -312,10 +454,26 @@ export default function Checkout() {
                   <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-2xl border border-purple-100 mt-6">
                     <Truck className="w-5 h-5 text-purple-500 flex-shrink-0" />
                     <div>
-                      <p className="text-sm font-bold text-purple-700">The Courier Guy — Economy</p>
-                      <p className="text-[9px] font-bold text-purple-400">3–5 business days · R{SHIPPING_FEE}</p>
+                      <p className="text-sm font-bold text-purple-700">
+                        {shippingQuote?.carrier || 'The Courier Guy'} — {shippingQuote?.service || 'Economy'}
+                      </p>
+                      <p className="text-[9px] font-bold text-purple-400">
+                        {shippingLoading
+                          ? 'Refreshing delivery quote...'
+                          : `${shippingQuote?.estimated_delivery || '2-4 business days'} · R${shippingFee}`}
+                      </p>
+                      {shippingQuote && (
+                        <p className="text-[9px] font-bold text-purple-300 mt-1 uppercase tracking-wide">
+                          {shippingQuote.zone} delivery lane
+                        </p>
+                      )}
                     </div>
                   </div>
+                  {shippingError && (
+                    <p className="text-xs font-bold text-amber-600 mt-3">
+                      {shippingError} Using the standard delivery estimate for now.
+                    </p>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -390,7 +548,7 @@ export default function Checkout() {
                 <span>Subtotal</span><span>R{subtotal}</span>
               </div>
               <div className="flex justify-between text-xs font-semibold text-purple-500">
-                <span>Shipping</span><span>R{SHIPPING_FEE}</span>
+                <span>Shipping</span><span>R{shippingFee}</span>
               </div>
               <div className="flex justify-between text-xs font-semibold text-purple-500">
                 <span>VAT (15%)</span><span>R{vat}</span>

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { ensureProfileByIdentity, getSupabaseAdmin } from '../_lib/supabaseAdmin';
+import { getShippingQuote } from '../_lib/shipping';
 
 interface CheckoutItemInput {
   productId: string;
@@ -45,6 +46,11 @@ export default async function handler(req: any, res: any) {
       displayName: displayName ? String(displayName) : null,
     });
 
+    const shippingQuote = await getShippingQuote({
+      city: city ? String(city) : null,
+      zip: zip ? String(zip) : null,
+    });
+
     const supabase = getSupabaseAdmin();
     const { data: checkoutData, error: checkoutError } = await supabase.rpc('create_store_checkout_order', {
       p_profile_id: profile.id,
@@ -54,7 +60,7 @@ export default async function handler(req: any, res: any) {
       p_shipping_address: address ? String(address) : null,
       p_shipping_city: city ? String(city) : null,
       p_shipping_zip: zip ? String(zip) : null,
-      p_shipping_cost: 120,
+      p_shipping_cost: shippingQuote.price,
       p_items: normalizedItems,
     });
 
@@ -123,6 +129,7 @@ export default async function handler(req: any, res: any) {
       orderId: checkoutRow.order_id,
       orderNumber: checkoutRow.order_number,
       total: checkoutRow.total,
+      shippingQuote,
       redirectUrl: yocoResponse.data?.redirectUrl,
       reservationExpiresAt: checkoutRow.reservation_expires_at,
     });
