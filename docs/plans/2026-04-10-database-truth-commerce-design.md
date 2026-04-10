@@ -11,7 +11,8 @@ Move Quirkify's commerce rules out of the browser and into Supabase/Postgres so 
 - order lifecycle transitions
 - payment confirmation and failure handling
 - wallet balances and ledger entries
-- auction bid and hold logic
+
+Firestore remains the runtime system for auctions, live bidding, and stream interactions in this phase.
 
 ## Current Problem
 
@@ -20,7 +21,7 @@ The app is split across browser-side writes, Supabase reads, and Firestore-era a
 - checkout creates orders directly from the frontend
 - payment success currently mutates order state from the browser
 - Yoco webhook still updates Firestore instead of the Supabase order record
-- auction and wallet state do not yet have a reliable financial ledger in Supabase
+- auction runtime is still Firestore-based while commerce is moving to Supabase
 
 This means UI behaviour can drift from business truth.
 
@@ -34,11 +35,12 @@ This means UI behaviour can drift from business truth.
   - orders and order_items
   - payment events
   - wallet accounts and wallet ledger
-  - auction settlement data and bid/wallet logic
-- Firestore may remain as a live interaction transport for now:
+- Firestore owns:
+  - auctions
+  - bids
+  - live session state
   - stream chat
-  - live viewer updates
-  - transitional auction UI feeds
+  - viewer updates
 
 ### Mutation path
 
@@ -64,21 +66,16 @@ This means UI behaviour can drift from business truth.
 - Wallet changes must be written to a ledger.
 - Available and held balances are tracked separately.
 
-### Auction foundation
-
-- Auctions reserve auction allocation in the database.
-- Bids must go through a database function.
-- Highest-bid changes release the prior bidder's hold and place a hold on the new bidder.
-
 ## Immediate App Changes
 
 - Replace frontend order creation in checkout with a server-side checkout session endpoint.
 - Remove client-side order finalisation from the payment success page.
 - Point the Yoco webhook at Supabase order functions instead of Firestore.
+- Keep auction reads and writes on Firestore so the auction runtime has one backend.
 
 ## Next Steps After This Pass
 
 1. Apply the new Supabase migration to the hosted project.
 2. Move admin/manual order mutations behind server endpoints or RPCs.
-3. Cut auction creation and bid placement over to the new DB functions.
-4. Add scheduled expiry for abandoned checkout reservations.
+3. Add scheduled expiry for abandoned checkout reservations.
+4. Design the auction migration separately if and when Firestore is replaced.

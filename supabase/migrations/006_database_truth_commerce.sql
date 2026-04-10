@@ -1,9 +1,9 @@
 -- Database-truth commerce foundation for Quirkify.
--- This moves checkout, payment, wallet, and auction enforcement into Postgres.
+-- This moves checkout, payment, and wallet enforcement into Postgres.
+-- Firestore remains the runtime source of truth for auctions and live bidding.
 
 ALTER TABLE public.products
   ADD COLUMN IF NOT EXISTS reserved_store INTEGER NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS reserved_auction INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS reserved_packs INTEGER NOT NULL DEFAULT 0;
 
 DO $$
@@ -17,7 +17,6 @@ BEGIN
       ADD CONSTRAINT products_reserved_nonnegative
       CHECK (
         reserved_store >= 0
-        AND reserved_auction >= 0
         AND reserved_packs >= 0
       );
   END IF;
@@ -31,7 +30,6 @@ BEGIN
       ADD CONSTRAINT products_reserved_within_allocations
       CHECK (
         reserved_store <= alloc_store
-        AND reserved_auction <= alloc_auction
         AND reserved_packs <= alloc_packs
       );
   END IF;
@@ -87,35 +85,9 @@ BEGIN
     CREATE TYPE public.wallet_entry_type AS ENUM (
       'topup',
       'withdrawal',
-      'auction_hold',
-      'auction_hold_release',
-      'auction_capture',
       'order_payment',
       'refund',
       'manual_adjustment'
-    );
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_type WHERE typname = 'auction_status'
-  ) THEN
-    CREATE TYPE public.auction_status AS ENUM (
-      'scheduled',
-      'live',
-      'ended',
-      'cancelled',
-      'settled'
-    );
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_type WHERE typname = 'auction_end_reason'
-  ) THEN
-    CREATE TYPE public.auction_end_reason AS ENUM (
-      'time_expired',
-      'manual_cancel',
-      'no_bids',
-      'sold'
     );
   END IF;
 END $$;
@@ -147,41 +119,6 @@ CREATE TABLE IF NOT EXISTS public.wallet_ledger (
 
 CREATE INDEX IF NOT EXISTS idx_wallet_ledger_wallet_created
   ON public.wallet_ledger(wallet_account_id, created_at DESC);
-
-CREATE TABLE IF NOT EXISTS public.auctions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE RESTRICT,
-  seller_profile_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-  highest_bidder_profile_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-  title TEXT,
-  start_price NUMERIC(10,2) NOT NULL CHECK (start_price >= 0),
-  current_price NUMERIC(10,2) NOT NULL CHECK (current_price >= 0),
-  reserve_price NUMERIC(10,2) CHECK (reserve_price IS NULL OR reserve_price >= 0),
-  min_bid_increment NUMERIC(10,2) NOT NULL DEFAULT 10 CHECK (min_bid_increment >= 0),
-  status public.auction_status NOT NULL DEFAULT 'scheduled',
-  end_reason public.auction_end_reason,
-  bid_count INTEGER NOT NULL DEFAULT 0 CHECK (bid_count >= 0),
-  starts_at TIMESTAMPTZ NOT NULL,
-  ends_at TIMESTAMPTZ NOT NULL,
-  settled_order_id UUID REFERENCES public.orders(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CHECK (ends_at > starts_at)
-);
-
-CREATE INDEX IF NOT EXISTS idx_auctions_status_ends
-  ON public.auctions(status, ends_at);
-
-CREATE TABLE IF NOT EXISTS public.auction_bids (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  auction_id UUID NOT NULL REFERENCES public.auctions(id) ON DELETE CASCADE,
-  bidder_profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  amount NUMERIC(10,2) NOT NULL CHECK (amount > 0),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_auction_bids_auction_created
-  ON public.auction_bids(auction_id, created_at DESC);
 
 CREATE OR REPLACE FUNCTION public.ensure_wallet_account(p_profile_id UUID)
 RETURNS UUID
@@ -733,211 +670,8 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.create_auction_listing(
-  p_product_id UUID,
-  p_seller_profile_id UUID,
-  p_start_price NUMERIC,
-  p_reserve_price NUMERIC,
-  p_min_bid_increment NUMERIC,
-  p_starts_at TIMESTAMPTZ,
-  p_ends_at TIMESTAMPTZ,
-  p_title TEXT DEFAULT NULL
-)
-RETURNS public.auctions
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_product public.products%ROWTYPE;
-  v_auction public.auctions%ROWTYPE;
-BEGIN
-  SELECT *
-  INTO v_product
-  FROM public.products
-  WHERE id = p_product_id
-  FOR UPDATE;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Product % not found', p_product_id;
-  END IF;
-
-  IF (v_product.alloc_auction - v_product.reserved_auction) < 1 THEN
-    RAISE EXCEPTION 'No auction allocation available for product %', p_product_id;
-  END IF;
-
-  UPDATE public.products
-  SET reserved_auction = reserved_auction + 1
-  WHERE id = p_product_id;
-
-  INSERT INTO public.auctions (
-    product_id,
-    seller_profile_id,
-    title,
-    start_price,
-    current_price,
-    reserve_price,
-    min_bid_increment,
-    status,
-    starts_at,
-    ends_at
-  )
-  VALUES (
-    p_product_id,
-    p_seller_profile_id,
-    COALESCE(NULLIF(p_title, ''), v_product.name),
-    p_start_price,
-    p_start_price,
-    p_reserve_price,
-    COALESCE(p_min_bid_increment, 10),
-    CASE WHEN p_starts_at <= now() THEN 'live' ELSE 'scheduled' END,
-    p_starts_at,
-    p_ends_at
-  )
-  RETURNING *
-  INTO v_auction;
-
-  RETURN v_auction;
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION public.place_auction_bid(
-  p_auction_id UUID,
-  p_bidder_profile_id UUID,
-  p_amount NUMERIC
-)
-RETURNS public.auction_bids
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_auction public.auctions%ROWTYPE;
-  v_bid public.auction_bids%ROWTYPE;
-  v_bidder_wallet public.wallet_accounts%ROWTYPE;
-  v_previous_wallet public.wallet_accounts%ROWTYPE;
-  v_required_hold NUMERIC(12,2);
-  v_existing_hold NUMERIC(12,2) := 0;
-BEGIN
-  SELECT *
-  INTO v_auction
-  FROM public.auctions
-  WHERE id = p_auction_id
-  FOR UPDATE;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Auction % not found', p_auction_id;
-  END IF;
-
-  IF v_auction.status <> 'live' THEN
-    RAISE EXCEPTION 'Auction % is not live', p_auction_id;
-  END IF;
-
-  IF v_auction.ends_at <= now() THEN
-    RAISE EXCEPTION 'Auction % has already ended', p_auction_id;
-  END IF;
-
-  IF p_amount < (v_auction.current_price + v_auction.min_bid_increment) THEN
-    RAISE EXCEPTION 'Bid must exceed current price by at least the minimum increment';
-  END IF;
-
-  PERFORM public.ensure_wallet_account(p_bidder_profile_id);
-
-  SELECT *
-  INTO v_bidder_wallet
-  FROM public.wallet_accounts
-  WHERE profile_id = p_bidder_profile_id
-  FOR UPDATE;
-
-  IF v_auction.highest_bidder_profile_id = p_bidder_profile_id THEN
-    v_existing_hold := v_auction.current_price;
-  END IF;
-
-  v_required_hold := p_amount - v_existing_hold;
-
-  IF v_required_hold > v_bidder_wallet.available_balance THEN
-    RAISE EXCEPTION 'Insufficient wallet balance for bid';
-  END IF;
-
-  UPDATE public.wallet_accounts
-  SET available_balance = available_balance - v_required_hold,
-      held_balance = held_balance + v_required_hold,
-      updated_at = now()
-  WHERE id = v_bidder_wallet.id
-  RETURNING *
-  INTO v_bidder_wallet;
-
-  PERFORM public.wallet_record_entry(
-    v_bidder_wallet.id,
-    'debit',
-    'auction_hold',
-    v_required_hold,
-    'auction',
-    p_auction_id,
-    jsonb_build_object('auction_id', p_auction_id, 'amount', p_amount)
-  );
-
-  IF v_auction.highest_bidder_profile_id IS NOT NULL
-     AND v_auction.highest_bidder_profile_id <> p_bidder_profile_id THEN
-    PERFORM public.ensure_wallet_account(v_auction.highest_bidder_profile_id);
-
-    SELECT *
-    INTO v_previous_wallet
-    FROM public.wallet_accounts
-    WHERE profile_id = v_auction.highest_bidder_profile_id
-    FOR UPDATE;
-
-    UPDATE public.wallet_accounts
-    SET available_balance = available_balance + v_auction.current_price,
-        held_balance = GREATEST(0, held_balance - v_auction.current_price),
-        updated_at = now()
-    WHERE id = v_previous_wallet.id
-    RETURNING *
-    INTO v_previous_wallet;
-
-    PERFORM public.wallet_record_entry(
-      v_previous_wallet.id,
-      'credit',
-      'auction_hold_release',
-      v_auction.current_price,
-      'auction',
-      p_auction_id,
-      jsonb_build_object('auction_id', p_auction_id, 'released_bid', v_auction.current_price)
-    );
-  END IF;
-
-  INSERT INTO public.auction_bids (
-    auction_id,
-    bidder_profile_id,
-    amount
-  )
-  VALUES (
-    p_auction_id,
-    p_bidder_profile_id,
-    p_amount
-  )
-  RETURNING *
-  INTO v_bid;
-
-  UPDATE public.auctions
-  SET current_price = p_amount,
-      highest_bidder_profile_id = p_bidder_profile_id,
-      bid_count = bid_count + 1,
-      updated_at = now()
-  WHERE id = p_auction_id;
-
-  UPDATE public.profiles
-  SET total_bids = total_bids + 1
-  WHERE id = p_bidder_profile_id;
-
-  RETURN v_bid;
-END;
-$$;
-
 ALTER TABLE IF EXISTS public.wallet_accounts REPLICA IDENTITY FULL;
 ALTER TABLE IF EXISTS public.wallet_ledger REPLICA IDENTITY FULL;
-ALTER TABLE IF EXISTS public.auctions REPLICA IDENTITY FULL;
-ALTER TABLE IF EXISTS public.auction_bids REPLICA IDENTITY FULL;
 ALTER TABLE IF EXISTS public.order_events REPLICA IDENTITY FULL;
 ALTER TABLE IF EXISTS public.payment_events REPLICA IDENTITY FULL;
 
@@ -953,20 +687,6 @@ BEGIN
 
     BEGIN
       ALTER PUBLICATION supabase_realtime ADD TABLE public.wallet_ledger;
-    EXCEPTION
-      WHEN duplicate_object THEN NULL;
-      WHEN undefined_table THEN NULL;
-    END;
-
-    BEGIN
-      ALTER PUBLICATION supabase_realtime ADD TABLE public.auctions;
-    EXCEPTION
-      WHEN duplicate_object THEN NULL;
-      WHEN undefined_table THEN NULL;
-    END;
-
-    BEGIN
-      ALTER PUBLICATION supabase_realtime ADD TABLE public.auction_bids;
     EXCEPTION
       WHEN duplicate_object THEN NULL;
       WHEN undefined_table THEN NULL;

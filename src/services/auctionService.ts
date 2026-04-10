@@ -1,120 +1,239 @@
-import { supabase } from '../supabase';
-import type { AllocationSnapshot } from '../types';
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  onSnapshot,
+  query,
+  runTransaction,
+  serverTimestamp,
+  updateDoc,
+  where,
+  type DocumentData,
+  type QuerySnapshot,
+} from 'firebase/firestore';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
+import type { Auction, Bid, Product } from '../types';
 
-let auctionSubscriptionSequence = 0;
-let bidSubscriptionSequence = 0;
+type AuctionDraft = Pick<Auction, 'productId' | 'sellerId' | 'startPrice' | 'startTime' | 'endTime'>;
 
-export interface Bid {
-  id: string;
-  auctionId: string;
-  bidderId: string;
-  amount: number;
-  createdAt: string;
+function mapBid(id: string, data: DocumentData): Bid {
+  const timestampValue = data.timestamp?.toDate?.();
+  return {
+    id,
+    auctionId: data.auctionId,
+    bidderId: data.bidderId,
+    amount: Number(data.amount ?? 0),
+    timestamp: timestampValue ? timestampValue.toISOString() : data.timestamp ?? new Date().toISOString(),
+  };
 }
 
-export interface Auction {
-  id: string;
-  productId: string;
-  startingPrice: number;
-  currentPrice: number;
-  endTime: string;
-  status: 'active' | 'ended' | 'scheduled';
-  winnerId?: string;
-  bids: Bid[];
+async function attachProducts(snapshot: QuerySnapshot<DocumentData>): Promise<Auction[]> {
+  const auctions = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as Auction[];
+  const productIds = [...new Set(auctions.map((auction) => auction.productId).filter(Boolean))];
+
+  const products = new Map<string, Product>();
+  await Promise.all(
+    productIds.map(async (productId) => {
+      const productSnap = await getDoc(doc(db, 'products', productId));
+      if (productSnap.exists()) {
+        products.set(productId, { id: productSnap.id, ...productSnap.data() } as Product);
+      }
+    })
+  );
+
+  return auctions
+    .map((auction) => {
+      const product = products.get(auction.productId) ?? auction.product;
+      return {
+        ...auction,
+        product,
+        productSnapshot: auction.productSnapshot ?? (product
+          ? {
+              name: product.name,
+              imageUrl: product.imageUrl,
+              allocations: product.allocations,
+              stock: product.stock,
+            }
+          : undefined),
+      };
+    })
+    .sort((a, b) => new Date(a.endTime).getTime() - new Date(b.endTime).getTime());
 }
 
 export function subscribeToAuctions(callback: (auctions: Auction[]) => void): () => void {
-  const loadAuctions = () => {
-    void supabase
-      .from('auctions')
-      .select('*, bids:bids(*)')
-      .eq('status', 'active')
-      .order('endTime', { ascending: true })
-      .limit(50)
-      .then(({ data, error }) => {
-        if (error) {
-          console.error('Failed to load auctions:', error);
+  const auctionsQuery = query(
+    collection(db, 'auctions'),
+    where('status', '==', 'active')
+  );
+
+  return onSnapshot(
+    auctionsQuery,
+    (snapshot) => {
+      void attachProducts(snapshot)
+        .then((auctions) => callback(auctions.slice(0, 50)))
+        .catch((error) => {
+          handleFirestoreError(error, OperationType.GET, 'auctions');
           callback([]);
-          return;
-        }
-        callback(data || []);
-      });
-  };
-
-  loadAuctions();
-
-  const channel = supabase
-    .channel(`auctions-all:${++auctionSubscriptionSequence}`)
-    .on('postgres_changes', {
-      event: '*', schema: 'public', table: 'auctions', filter: 'status=eq.active'
-    }, loadAuctions)
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
+        });
+    },
+    (error) => {
+      handleFirestoreError(error, OperationType.LISTEN, 'auctions');
+      callback([]);
+    }
+  );
 }
 
 export function subscribeToBids(
   auctionId: string,
   callback: (bids: Bid[]) => void
 ): () => void {
-  const loadBids = () => {
-    void supabase
-      .from('bids')
-      .select('*')
-      .eq('auctionId', auctionId)
-      .order('createdAt', { ascending: false })
-      .then(({ data, error }) => {
-        if (error) {
-          console.error(`Failed to load bids for auction ${auctionId}:`, error);
-          callback([]);
-          return;
-        }
-        callback(data || []);
-      });
-  };
+  const bidsQuery = query(collection(db, 'bids'), where('auctionId', '==', auctionId));
 
-  loadBids();
+  return onSnapshot(
+    bidsQuery,
+    (snapshot) => {
+      const bids = snapshot.docs
+        .map((docSnap) => mapBid(docSnap.id, docSnap.data()))
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      callback(bids);
+    },
+    (error) => {
+      handleFirestoreError(error, OperationType.LISTEN, 'bids');
+      callback([]);
+    }
+  );
+}
 
-  const channel = supabase
-    .channel(`bids:${auctionId}:${++bidSubscriptionSequence}`)
-    .on('postgres_changes', {
-      event: '*', schema: 'public', table: 'bids', filter: `auctionId=eq.${auctionId}`
-    }, loadBids)
-    .subscribe();
+export async function createAuction(input: AuctionDraft): Promise<string> {
+  const productSnap = await getDoc(doc(db, 'products', input.productId));
+  if (!productSnap.exists()) {
+    throw new Error('Selected product no longer exists');
+  }
 
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  const product = { id: productSnap.id, ...productSnap.data() } as Product;
+  const startsAt = new Date(input.startTime);
+  const endsAt = new Date(input.endTime);
+
+  if (!(startsAt.getTime() < endsAt.getTime())) {
+    throw new Error('Auction end time must be after the start time');
+  }
+
+  const auctionRef = await addDoc(collection(db, 'auctions'), {
+    productId: input.productId,
+    sellerId: input.sellerId,
+    startPrice: input.startPrice,
+    currentBid: input.startPrice,
+    highestBidderId: null,
+    startTime: input.startTime,
+    endTime: input.endTime,
+    status: startsAt <= new Date() ? 'active' : 'scheduled',
+    bidCount: 0,
+    product,
+    productSnapshot: {
+      name: product.name,
+      imageUrl: product.imageUrl,
+      allocations: product.allocations,
+      stock: product.stock,
+    },
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  return auctionRef.id;
 }
 
 export async function placeBid(
   auctionId: string,
-  bidderId: string,
-  amount: number
-): Promise<{ error: any }> {
-  const { error } = await supabase.from('bids').insert([{
-    auctionId,
-    bidderId,
-    amount,
-    createdAt: new Date().toISOString()
-  }]);
-  if (error) return { error };
-  // Update auction current price
-  await supabase.from('auctions').update({ currentPrice: amount }).eq('id', auctionId);
-  return { error: null };
+  bidderIdOrAmount: string | number,
+  maybeAmount?: number
+): Promise<{ error: Error | null }> {
+  const bidderId = typeof bidderIdOrAmount === 'string' ? bidderIdOrAmount : auth.currentUser?.uid;
+  const amount = typeof bidderIdOrAmount === 'number' ? bidderIdOrAmount : maybeAmount;
+
+  if (!bidderId) {
+    return { error: new Error('You need to sign in before bidding') };
+  }
+
+  if (!amount || amount <= 0) {
+    return { error: new Error('Invalid bid amount') };
+  }
+
+  const auctionRef = doc(db, 'auctions', auctionId);
+
+  try {
+    await runTransaction(db, async (transaction) => {
+      const auctionSnap = await transaction.get(auctionRef);
+      if (!auctionSnap.exists()) {
+        throw new Error('Auction not found');
+      }
+
+      const auction = { id: auctionSnap.id, ...auctionSnap.data() } as Auction;
+      if (auction.status !== 'active') {
+        throw new Error('Auction is no longer active');
+      }
+
+      if (new Date(auction.endTime).getTime() <= Date.now()) {
+        throw new Error('Auction has already ended');
+      }
+
+      const minimumBid = Number(auction.currentBid ?? auction.startPrice ?? 0) + 1;
+      if (amount < minimumBid) {
+        throw new Error(`Bid must be at least R${minimumBid}`);
+      }
+
+      const bidRef = doc(collection(db, 'bids'));
+      const bidderName =
+        auth.currentUser?.displayName ??
+        auth.currentUser?.email ??
+        'Anonymous';
+
+      transaction.set(bidRef, {
+        auctionId,
+        bidderId,
+        bidderName,
+        amount,
+        timestamp: serverTimestamp(),
+        createdAt: new Date().toISOString(),
+      });
+
+      transaction.update(auctionRef, {
+        currentBid: amount,
+        highestBidderId: bidderId,
+        bidCount: Number(auction.bidCount ?? 0) + 1,
+        updatedAt: serverTimestamp(),
+      });
+    });
+
+    return { error: null };
+  } catch (error) {
+    return { error: error instanceof Error ? error : new Error('Failed to place bid') };
+  }
 }
 
 export async function concludeAuction(
   auctionId: string,
-  winnerId: string,
-  finalPrice: number
-): Promise<{ error: any }> {
-  const { error } = await supabase.from('auctions').update({
-    status: 'ended',
-    winnerId,
-    currentPrice: finalPrice
-  }).eq('id', auctionId);
-  return { error };
+  winnerId?: string | null,
+  finalPrice?: number
+): Promise<{ error: Error | null }> {
+  try {
+    const auctionRef = doc(db, 'auctions', auctionId);
+    const auctionSnap = await getDoc(auctionRef);
+
+    if (!auctionSnap.exists()) {
+      return { error: new Error('Auction not found') };
+    }
+
+    const auction = { id: auctionSnap.id, ...auctionSnap.data() } as Auction;
+    await updateDoc(auctionRef, {
+      status: 'ended',
+      winnerId: winnerId ?? auction.highestBidderId ?? null,
+      currentBid: finalPrice ?? auction.currentBid,
+      updatedAt: serverTimestamp(),
+    });
+
+    return { error: null };
+  } catch (error) {
+    return { error: error instanceof Error ? error : new Error('Failed to conclude auction') };
+  }
 }
