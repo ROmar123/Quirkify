@@ -1,7 +1,5 @@
-import type { Context } from 'hono';
-
-export default async (c: Context) => {
-  return c.json({
+export default async function handler(req: any, res: any) {
+  res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     version: '1.0.0',
@@ -12,4 +10,4 @@ export default async (c: Context) => {
       resend: !!process.env.RESEND_API_KEY && !!process.env.QUIRKIFY_FROM_EMAIL ? 'configured' : 'missing',
     }
   });
-};
+}

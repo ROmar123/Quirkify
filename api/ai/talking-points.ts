@@ -1,13 +1,14 @@
-import type { Context } from 'hono';
+export default async function handler(req: any, res: any) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-export default async (c: Context) => {
-  if (c.req.method !== 'POST') return c.json({ error: 'Method not allowed' }, 405);
-
-  const { productName, category } = await c.req.json();
-  if (!productName) return c.json({ error: 'Missing productName' }, 400);
+  const { productName, category } = req.body ?? {};
+  if (!productName) return res.status(400).json({ error: 'Missing productName' });
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return c.json({ error: 'AI not configured' }, 503);
+  if (!apiKey) return res.status(503).json({ error: 'AI not configured' });
 
   try {
     const response = await fetch(
@@ -36,8 +37,8 @@ export default async (c: Context) => {
       points = [text.slice(0, 300)];
     }
 
-    return c.json({ talkingPoints: points.slice(0, 5) });
+    res.json({ talkingPoints: points.slice(0, 5) });
   } catch (err: any) {
-    return c.json({ error: err.message }, 500);
+    res.status(500).json({ error: err.message });
   }
-};
+}

@@ -1,13 +1,14 @@
-import type { Context } from 'hono';
+export default async function handler(req: any, res: any) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-export default async (c: Context) => {
-  if (c.req.method !== 'POST') return c.json({ error: 'Method not allowed' }, 405);
-
-  const { base64Image } = await c.req.json();
-  if (!base64Image) return c.json({ error: 'No image provided' }, 400);
+  const { base64Image } = req.body ?? {};
+  if (!base64Image) return res.status(400).json({ error: 'No image provided' });
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return c.json({ error: 'AI not configured' }, 503);
+  if (!apiKey) return res.status(503).json({ error: 'AI not configured' });
 
   try {
     const response = await fetch(
@@ -45,8 +46,8 @@ export default async (c: Context) => {
       result = { name: 'Product', description: text.slice(0, 200), category: 'Other', retailPrice: 0, rarity: 'Common', stats: { quirkiness: 50, rarity: 50, utility: 50, hype: 50 }, confidenceScore: 0.5 };
     }
 
-    return c.json(result);
+    res.json(result);
   } catch (err: any) {
-    return c.json({ error: err.message }, 500);
+    res.status(500).json({ error: err.message });
   }
-};
+}
