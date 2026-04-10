@@ -8,7 +8,6 @@ import crypto from 'crypto';
 import { sendOrderStatusEmail } from './api/_lib/orderNotifications';
 import { ensureProfileByIdentity, getSupabaseAdmin } from './api/_lib/supabaseAdmin';
 import { getShippingQuote, getTrackingDetails } from './api/_lib/shipping';
-import { searchAddresses } from './api/_lib/mapbox';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config();
@@ -520,17 +519,6 @@ async function startServer() {
   }
 
   // The Courier Guy API Proxy
-  app.get('/api/shipping/quote', async (req, res) => {
-    try {
-      const query = String(req.query?.q || '');
-      const suggestions = await searchAddresses(query);
-      res.json({ suggestions });
-    } catch (error: any) {
-      const message = error?.response?.data?.message || error?.message || 'Failed to load address suggestions';
-      res.status(500).json({ error: message });
-    }
-  });
-
   app.post('/api/shipping/quote', async (req, res) => {
     try {
       const quote = await getShippingQuote({

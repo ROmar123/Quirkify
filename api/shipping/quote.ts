@@ -1,17 +1,8 @@
-import { searchAddresses } from '../_lib/mapbox.js';
 import { getShippingQuote } from '../_lib/shipping.js';
 
 export default function handler(req: any, res: any) {
-  if (req.method === 'GET') {
-    return searchAddresses(String(req.query?.q || ''))
-      .then((suggestions) => res.json({ suggestions }))
-      .catch(() => {
-        res.status(500).json({ error: 'Failed to load address suggestions' });
-      });
-  }
-
   if (req.method !== 'POST') {
-    res.setHeader('Allow', 'GET, POST');
+    res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
