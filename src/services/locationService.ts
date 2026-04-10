@@ -11,7 +11,7 @@ export interface AddressSuggestion {
 }
 
 export async function searchAddressSuggestions(query: string): Promise<AddressSuggestion[]> {
-  const response = await fetch(`/api/location/address-autocomplete?q=${encodeURIComponent(query)}`, {
+  const response = await fetch(`/api/shipping/quote?q=${encodeURIComponent(query)}`, {
     headers: {
       Accept: 'application/json',
     },

@@ -339,17 +339,6 @@ async function startServer() {
     }
   });
 
-  app.get('/api/location/address-autocomplete', async (req, res) => {
-    try {
-      const query = String(req.query?.q || '');
-      const suggestions = await searchAddresses(query);
-      return res.json({ suggestions });
-    } catch (error: any) {
-      const message = error?.response?.data?.message || error?.message || 'Failed to load address suggestions';
-      return res.status(500).json({ error: message });
-    }
-  });
-
   // Yoco Payment Integration
   app.post('/api/payments/yoco/initiate', async (req, res) => {
     try {
@@ -531,6 +520,17 @@ async function startServer() {
   }
 
   // The Courier Guy API Proxy
+  app.get('/api/shipping/quote', async (req, res) => {
+    try {
+      const query = String(req.query?.q || '');
+      const suggestions = await searchAddresses(query);
+      res.json({ suggestions });
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Failed to load address suggestions';
+      res.status(500).json({ error: message });
+    }
+  });
+
   app.post('/api/shipping/quote', async (req, res) => {
     try {
       const quote = await getShippingQuote({
