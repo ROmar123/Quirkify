@@ -32,7 +32,7 @@ export async function getShippingQuote(input: ShippingQuoteInput) {
   const city = normalize(input.city);
   const zip = cleanPostalCode(input.zip);
   const isMetro = MAJOR_METRO_KEYWORDS.some((keyword) => city.includes(keyword));
-  const isRemote = zip.startsWith('8') || zip.startsWith('09') || zip.startsWith('82') || city.includes('limpopo') || city.includes('mpumalanga');
+  const isRemote = !isMetro && (zip.startsWith('09') || zip.startsWith('82') || city.includes('limpopo') || city.includes('mpumalanga') || city.includes('northern cape'));
 
   const price = isRemote ? 165 : isMetro ? 120 : 145;
   const estimatedDelivery = isRemote ? '3-5 business days' : isMetro ? '1-3 business days' : '2-4 business days';
