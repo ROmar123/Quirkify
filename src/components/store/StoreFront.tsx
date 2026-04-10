@@ -53,7 +53,11 @@ export default function StoreFront() {
     const unsubLive = onSnapshot(qLive, (snap) => {
       if (!mounted) return;
       setLiveSessions(snap.docs.map((d) => ({ id: d.id, ...d.data() } as LiveSession)));
-    }, () => {});
+    }, (error) => {
+      if (!mounted) return;
+      console.error('Failed to subscribe to live sessions:', error);
+      setLiveSessions([]);
+    });
 
     return () => {
       mounted = false;

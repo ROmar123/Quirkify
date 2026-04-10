@@ -7,6 +7,7 @@ import axios from 'axios';
 import admin from 'firebase-admin';
 import crypto from 'crypto';
 
+dotenv.config({ path: '.env.local' });
 dotenv.config();
 
 // Initialize Firebase Admin
@@ -30,6 +31,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function startServer() {
+  const {
+    identifyProduct,
+    suggestCampaign,
+    getHostTalkingPoints,
+    getPersonalizedRecommendations,
+  } = await import('./server/ai/controller');
+
   const app = express();
   const PORT = 3000;
 

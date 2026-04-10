@@ -13,7 +13,10 @@ function BellDropdown({ user }: { user: AuthUser | null }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setNotifications([]);
+      return;
+    }
     return subscribeToNotifications(user.uid, setNotifications);
   }, [user]);
 

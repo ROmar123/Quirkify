@@ -2,7 +2,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-
 import { useState, useEffect, type ReactNode } from 'react';
 import { auth, onAuthStateChanged, type AuthUser } from './firebase';
 import { syncProfile } from './services/profileService';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 
 import StoreFront from './components/store/StoreFront';
 import AdminDashboard from './components/admin/AdminDashboard';
@@ -23,6 +23,7 @@ import ProductDetails from './components/store/ProductDetails';
 import MobileNav from './components/layout/MobileNav';
 import PageHeader from './components/layout/PageHeader';
 import AuthPage from './components/auth/AuthPage';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 import { CartProvider } from './context/CartContext';
 import { ModeProvider, useMode } from './context/ModeContext';
@@ -44,39 +45,36 @@ function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: AuthUser | 
   const location = useLocation();
 
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={location.pathname}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -10 }}
-        transition={{ duration: 0.3, ease: 'easeOut' }}
-      >
-        <Routes location={location}>
-          <Route path="/" element={<StoreFront />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/auctions" element={<AuctionList />} />
-          <Route path="/checkout" element={<RequireAuth user={user}><Checkout /></RequireAuth>} />
-          <Route path="/product/:id" element={<ProductDetails />} />
-          <Route path="/payment/success" element={<PaymentResult type="success" />} />
-          <Route path="/payment/cancel" element={<PaymentResult type="cancel" />} />
-          <Route path="/live/:sessionId" element={<LiveStreamRoom />} />
-          <Route path="/collection" element={<RequireAuth user={user}><Collection /></RequireAuth>} />
-          <Route path="/profile/:uid" element={<PublicProfile />} />
-          <Route path="/orders" element={<RequireAuth user={user}><Orders /></RequireAuth>} />
-          <Route path="/seller/onboarding" element={<RequireAuth user={user}><SellerOnboarding /></RequireAuth>} />
-          <Route path="/admin" element={isAdmin ? <AdminDashboard /> : <Navigate to="/" />} />
-          <Route path="/admin/inventory" element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
-          <Route path="/admin/reviews"  element={isAdmin ? <ProductsPage /> : <Navigate to="/" />} />
-          <Route path="/admin/orders"   element={isAdmin ? <CommercePage /> : <Navigate to="/" />} />
-          <Route path="/admin/campaigns" element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
-          <Route path="/admin/social"   element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
-          <Route path="/admin/streams"  element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
-          <Route path="/admin/resources" element={isAdmin ? <ResourceMonitor /> : <Navigate to="/" />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </motion.div>
-    </AnimatePresence>
+    <motion.div
+      key={location.pathname}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+    >
+      <Routes location={location}>
+        <Route path="/" element={<StoreFront />} />
+        <Route path="/auth" element={<AuthPage />} />
+        <Route path="/auctions" element={<AuctionList />} />
+        <Route path="/checkout" element={<RequireAuth user={user}><Checkout /></RequireAuth>} />
+        <Route path="/product/:id" element={<ProductDetails />} />
+        <Route path="/payment/success" element={<PaymentResult type="success" />} />
+        <Route path="/payment/cancel" element={<PaymentResult type="cancel" />} />
+        <Route path="/live/:sessionId" element={<LiveStreamRoom />} />
+        <Route path="/collection" element={<RequireAuth user={user}><Collection /></RequireAuth>} />
+        <Route path="/profile/:uid" element={<PublicProfile />} />
+        <Route path="/orders" element={<RequireAuth user={user}><Orders /></RequireAuth>} />
+        <Route path="/seller/onboarding" element={<RequireAuth user={user}><SellerOnboarding /></RequireAuth>} />
+        <Route path="/admin" element={isAdmin ? <AdminDashboard /> : <Navigate to="/" />} />
+        <Route path="/admin/inventory" element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
+        <Route path="/admin/reviews"  element={isAdmin ? <ProductsPage /> : <Navigate to="/" />} />
+        <Route path="/admin/orders"   element={isAdmin ? <CommercePage /> : <Navigate to="/" />} />
+        <Route path="/admin/campaigns" element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
+        <Route path="/admin/social"   element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
+        <Route path="/admin/streams"  element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
+        <Route path="/admin/resources" element={isAdmin ? <ResourceMonitor /> : <Navigate to="/" />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </motion.div>
   );
 }
 
@@ -140,7 +138,9 @@ function AppInner() {
       <PageHeader />
 
       <main className="pb-20">
-        <AnimatedRoutes isAdmin={isAdmin} user={user} />
+        <ErrorBoundary>
+          <AnimatedRoutes isAdmin={isAdmin} user={user} />
+        </ErrorBoundary>
       </main>
       <MobileNav />
     </div>

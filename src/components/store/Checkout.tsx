@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { CreditCard, Truck, ArrowRight, ArrowLeft, ShoppingBag, Sparkles, LogIn, Shield, Zap, MapPin, AlertCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
-import { auth } from '../../firebase';
+import { auth, onAuthStateChanged, type AuthUser } from '../../firebase';
 import { initiateYocoCheckout } from '../../services/paymentService';
 import { createOrder } from '../../services/orderService';
 import { getProfileByUid } from '../../services/profileService';
@@ -22,6 +22,7 @@ const SHIPPING_FEE = 120;
 
 export default function Checkout() {
   const { items, total, removeFromCart, updateQuantity } = useCart();
+  const [user, setUser] = useState<AuthUser | null>(auth.currentUser);
   const [step, setStep] = useState<CheckoutStep>('cart');
   const [isProcessing, setIsProcessing] = useState(false);
   const [stockErrors, setStockErrors] = useState<string[]>([]);
@@ -36,6 +37,16 @@ export default function Checkout() {
     zip: '',
     phone: '',
   });
+
+  useEffect(() => onAuthStateChanged(auth, setUser), []);
+
+  useEffect(() => {
+    setFormData((prev) => (
+      user?.email && prev.email !== user.email
+        ? { ...prev, email: user.email }
+        : prev
+    ));
+  }, [user]);
 
   // Validation helpers
   const validateEmail = (email: string) => {
@@ -130,17 +141,17 @@ export default function Checkout() {
       setStep('payment');
     }
     else if (step === 'payment') {
-      if (!auth.currentUser) return;
+      if (!user) return;
       setIsProcessing(true);
       setPaymentError(null);
       try {
         // Get Supabase profile for the order
-        const profile = await getProfileByUid(auth.currentUser.uid);
+        const profile = await getProfileByUid(user.uid);
 
         const order = await createOrder({
           profileId: profile?.id,
           customerEmail: formData.email,
-          customerName: auth.currentUser.displayName || formData.email,
+          customerName: user.displayName || formData.email,
           customerPhone: formData.phone,
           channel: 'store',
           items: items.map(item => ({
@@ -173,7 +184,7 @@ export default function Checkout() {
     else if (step === 'payment') setStep('shipping');
   };
 
-  if (!auth.currentUser) {
+  if (!user) {
     return (
       <div className="max-w-lg mx-auto px-4 py-32 text-center">
         <div className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>

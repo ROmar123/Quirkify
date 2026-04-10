@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { auth } from '../../firebase';
+import { auth, onAuthStateChanged, type AuthUser } from '../../firebase';
 import { LogIn, ShoppingBag, Package, Truck, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { fetchOrders, Order } from '../../services/orderService';
@@ -18,38 +18,58 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }>
 };
 
 export default function Orders() {
+  const [user, setUser] = useState<AuthUser | null>(auth.currentUser);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!auth.currentUser) {
+    return onAuthStateChanged(auth, setUser);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!user) {
+      setOrders([]);
+      setError(null);
       setLoading(false);
       return;
     }
 
     const loadOrders = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        const profile = await getProfileByUid(auth.currentUser!.uid);
+        const profile = await getProfileByUid(user.uid);
+        if (cancelled) return;
         if (!profile) {
           setOrders([]);
-          setLoading(false);
           return;
         }
         const data = await fetchOrders({ profileId: profile.id });
+        if (cancelled) return;
         setOrders(data);
       } catch (err: any) {
-        setError(err.message || 'Failed to load orders');
+        if (!cancelled) {
+          setError(err.message || 'Failed to load orders');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
-    loadOrders();
-  }, []);
+    void loadOrders();
 
-  if (!auth.currentUser) {
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  if (!user) {
     return (
       <div className="max-w-lg mx-auto px-4 py-20 pb-32 text-center md:py-32 md:pb-20">
         <div className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
