@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import crypto from "crypto";
+import { sendOrderStatusEmail } from "../../_lib/orderNotifications";
 import { getSupabaseAdmin } from "../../_lib/supabaseAdmin";
 
 // In-memory idempotency cache with 24hr TTL
@@ -96,6 +97,7 @@ async function handlePaymentCompleted(event: YocoEvent): Promise<void> {
       throw new Error(error.message);
     }
 
+    await sendOrderStatusEmail(orderId, "paid");
     console.log(`[${event.id}] Order ${orderId} payment confirmed in Supabase`);
   } catch (error) {
     console.error(`[${event.id}] Failed to update order ${orderId}:`, error);
@@ -126,6 +128,7 @@ async function handlePaymentFailed(event: YocoEvent): Promise<void> {
       throw new Error(error.message);
     }
 
+    await sendOrderStatusEmail(orderId, "payment_failed");
     console.log(`[${event.id}] Order ${orderId} marked as payment_failed in Supabase`);
   } catch (error) {
     console.error(`[${event.id}] Failed to update failed order ${orderId}:`, error);

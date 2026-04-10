@@ -12,6 +12,8 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  let createdOrderId: string | null = null;
+
   try {
     const {
       firebaseUid,
@@ -64,6 +66,7 @@ export default async function handler(req: any, res: any) {
     if (!checkoutRow?.order_id || !checkoutRow?.total) {
       return res.status(500).json({ error: 'Checkout order was not created correctly' });
     }
+    createdOrderId = checkoutRow.order_id;
 
     const yocoSecretKey = process.env.YOCO_SECRET_KEY;
     if (!yocoSecretKey) {
@@ -93,14 +96,27 @@ export default async function handler(req: any, res: any) {
 
     const checkoutSessionId = yocoResponse.data?.id || null;
 
-    if (checkoutSessionId) {
-      await supabase
+    if (!checkoutSessionId || !yocoResponse.data?.redirectUrl) {
+      await supabase.rpc('cancel_pending_order', {
+        p_order_id: checkoutRow.order_id,
+        p_note: 'Yoco checkout session could not be created',
+      });
+      return res.status(502).json({ error: 'Payment provider did not return a valid checkout session' });
+    }
+
+    const { error: updateError } = await supabase
         .from('orders')
         .update({
           checkout_session_id: checkoutSessionId,
           payment_status: 'redirected',
         })
         .eq('id', checkoutRow.order_id);
+    if (updateError) {
+      await supabase.rpc('cancel_pending_order', {
+        p_order_id: checkoutRow.order_id,
+        p_note: 'Checkout session created but order could not be updated',
+      });
+      return res.status(500).json({ error: updateError.message });
     }
 
     return res.status(200).json({
@@ -113,6 +129,17 @@ export default async function handler(req: any, res: any) {
   } catch (error: any) {
     const message = error?.response?.data?.message || error?.response?.data?.error || error?.message || 'Failed to start checkout';
     console.error('Store checkout error:', message);
+    try {
+      if (createdOrderId) {
+        const supabase = getSupabaseAdmin();
+        await supabase.rpc('cancel_pending_order', {
+          p_order_id: String(createdOrderId),
+          p_note: 'Checkout failed before redirecting to Yoco',
+        });
+      }
+    } catch (cleanupError) {
+      console.error('Failed to release pending checkout after store-checkout error:', cleanupError);
+    }
     return res.status(500).json({ error: message });
   }
 }

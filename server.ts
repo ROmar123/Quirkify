@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import axios from 'axios';
 import crypto from 'crypto';
+import { sendOrderStatusEmail } from './api/_lib/orderNotifications';
 import { ensureProfileByIdentity, getSupabaseAdmin } from './api/_lib/supabaseAdmin';
 
 dotenv.config({ path: '.env.local' });
@@ -27,6 +28,7 @@ async function startServer() {
   app.use(express.json());
 
   app.post('/api/commerce/store-checkout', async (req, res) => {
+    let createdOrderId: string | null = null;
     try {
       const {
         firebaseUid,
@@ -79,6 +81,7 @@ async function startServer() {
       if (!checkoutRow?.order_id || !checkoutRow?.total) {
         return res.status(500).json({ error: 'Checkout order was not created correctly' });
       }
+      createdOrderId = checkoutRow.order_id;
 
       const yocoSecretKey = process.env.YOCO_SECRET_KEY;
       if (!yocoSecretKey) {
@@ -106,14 +109,28 @@ async function startServer() {
       });
 
       const checkoutSessionId = yocoResponse.data?.id || null;
-      if (checkoutSessionId) {
-        await supabase
-          .from('orders')
-          .update({
-            checkout_session_id: checkoutSessionId,
-            payment_status: 'redirected',
-          })
-          .eq('id', checkoutRow.order_id);
+      if (!checkoutSessionId || !yocoResponse.data?.redirectUrl) {
+        await supabase.rpc('cancel_pending_order', {
+          p_order_id: checkoutRow.order_id,
+          p_note: 'Yoco checkout session could not be created',
+        });
+        return res.status(502).json({ error: 'Payment provider did not return a valid checkout session' });
+      }
+
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({
+          checkout_session_id: checkoutSessionId,
+          payment_status: 'redirected',
+        })
+        .eq('id', checkoutRow.order_id);
+
+      if (updateError) {
+        await supabase.rpc('cancel_pending_order', {
+          p_order_id: checkoutRow.order_id,
+          p_note: 'Checkout session created but order could not be updated',
+        });
+        return res.status(500).json({ error: updateError.message });
       }
 
       return res.json({
@@ -126,6 +143,17 @@ async function startServer() {
     } catch (error: any) {
       const message = error?.response?.data?.message || error?.response?.data?.error || error?.message || 'Failed to start checkout';
       console.error('Store checkout error:', message);
+      try {
+        if (createdOrderId) {
+          const supabase = getSupabaseAdmin();
+          await supabase.rpc('cancel_pending_order', {
+            p_order_id: String(createdOrderId),
+            p_note: 'Checkout failed before redirecting to Yoco',
+          });
+        }
+      } catch (cleanupError) {
+        console.error('Failed to release pending checkout after store-checkout error:', cleanupError);
+      }
       return res.status(500).json({ error: message });
     }
   });
@@ -152,6 +180,36 @@ async function startServer() {
     } catch (error: any) {
       const message = error?.message || 'Failed to cancel order';
       console.error('Cancel order error:', message);
+      return res.status(500).json({ error: message });
+    }
+  });
+
+  app.get('/api/commerce/order-status', async (req, res) => {
+    try {
+      const orderId = String(req.query?.orderId || '').trim();
+      if (!orderId) {
+        return res.status(400).json({ error: 'Missing orderId' });
+      }
+
+      const supabase = getSupabaseAdmin();
+      const { data, error } = await supabase
+        .from('orders')
+        .select('id, order_number, status, payment_status, total, checkout_session_id, reservation_expires_at, created_at, updated_at')
+        .eq('id', orderId)
+        .maybeSingle();
+
+      if (error) {
+        return res.status(400).json({ error: error.message });
+      }
+
+      if (!data) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+
+      return res.json({ order: data });
+    } catch (error: any) {
+      const message = error?.message || 'Failed to load order status';
+      console.error('Order status error:', message);
       return res.status(500).json({ error: message });
     }
   });
@@ -240,6 +298,7 @@ async function startServer() {
           if (error) {
             throw new Error(error.message);
           }
+          await sendOrderStatusEmail(orderId, 'paid');
           console.log(`Order ${orderId} payment confirmed in Supabase`);
         } catch (error) {
           console.error(`Failed to update order ${orderId}:`, error);
@@ -269,6 +328,7 @@ async function startServer() {
           if (error) {
             throw new Error(error.message);
           }
+          await sendOrderStatusEmail(orderId, 'payment_failed');
           console.log(`Order ${orderId} payment failed in Supabase`);
         } catch (error) {
           console.error(`Failed to update failed order ${orderId}:`, error);

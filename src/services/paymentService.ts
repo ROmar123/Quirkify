@@ -49,6 +49,32 @@ export const cancelStoreCheckout = async (orderId: string, reason?: string) => {
   return data.order;
 };
 
+export const getStoreCheckoutStatus = async (orderId: string) => {
+  const response = await fetch(`/api/commerce/order-status?orderId=${encodeURIComponent(orderId)}`, {
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to load order status');
+  }
+
+  return data.order as {
+    id: string;
+    order_number: string;
+    status: string;
+    payment_status: string | null;
+    total: number;
+    checkout_session_id: string | null;
+    reservation_expires_at: string | null;
+    created_at: string;
+    updated_at: string;
+  };
+};
+
 export const initiateYocoCheckout = async (amount: number, itemName: string, mPaymentId: string) => {
   try {
     const response = await fetch('/api/payments/yoco/initiate', {
