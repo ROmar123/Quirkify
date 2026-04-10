@@ -192,8 +192,11 @@ export async function fetchOrders(filters?: {
   const { data, error } = await query;
   if (error) throw new Error(error.message);
 
-  // Batch-fetch items for all orders
   const orderIds = (data || []).map(o => o.id);
+  if (orderIds.length === 0) {
+    return [];
+  }
+
   const { data: allItems } = await supabase
     .from('order_items')
     .select('*')

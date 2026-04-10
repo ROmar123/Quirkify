@@ -1,6 +1,9 @@
-import { supabase } from '../supabase';
+import { isSupabaseConfigured, supabase } from '../supabase';
 import { Product, AllocationSnapshot } from '../types';
 import { DEMO_PRODUCTS, isDemoProductId } from '../constants/demoProducts';
+
+const PRODUCT_POLL_INTERVAL_MS = 30000;
+let productSubscriptionSequence = 0;
 
 // Maps Supabase row → frontend Product type
 function rowToProduct(row: any): Product {
@@ -172,12 +175,48 @@ export function subscribeToProducts(
   status: Product['status'] | undefined,
   callback: (products: Product[]) => void
 ) {
-  // Initial fetch
-  fetchProducts(status).then(callback).catch(console.error);
+  let disposed = false;
+  let pollTimer: ReturnType<typeof setInterval> | null = null;
 
-  // Real-time subscription
+  const refresh = async () => {
+    if (disposed) return;
+
+    try {
+      const products = await fetchProducts(status);
+      if (!disposed) {
+        callback(products);
+      }
+    } catch (error) {
+      console.error('[Supabase] Failed to refresh products', { status, error });
+    }
+  };
+
+  const startPolling = () => {
+    if (pollTimer || disposed) return;
+    pollTimer = setInterval(() => {
+      void refresh();
+    }, PRODUCT_POLL_INTERVAL_MS);
+  };
+
+  const stopPolling = () => {
+    if (!pollTimer) return;
+    clearInterval(pollTimer);
+    pollTimer = null;
+  };
+
+  void refresh();
+
+  if (!isSupabaseConfigured) {
+    startPolling();
+    return () => {
+      disposed = true;
+      stopPolling();
+    };
+  }
+
+  const channelName = `products-changes:${status ?? 'all'}:${++productSubscriptionSequence}`;
   const channel = supabase
-    .channel('products-changes')
+    .channel(channelName)
     .on(
       'postgres_changes',
       {
@@ -187,14 +226,31 @@ export function subscribeToProducts(
         ...(status ? { filter: `status=eq.${status}` } : {}),
       },
       () => {
-        // Re-fetch on any change (simpler than patching state)
-        fetchProducts(status).then(callback).catch(console.error);
+        void refresh();
       }
     )
-    .subscribe();
+    .subscribe((channelStatus, error) => {
+      if (disposed) return;
 
-  // Return unsubscribe function
+      if (channelStatus === 'SUBSCRIBED') {
+        stopPolling();
+        return;
+      }
+
+      if (channelStatus === 'CHANNEL_ERROR' || channelStatus === 'TIMED_OUT' || channelStatus === 'CLOSED') {
+        console.warn('[Supabase] Product realtime unavailable, falling back to polling', {
+          status,
+          channelStatus,
+          error,
+        });
+        startPolling();
+        void refresh();
+      }
+    });
+
   return () => {
-    supabase.removeChannel(channel);
+    disposed = true;
+    stopPolling();
+    void supabase.removeChannel(channel);
   };
 }
