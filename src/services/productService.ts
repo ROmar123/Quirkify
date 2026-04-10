@@ -1,6 +1,8 @@
 import { supabase } from '../supabase';
 import { Product, AllocationSnapshot } from '../types';
 
+let productSubscriptionSequence = 0;
+
 function rowToProduct(row: any): Product {
   return {
     id: row.id,
@@ -138,8 +140,9 @@ export function subscribeToProducts(
 ) {
   fetchProducts(status).then(callback).catch(console.error);
 
+  const channelName = `products-changes:${status ?? 'all'}:${++productSubscriptionSequence}`;
   const channel = supabase
-    .channel('products-changes')
+    .channel(channelName)
     .on(
       'postgres_changes',
       {
