@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { ensureProfileByIdentity, getSupabaseAdmin } from '../_lib/supabaseAdmin';
-import { getShippingQuote } from '../_lib/shipping';
+import { getShippingQuote } from '../_lib/shipping.js';
 
 interface CheckoutItemInput {
   productId: string;

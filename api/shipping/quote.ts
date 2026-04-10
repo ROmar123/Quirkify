@@ -1,5 +1,5 @@
-import { searchAddresses } from '../_lib/mapbox';
-import { getShippingQuote } from '../_lib/shipping';
+import { searchAddresses } from '../_lib/mapbox.js';
+import { getShippingQuote } from '../_lib/shipping.js';
 
 export default function handler(req: any, res: any) {
   if (req.method === 'GET') {

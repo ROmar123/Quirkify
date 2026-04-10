@@ -1,4 +1,4 @@
-import { getTrackingDetails } from '../../_lib/shipping';
+import { getTrackingDetails } from '../../_lib/shipping.js';
 
 export default function handler(req: any, res: any) {
   const { trackingNumber } = req.query;
