@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getCurrentUser } from '../../services/authService';
+import { auth } from '../../firebase';
 import { LogIn, ShoppingBag, Package, Truck, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { fetchOrders, Order } from '../../services/orderService';
@@ -51,14 +51,14 @@ export default function Orders() {
 
   if (!auth.currentUser) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-32 text-center">
+      <div className="max-w-lg mx-auto px-4 py-20 pb-32 text-center md:py-32 md:pb-20">
         <div className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
           <LogIn className="w-8 h-8 text-white" />
         </div>
         <h2 className="text-3xl font-black mb-3 text-purple-900">Sign in to view orders</h2>
         <p className="text-purple-400 text-sm font-semibold mb-8">Your order history is just a sign-in away.</p>
-        <button onClick={() => void signIn('/orders')} className="px-10 py-4 rounded-full font-bold text-white text-base" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
-          Sign In with Google
+        <button onClick={() => navigate('/auth?next=%2Forders')} className="px-10 py-4 rounded-full font-bold text-white text-base" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
+          Sign In or Create Account
         </button>
       </div>
     );
@@ -66,7 +66,7 @@ export default function Orders() {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-12">
+      <div className="max-w-7xl mx-auto px-4 py-12 pb-32 md:pb-12">
         <div className="space-y-6">
           {[1, 2, 3].map(i => <div key={i} className="h-40 bg-purple-50 animate-pulse rounded-3xl" />)}
         </div>
@@ -76,7 +76,7 @@ export default function Orders() {
 
   if (error) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-32 text-center">
+      <div className="max-w-lg mx-auto px-4 py-20 pb-32 text-center md:py-32 md:pb-20">
         <div className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center bg-red-50">
           <ShoppingBag className="w-8 h-8 text-red-500" />
         </div>
@@ -87,7 +87,7 @@ export default function Orders() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12">
+    <div className="max-w-7xl mx-auto px-4 py-12 pb-32 md:pb-12">
       <h1 className="text-4xl sm:text-6xl font-black mb-12 text-purple-900">My Orders</h1>
 
       {orders.length === 0 ? (

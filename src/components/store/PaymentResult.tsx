@@ -3,46 +3,23 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { CheckCircle2, XCircle, ArrowRight, ShoppingBag, Sparkles } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
-
-import { db, auth } from '../../firebase';
-import { addXP } from '../../services/gamificationService';
+import { updateOrderStatus } from '../../services/orderService';
 export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { clearCart } = useCart();
   const [isProcessing, setIsProcessing] = useState(true);
-  const [xpEarned, setXpEarned] = useState(0);
 
   useEffect(() => {
     const processPayment = async () => {
       if (type === 'success') {
         const orderId = searchParams.get('orderId');
-        const amount = Number(searchParams.get('amount'));
 
         if (orderId) {
           try {
-            const orderRef = doc(db, 'orders', orderId);
-            const orderSnap = await getDoc(orderRef);
-            if (orderSnap.exists()) {
-              const orderData = orderSnap.data();
-              if (!orderData) {
-                // Order document exists but is empty - skip processing
-                return;
-              }
-              await updateDoc(orderRef, { status: 'processing' });
-              if (auth.currentUser) {
-                // Award XP: 1 XP per R10 spent, minimum 10 XP
-                const xp = Math.max(10, Math.floor(amount / 10));
-                await addXP(auth.currentUser.uid, xp);
-                setXpEarned(xp);
-              }
-              if (orderData?.orderType === 'topup' && auth.currentUser) {
-                const userProgressRef = doc(db, 'user_progress', auth.currentUser.uid);
-                await updateDoc(userProgressRef, { balance: increment(amount) });
-              }
-            }
+            await updateOrderStatus(orderId, 'paid', { paymentStatus: 'completed' });
           } catch (error) {
-            // Silently fail - order is already marked as pending_payment in Firestore
+            console.error('Failed to finalize order payment:', error);
           }
         }
         clearCart();
@@ -89,7 +66,7 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
             <p className="text-purple-400 font-semibold mb-2">Your quirkiness is officially secured.</p>
             <div className="flex items-center justify-center gap-2 mb-10 p-3 rounded-2xl" style={{ background: 'linear-gradient(135deg, #ede9fe, #fce7f3)' }}>
               <Sparkles className="w-4 h-4 text-purple-500" />
-              <p className="text-sm font-bold text-purple-600">You earned {xpEarned} XP! 🎉</p>
+              <p className="text-sm font-bold text-purple-600">Your order has been confirmed and moved into processing.</p>
             </div>
             <div className="flex flex-col gap-3">
               <button onClick={() => navigate('/orders')} className="btn-primary w-full py-4 text-sm justify-center">

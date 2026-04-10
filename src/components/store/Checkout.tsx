@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { CreditCard, Truck, ArrowRight, ArrowLeft, ShoppingBag, Sparkles, LogIn, Shield, Zap, MapPin, AlertCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
-import { getCurrentUser } from '../../services/authService';
+import { auth } from '../../firebase';
 import { initiateYocoCheckout } from '../../services/paymentService';
 import { createOrder } from '../../services/orderService';
 import { getProfileByUid } from '../../services/profileService';
@@ -135,7 +135,7 @@ export default function Checkout() {
       setPaymentError(null);
       try {
         // Get Supabase profile for the order
-        const profile = await getProfileByUid(getCurrentUser()?.uid);
+        const profile = await getProfileByUid(auth.currentUser.uid);
 
         const order = await createOrder({
           profileId: profile?.id,
@@ -181,7 +181,7 @@ export default function Checkout() {
         </div>
         <h2 className="text-3xl font-black mb-3 gradient-text">Sign in to checkout</h2>
         <p className="text-purple-400 text-sm font-semibold mb-8">Your quirkiness needs an owner.</p>
-        <button onClick={() => void signIn('/checkout')} className="btn-primary px-10 py-4 text-base">Sign In with Google</button>
+        <button onClick={() => navigate('/auth?next=%2Fcheckout')} className="btn-primary px-10 py-4 text-base">Sign In or Create Account</button>
       </div>
     );
   }
