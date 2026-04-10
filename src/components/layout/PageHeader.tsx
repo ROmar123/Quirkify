@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LogIn, Bell, ShoppingBag, Briefcase } from 'lucide-react';
+import { LogIn, Bell, ShoppingBag, ArrowLeftRight } from 'lucide-react';
 import { auth, onAuthStateChanged, signOut, type AuthUser } from '../../firebase';
 import { useCart } from '../../context/CartContext';
 import { useMode } from '../../context/ModeContext';
@@ -115,7 +115,7 @@ export default function PageHeader() {
                 : 'bg-white text-purple-500 border-purple-200 hover:border-purple-400'
             )}
           >
-            {isEmployee ? <ShoppingBag className="w-4 h-4" /> : <Briefcase className="w-4 h-4" />}
+            <ArrowLeftRight className="w-4 h-4" />
           </button>
         )}
 
