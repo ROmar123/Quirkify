@@ -99,21 +99,6 @@ export default function PageHeader() {
       <div className="flex items-center gap-1">
         <BellDropdown user={user} />
 
-        {/* Cart — customer mode only */}
-        {!isEmployee && (
-          <Link to="/checkout" className="relative p-2 hover:bg-purple-50 rounded-full transition-colors">
-            <ShoppingBag className="w-5 h-5 text-purple-500" />
-            {cartCount > 0 && (
-              <span
-                className="absolute -top-1 -right-1 w-4 h-4 text-white text-[8px] font-bold flex items-center justify-center rounded-full"
-                style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
-              >
-                {cartCount}
-              </span>
-            )}
-          </Link>
-        )}
-
         {/* Mode toggle — icon only, admin only */}
         {isAdmin && (
           <button
@@ -132,6 +117,21 @@ export default function PageHeader() {
           >
             {isEmployee ? <ShoppingBag className="w-4 h-4" /> : <Briefcase className="w-4 h-4" />}
           </button>
+        )}
+
+        {/* Cart — customer mode only */}
+        {!isEmployee && (
+          <Link to="/checkout" className="relative p-2 hover:bg-purple-50 rounded-full transition-colors">
+            <ShoppingBag className="w-5 h-5 text-purple-500" />
+            {cartCount > 0 && (
+              <span
+                className="absolute -top-1 -right-1 w-4 h-4 text-white text-[8px] font-bold flex items-center justify-center rounded-full"
+                style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
+              >
+                {cartCount}
+              </span>
+            )}
+          </Link>
         )}
 
         {/* User avatar / sign in */}
