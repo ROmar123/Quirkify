@@ -1,6 +1,9 @@
 import { supabase } from '../supabase';
 import type { AllocationSnapshot } from '../types';
 
+let auctionSubscriptionSequence = 0;
+let bidSubscriptionSequence = 0;
+
 export interface Bid {
   id: string;
   auctionId: string;
@@ -20,50 +23,70 @@ export interface Auction {
   bids: Bid[];
 }
 
-export async function subscribeToAuctions(callback: (auctions: Auction[]) => void): Promise<() => void> {
-  const { data } = await supabase
-    .from('auctions')
-    .select('*, bids:bids(*)')
-    .eq('status', 'active')
-    .order('endTime', { ascending: true })
-    .limit(50);
-  callback(data || []);
+export function subscribeToAuctions(callback: (auctions: Auction[]) => void): () => void {
+  const loadAuctions = () => {
+    void supabase
+      .from('auctions')
+      .select('*, bids:bids(*)')
+      .eq('status', 'active')
+      .order('endTime', { ascending: true })
+      .limit(50)
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Failed to load auctions:', error);
+          callback([]);
+          return;
+        }
+        callback(data || []);
+      });
+  };
+
+  loadAuctions();
 
   const channel = supabase
-    .channel('auctions-all')
+    .channel(`auctions-all:${++auctionSubscriptionSequence}`)
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'auctions', filter: 'status=eq.active'
-    }, () => {
-      supabase.from('auctions').select('*, bids:bids(*)').eq('status', 'active')
-        .order('endTime', { ascending: true }).limit(50)
-        .then(({ data }) => callback(data || []));
-    })
+    }, loadAuctions)
     .subscribe();
 
-  return () => supabase.removeChannel(channel);
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }
 
-export async function subscribeToBids(
+export function subscribeToBids(
   auctionId: string,
   callback: (bids: Bid[]) => void
-): Promise<() => void> {
-  const { data } = await supabase
-    .from('bids')
-    .select('*')
-    .eq('auctionId', auctionId)
-    .order('createdAt', { ascending: false });
-  callback(data || []);
+): () => void {
+  const loadBids = () => {
+    void supabase
+      .from('bids')
+      .select('*')
+      .eq('auctionId', auctionId)
+      .order('createdAt', { ascending: false })
+      .then(({ data, error }) => {
+        if (error) {
+          console.error(`Failed to load bids for auction ${auctionId}:`, error);
+          callback([]);
+          return;
+        }
+        callback(data || []);
+      });
+  };
+
+  loadBids();
 
   const channel = supabase
-    .channel(`bids-${auctionId}`)
+    .channel(`bids:${auctionId}:${++bidSubscriptionSequence}`)
     .on('postgres_changes', {
-      event: 'INSERT', schema: 'public', table: 'bids', filter: `auctionId=eq.${auctionId}`
-    }, (payload) => {
-      callback(prev => [payload.new as Bid, ...prev]);
-    })
+      event: '*', schema: 'public', table: 'bids', filter: `auctionId=eq.${auctionId}`
+    }, loadBids)
     .subscribe();
 
-  return () => supabase.removeChannel(channel);
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }
 
 export async function placeBid(
