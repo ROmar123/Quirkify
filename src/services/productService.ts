@@ -1,8 +1,8 @@
 import { supabase } from '../supabase';
 import { Product, AllocationSnapshot } from '../types';
+import { DEMO_PRODUCTS, isDemoProductId } from '../constants/demoProducts';
 
-let productSubscriptionSequence = 0;
-
+// Maps Supabase row → frontend Product type
 function rowToProduct(row: any): Product {
   return {
     id: row.id,
@@ -26,7 +26,7 @@ function rowToProduct(row: any): Product {
     imageUrls: row.image_urls || [],
     confidenceScore: Number(row.confidence_score) || 0,
     rarity: row.rarity,
-    stats: row.stats_quirkiness != null ? {
+    stats: (row.stats_quirkiness != null) ? {
       quirkiness: row.stats_quirkiness,
       rarity: row.stats_rarity,
       utility: row.stats_utility,
@@ -44,6 +44,7 @@ function rowToProduct(row: any): Product {
   };
 }
 
+// Maps frontend Product → Supabase insert/update
 function productToRow(product: Partial<Product>) {
   const row: Record<string, any> = {};
 
@@ -55,6 +56,7 @@ function productToRow(product: Partial<Product>) {
   if (product.listingType !== undefined) row.listing_type = product.listingType;
   if (product.retailPrice !== undefined) row.retail_price = product.retailPrice;
   if (product.markdownPercentage !== undefined) row.markdown_percentage = product.markdownPercentage;
+  // discount_price is a generated column — never set it
   if (product.stock !== undefined) row.stock = product.stock;
   if (product.allocations) {
     row.alloc_store = product.allocations.store;
@@ -80,31 +82,60 @@ function productToRow(product: Partial<Product>) {
   return row;
 }
 
+/** Fetch products by status */
 export async function fetchProducts(status?: Product['status']): Promise<Product[]> {
-  let query = supabase.from('products').select('*');
-  if (status) {
-    query = query.eq('status', status);
+  try {
+    let query = supabase.from('products').select('*');
+    if (status) {
+      query = query.eq('status', status);
+    }
+    const { data, error } = await query.order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+
+    const products = (data || []).map(rowToProduct);
+    if (products.length > 0) {
+      return products;
+    }
+  } catch (error) {
+    if (status && status !== 'approved') {
+      throw error;
+    }
   }
-  const { data, error } = await query.order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data || []).map(rowToProduct);
+
+  if (!status || status === 'approved') {
+    return DEMO_PRODUCTS;
+  }
+
+  return [];
 }
 
+/** Fetch a single product by ID */
 export async function fetchProduct(id: string): Promise<Product | null> {
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .eq('id', id)
-    .single();
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    throw new Error(error.message);
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) {
+      if (error.code === 'PGRST116' && isDemoProductId(id)) {
+        return DEMO_PRODUCTS.find(product => product.id === id) ?? null;
+      }
+      if (error.code === 'PGRST116') return null;
+      throw new Error(error.message);
+    }
+    return rowToProduct(data);
+  } catch (error) {
+    if (isDemoProductId(id)) {
+      return DEMO_PRODUCTS.find(product => product.id === id) ?? null;
+    }
+    throw error;
   }
-  return rowToProduct(data);
 }
 
+/** Create a new product (status defaults to 'pending') */
 export async function createProduct(product: Partial<Product>): Promise<Product> {
-  const row = productToRow({ ...product, status: product.status ?? 'pending' });
+  const row = productToRow({ ...product, status: 'pending' });
   const { data, error } = await supabase
     .from('products')
     .insert(row)
@@ -114,6 +145,7 @@ export async function createProduct(product: Partial<Product>): Promise<Product>
   return rowToProduct(data);
 }
 
+/** Update an existing product */
 export async function updateProduct(id: string, updates: Partial<Product>): Promise<Product> {
   const row = productToRow(updates);
   const { data, error } = await supabase
@@ -126,6 +158,7 @@ export async function updateProduct(id: string, updates: Partial<Product>): Prom
   return rowToProduct(data);
 }
 
+/** Delete a product */
 export async function deleteProduct(id: string): Promise<void> {
   const { error } = await supabase
     .from('products')
@@ -134,15 +167,17 @@ export async function deleteProduct(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+/** Subscribe to real-time product changes (uses Supabase Realtime) */
 export function subscribeToProducts(
   status: Product['status'] | undefined,
   callback: (products: Product[]) => void
 ) {
+  // Initial fetch
   fetchProducts(status).then(callback).catch(console.error);
 
-  const channelName = `products-changes:${status ?? 'all'}:${++productSubscriptionSequence}`;
+  // Real-time subscription
   const channel = supabase
-    .channel(channelName)
+    .channel('products-changes')
     .on(
       'postgres_changes',
       {
@@ -152,28 +187,14 @@ export function subscribeToProducts(
         ...(status ? { filter: `status=eq.${status}` } : {}),
       },
       () => {
+        // Re-fetch on any change (simpler than patching state)
         fetchProducts(status).then(callback).catch(console.error);
       }
     )
     .subscribe();
 
+  // Return unsubscribe function
   return () => {
     supabase.removeChannel(channel);
   };
-}
-
-export async function updateProductStock(id: string, allocations: AllocationSnapshot): Promise<Product> {
-  return updateProduct(id, { allocations });
-}
-
-export async function approveProduct(id: string, authorUid: string): Promise<Product> {
-  return updateProduct(id, {
-    status: 'approved',
-    authorUid,
-    approvalDate: new Date().toISOString(),
-  });
-}
-
-export async function rejectProduct(id: string): Promise<Product> {
-  return updateProduct(id, { status: 'rejected' });
 }

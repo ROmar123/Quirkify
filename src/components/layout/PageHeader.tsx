@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LogIn, Bell, ShoppingBag, ArrowLeftRight } from 'lucide-react';
+import { LogIn, Bell, ShoppingBag, ArrowRightLeft, Gavel, ClipboardList, User, LayoutDashboard, Boxes, Megaphone } from 'lucide-react';
 import { auth, onAuthStateChanged, signOut, type AuthUser } from '../../firebase';
 import { useCart } from '../../context/CartContext';
 import { useMode } from '../../context/ModeContext';
@@ -13,10 +13,7 @@ function BellDropdown({ user }: { user: AuthUser | null }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!user) {
-      setNotifications([]);
-      return;
-    }
+    if (!user) return;
     return subscribeToNotifications(user.uid, setNotifications);
   }, [user]);
 
@@ -86,74 +83,128 @@ export default function PageHeader() {
   const location = useLocation();
   const cartCount = items.reduce((s, i) => s + i.quantity, 0);
   const isEmployee = mode === 'employee';
+  const nextParam = new URLSearchParams(location.search).get('next');
+  const effectivePath =
+    location.pathname === '/auth' && nextParam?.startsWith('/')
+      ? nextParam
+      : location.pathname;
+
+  const customerItems = [
+    { label: 'Store', path: '/', icon: ShoppingBag },
+    { label: 'Auctions', path: '/auctions', icon: Gavel },
+    { label: 'Orders', path: '/orders', icon: ClipboardList },
+    { label: 'Collection', path: '/collection', icon: User },
+  ];
+
+  const employeeItems = [
+    { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
+    { label: 'Inventory', path: '/admin/inventory', icon: Boxes },
+    { label: 'Commerce', path: '/admin/orders', icon: ClipboardList },
+    { label: 'Growth', path: '/admin/campaigns', icon: Megaphone },
+  ];
+
+  const navItems = isEmployee ? employeeItems : customerItems;
+
+  const isActivePath = (path: string) => {
+    if (path === '/') {
+      return effectivePath === '/';
+    }
+    if (path === '/admin') {
+      return effectivePath === '/admin';
+    }
+    return effectivePath === path || effectivePath.startsWith(`${path}/`);
+  };
 
   return (
     <header
-      className="sticky top-0 z-30 h-14 px-4 flex items-center justify-between border-b border-purple-50"
+      className="sticky top-0 z-30 border-b border-purple-50"
       style={{ background: 'rgba(253,244,255,0.95)', backdropFilter: 'blur(12px)' }}
     >
-      <Link to={isEmployee ? '/admin' : '/'} className="flex-shrink-0">
-        <Logo />
-      </Link>
+      <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4">
+        <Link to={isEmployee ? '/admin' : '/'} className="flex-shrink-0">
+          <Logo />
+        </Link>
 
-      <div className="flex items-center gap-1">
-        <BellDropdown user={user} />
+        <nav className="hidden flex-1 items-center justify-center lg:flex">
+          <div className="flex items-center gap-1 rounded-full border border-purple-100 bg-white/80 p-1 shadow-sm shadow-purple-100/70">
+            {navItems.map(({ label, path, icon: Icon }) => {
+              const active = isActivePath(path);
+              return (
+                <Link
+                  key={path}
+                  to={path}
+                  className={cn(
+                    'flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-all',
+                    active
+                      ? 'bg-purple-600 text-white shadow-md shadow-purple-200'
+                      : 'text-purple-400 hover:bg-purple-50 hover:text-purple-700'
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
 
-        {/* Mode toggle — icon only, admin only */}
-        {isAdmin && (
-          <button
-            onClick={() => {
-              const next = isEmployee ? 'customer' : 'employee';
-              setMode(next);
-              navigate(next === 'employee' ? '/admin' : '/');
-            }}
-            title={isEmployee ? 'Switch to Customer View' : 'Switch to Employee View'}
-            className={cn(
-              'p-2 rounded-full border transition-all',
-              isEmployee
-                ? 'bg-purple-600 text-white border-purple-600'
-                : 'bg-white text-purple-500 border-purple-200 hover:border-purple-400'
-            )}
-          >
-            <ArrowLeftRight className="w-4 h-4" />
-          </button>
-        )}
+        <div className="ml-auto flex items-center gap-1 sm:gap-2">
+          <BellDropdown user={user} />
 
-        {/* Cart — customer mode only */}
-        {!isEmployee && (
-          <Link to="/checkout" className="relative p-2 hover:bg-purple-50 rounded-full transition-colors">
-            <ShoppingBag className="w-5 h-5 text-purple-500" />
-            {cartCount > 0 && (
-              <span
-                className="absolute -top-1 -right-1 w-4 h-4 text-white text-[8px] font-bold flex items-center justify-center rounded-full"
-                style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
-              >
-                {cartCount}
-              </span>
-            )}
-          </Link>
-        )}
+          {!isEmployee && (
+            <Link to="/checkout" className="relative rounded-full p-2 transition-colors hover:bg-purple-50">
+              <ShoppingBag className="h-5 w-5 text-purple-500" />
+              {cartCount > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-bold text-white"
+                  style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
+                >
+                  {cartCount}
+                </span>
+              )}
+            </Link>
+          )}
 
-        {/* User avatar / sign in */}
-        {user ? (
-          <button
-            onClick={() => signOut()}
-            title={`Sign out (${user.email})`}
-            className="w-8 h-8 rounded-full text-white text-xs font-black flex items-center justify-center shadow-md hover:opacity-80 transition-opacity"
-            style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
-          >
-            {user.email?.[0].toUpperCase()}
-          </button>
-        ) : (
-          <button
-            onClick={() => navigate(`/auth?next=${encodeURIComponent(`${location.pathname}${location.search}`)}`)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-full font-bold text-white text-sm hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
-          >
-            <LogIn className="w-4 h-4" />
-            <span className="hidden sm:inline">Sign In</span>
-          </button>
-        )}
+          {isAdmin && (
+            <button
+              onClick={() => {
+                const next = isEmployee ? 'customer' : 'employee';
+                setMode(next);
+                navigate(next === 'employee' ? '/admin' : '/');
+              }}
+              title={isEmployee ? 'Switch to Customer View' : 'Switch to Employee View'}
+              className={cn(
+                'flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.18em] transition-all',
+                isEmployee
+                  ? 'border-purple-600 bg-purple-600 text-white'
+                  : 'border-purple-200 bg-white text-purple-600 hover:border-purple-400'
+              )}
+            >
+              <ArrowRightLeft className="h-4 w-4" />
+              <span className="hidden xl:inline">{isEmployee ? 'Store View' : 'Admin View'}</span>
+            </button>
+          )}
+
+          {user ? (
+            <button
+              onClick={() => signOut()}
+              title={`Sign out (${user.email})`}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-black text-white shadow-md transition-opacity hover:opacity-80"
+              style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
+            >
+              {user.email?.[0].toUpperCase()}
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate(`/auth?next=${encodeURIComponent(`${location.pathname}${location.search}`)}`)}
+              className="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-white hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
+            >
+              <LogIn className="h-4 w-4" />
+              <span className="hidden sm:inline">Sign In</span>
+            </button>
+          )}
+        </div>
       </div>
     </header>
   );
