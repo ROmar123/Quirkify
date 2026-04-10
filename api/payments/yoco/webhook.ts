@@ -1,27 +1,6 @@
 import type { Context } from "hono";
 import crypto from "crypto";
-import admin from "firebase-admin";
-
-let adminDb: admin.firestore.Firestore | null = null;
-
-// Initialize Firebase Admin
-try {
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
-    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-    : null;
-
-  if (serviceAccount && !admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
-  }
-
-  if (admin.apps.length > 0) {
-    adminDb = admin.firestore();
-  }
-} catch (error) {
-  console.warn("Firebase Admin not initialized:", error);
-}
+import { getSupabaseAdmin } from "../../_lib/supabaseAdmin";
 
 // In-memory idempotency cache with 24hr TTL
 // For production, replace with Redis or Firestore-based tracking
@@ -98,23 +77,26 @@ async function handlePaymentCompleted(event: YocoEvent): Promise<void> {
     return;
   }
 
-  if (!adminDb) {
-    console.error(`[${event.id}] payment.completed: Firebase not initialized`);
-    return;
-  }
-
   try {
-    await adminDb.collection("orders").doc(orderId).update({
-      status: "processing",
-      paymentConfirmedAt: new Date().toISOString(),
-      paymentInfo: {
-        transactionId: event.data.id,
+    const supabase = getSupabaseAdmin();
+    const { error } = await supabase.rpc("mark_order_payment_succeeded", {
+      p_order_id: orderId,
+      p_payment_id: event.data.id,
+      p_payment_status: "completed",
+      p_provider_event_id: event.id,
+      p_payload: {
         amount: event.data.amount,
         currency: event.data.currency,
-        completedAt: event.data.createdAt,
+        createdAt: event.data.createdAt,
+        metadata: event.data.metadata || {},
       },
     });
-    console.log(`[${event.id}] Order ${orderId} payment confirmed`);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    console.log(`[${event.id}] Order ${orderId} payment confirmed in Supabase`);
   } catch (error) {
     console.error(`[${event.id}] Failed to update order ${orderId}:`, error);
     throw error; // Re-throw so caller knows it failed
@@ -128,18 +110,23 @@ async function handlePaymentFailed(event: YocoEvent): Promise<void> {
     return;
   }
 
-  if (!adminDb) {
-    console.error(`[${event.id}] payment.failed: Firebase not initialized`);
-    return;
-  }
-
   try {
-    await adminDb.collection("orders").doc(orderId).update({
-      status: "payment_failed",
-      failureReason: event.data.failureReason,
-      failedAt: new Date().toISOString(),
+    const supabase = getSupabaseAdmin();
+    const { error } = await supabase.rpc("mark_order_payment_failed", {
+      p_order_id: orderId,
+      p_payment_status: event.data.failureReason || "failed",
+      p_provider_event_id: event.id,
+      p_payload: {
+        failureReason: event.data.failureReason || null,
+        metadata: event.data.metadata || {},
+      },
     });
-    console.log(`[${event.id}] Order ${orderId} marked as payment_failed`);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    console.log(`[${event.id}] Order ${orderId} marked as payment_failed in Supabase`);
   } catch (error) {
     console.error(`[${event.id}] Failed to update failed order ${orderId}:`, error);
     throw error;

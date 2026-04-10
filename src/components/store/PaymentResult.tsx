@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { CheckCircle2, XCircle, ArrowRight, ShoppingBag, Sparkles } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
-import { updateOrderStatus } from '../../services/orderService';
+import { cancelStoreCheckout } from '../../services/paymentService';
 export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -12,17 +12,16 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
 
   useEffect(() => {
     const processPayment = async () => {
-      if (type === 'success') {
-        const orderId = searchParams.get('orderId');
+      const orderId = searchParams.get('orderId');
 
-        if (orderId) {
-          try {
-            await updateOrderStatus(orderId, 'paid', { paymentStatus: 'completed' });
-          } catch (error) {
-            console.error('Failed to finalize order payment:', error);
-          }
-        }
+      if (type === 'success') {
         clearCart();
+      } else if (orderId) {
+        try {
+          await cancelStoreCheckout(orderId, 'Customer returned from Yoco cancel flow');
+        } catch (error) {
+          console.error('Failed to cancel reserved order after payment cancellation:', error);
+        }
       }
       setIsProcessing(false);
     };
@@ -66,7 +65,7 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
             <p className="text-purple-400 font-semibold mb-2">Your quirkiness is officially secured.</p>
             <div className="flex items-center justify-center gap-2 mb-10 p-3 rounded-2xl" style={{ background: 'linear-gradient(135deg, #ede9fe, #fce7f3)' }}>
               <Sparkles className="w-4 h-4 text-purple-500" />
-              <p className="text-sm font-bold text-purple-600">Your order has been confirmed and moved into processing.</p>
+              <p className="text-sm font-bold text-purple-600">Your payment was received. We are finalising the order in the background now.</p>
             </div>
             <div className="flex flex-col gap-3">
               <button onClick={() => navigate('/orders')} className="btn-primary w-full py-4 text-sm justify-center">

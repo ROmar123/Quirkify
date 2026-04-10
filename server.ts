@@ -4,28 +4,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import axios from 'axios';
-import admin from 'firebase-admin';
 import crypto from 'crypto';
+import { ensureProfileByIdentity, getSupabaseAdmin } from './api/_lib/supabaseAdmin';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config();
-
-// Initialize Firebase Admin
-let adminDb: admin.firestore.Firestore;
-try {
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
-    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-    : null;
-
-  if (serviceAccount) {
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
-    adminDb = admin.firestore();
-  }
-} catch (error) {
-  console.warn('Firebase Admin not initialized - webhook updates will not work:', error);
-}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,6 +25,136 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
+
+  app.post('/api/commerce/store-checkout', async (req, res) => {
+    try {
+      const {
+        firebaseUid,
+        email,
+        displayName,
+        phone,
+        address,
+        city,
+        zip,
+        items,
+      } = req.body ?? {};
+
+      if (!firebaseUid || !email || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: 'Missing required checkout fields' });
+      }
+
+      const normalizedItems = items.map((item: any) => ({
+        productId: String(item?.productId || ''),
+        quantity: Number(item?.quantity || 0),
+      }));
+
+      if (normalizedItems.some((item: any) => !item.productId || item.quantity <= 0)) {
+        return res.status(400).json({ error: 'Invalid checkout items' });
+      }
+
+      const profile = await ensureProfileByIdentity({
+        firebaseUid: String(firebaseUid),
+        email: String(email),
+        displayName: displayName ? String(displayName) : null,
+      });
+
+      const supabase = getSupabaseAdmin();
+      const { data: checkoutData, error: checkoutError } = await supabase.rpc('create_store_checkout_order', {
+        p_profile_id: profile.id,
+        p_customer_email: String(email),
+        p_customer_name: displayName ? String(displayName) : String(email),
+        p_customer_phone: phone ? String(phone) : null,
+        p_shipping_address: address ? String(address) : null,
+        p_shipping_city: city ? String(city) : null,
+        p_shipping_zip: zip ? String(zip) : null,
+        p_shipping_cost: 120,
+        p_items: normalizedItems,
+      });
+
+      if (checkoutError) {
+        return res.status(400).json({ error: checkoutError.message });
+      }
+
+      const checkoutRow = Array.isArray(checkoutData) ? checkoutData[0] : checkoutData;
+      if (!checkoutRow?.order_id || !checkoutRow?.total) {
+        return res.status(500).json({ error: 'Checkout order was not created correctly' });
+      }
+
+      const yocoSecretKey = process.env.YOCO_SECRET_KEY;
+      if (!yocoSecretKey) {
+        return res.status(500).json({ error: 'Payment system not configured' });
+      }
+
+      const origin = req.headers.origin || `http://${req.headers.host}`;
+      const amountCents = Math.round(Number(checkoutRow.total) * 100);
+
+      const yocoResponse = await axios.post('https://payments.yoco.com/api/checkouts', {
+        amount: amountCents,
+        currency: 'ZAR',
+        successUrl: `${origin}/payment/success?orderId=${checkoutRow.order_id}`,
+        cancelUrl: `${origin}/payment/cancel?orderId=${checkoutRow.order_id}`,
+        metadata: {
+          orderId: checkoutRow.order_id,
+          orderNumber: checkoutRow.order_number,
+          itemName: checkoutRow.item_name,
+        }
+      }, {
+        headers: {
+          Authorization: `Bearer ${yocoSecretKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const checkoutSessionId = yocoResponse.data?.id || null;
+      if (checkoutSessionId) {
+        await supabase
+          .from('orders')
+          .update({
+            checkout_session_id: checkoutSessionId,
+            payment_status: 'redirected',
+          })
+          .eq('id', checkoutRow.order_id);
+      }
+
+      return res.json({
+        orderId: checkoutRow.order_id,
+        orderNumber: checkoutRow.order_number,
+        total: checkoutRow.total,
+        redirectUrl: yocoResponse.data?.redirectUrl,
+        reservationExpiresAt: checkoutRow.reservation_expires_at,
+      });
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.response?.data?.error || error?.message || 'Failed to start checkout';
+      console.error('Store checkout error:', message);
+      return res.status(500).json({ error: message });
+    }
+  });
+
+  app.post('/api/commerce/cancel-order', async (req, res) => {
+    try {
+      const { orderId, reason } = req.body ?? {};
+
+      if (!orderId) {
+        return res.status(400).json({ error: 'Missing orderId' });
+      }
+
+      const supabase = getSupabaseAdmin();
+      const { data, error } = await supabase.rpc('cancel_pending_order', {
+        p_order_id: String(orderId),
+        p_note: reason ? String(reason) : 'Checkout cancelled by customer',
+      });
+
+      if (error) {
+        return res.status(400).json({ error: error.message });
+      }
+
+      return res.json({ order: Array.isArray(data) ? data[0] : data });
+    } catch (error: any) {
+      const message = error?.message || 'Failed to cancel order';
+      console.error('Cancel order error:', message);
+      return res.status(500).json({ error: message });
+    }
+  });
 
   // Yoco Payment Integration
   app.post('/api/payments/yoco/initiate', async (req, res) => {
@@ -110,23 +223,24 @@ async function startServer() {
           return res.sendStatus(400);
         }
 
-        if (!adminDb) {
-          console.warn('Firebase Admin not initialized - cannot update order');
-          return res.sendStatus(500);
-        }
-
         try {
-          await adminDb.collection('orders').doc(orderId).update({
-            status: 'processing',
-            paymentConfirmedAt: new Date().toISOString(),
-            paymentInfo: {
-              transactionId: event.data.id,
+          const supabase = getSupabaseAdmin();
+          const { error } = await supabase.rpc('mark_order_payment_succeeded', {
+            p_order_id: orderId,
+            p_payment_id: event.data.id,
+            p_payment_status: 'completed',
+            p_provider_event_id: event.id,
+            p_payload: {
               amount: event.data.amount,
               currency: event.data.currency,
-              completedAt: event.data.createdAt
+              createdAt: event.data.createdAt,
+              metadata: event.data.metadata || {},
             }
           });
-          console.log(`Order ${orderId} payment confirmed, status updated to processing`);
+          if (error) {
+            throw new Error(error.message);
+          }
+          console.log(`Order ${orderId} payment confirmed in Supabase`);
         } catch (error) {
           console.error(`Failed to update order ${orderId}:`, error);
           return res.sendStatus(500);
@@ -141,18 +255,21 @@ async function startServer() {
           return res.sendStatus(400);
         }
 
-        if (!adminDb) {
-          console.warn('Firebase Admin not initialized - cannot update failed order');
-          return res.sendStatus(500);
-        }
-
         try {
-          await adminDb.collection('orders').doc(orderId).update({
-            status: 'payment_failed',
-            failureReason: event.data.failureReason,
-            failedAt: new Date().toISOString()
+          const supabase = getSupabaseAdmin();
+          const { error } = await supabase.rpc('mark_order_payment_failed', {
+            p_order_id: orderId,
+            p_payment_status: event.data.failureReason || 'failed',
+            p_provider_event_id: event.id,
+            p_payload: {
+              failureReason: event.data.failureReason || null,
+              metadata: event.data.metadata || {},
+            }
           });
-          console.log(`Order ${orderId} payment failed`);
+          if (error) {
+            throw new Error(error.message);
+          }
+          console.log(`Order ${orderId} payment failed in Supabase`);
         } catch (error) {
           console.error(`Failed to update failed order ${orderId}:`, error);
           return res.sendStatus(500);

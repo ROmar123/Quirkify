@@ -5,9 +5,7 @@ import { CreditCard, Truck, ArrowRight, ArrowLeft, ShoppingBag, Sparkles, LogIn,
 import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { auth, onAuthStateChanged, type AuthUser } from '../../firebase';
-import { initiateYocoCheckout } from '../../services/paymentService';
-import { createOrder } from '../../services/orderService';
-import { getProfileByUid } from '../../services/profileService';
+import { startStoreCheckout } from '../../services/paymentService';
 import { fetchProduct } from '../../services/productService';
 type CheckoutStep = 'cart' | 'shipping' | 'payment';
 
@@ -145,31 +143,19 @@ export default function Checkout() {
       setIsProcessing(true);
       setPaymentError(null);
       try {
-        // Get Supabase profile for the order
-        const profile = await getProfileByUid(user.uid);
-
-        const order = await createOrder({
-          profileId: profile?.id,
-          customerEmail: formData.email,
-          customerName: user.displayName || formData.email,
-          customerPhone: formData.phone,
-          channel: 'store',
+        await startStoreCheckout({
+          firebaseUid: user.uid,
+          email: formData.email,
+          displayName: user.displayName || formData.email,
+          phone: formData.phone,
+          address: formData.address,
+          city: formData.city,
+          zip: formData.zip,
           items: items.map(item => ({
             productId: item.id,
-            productName: item.name,
-            productImageUrl: item.imageUrl,
-            unitPrice: item.priceRange.min,
             quantity: item.quantity,
           })),
-          shippingCost: SHIPPING_FEE,
-          shippingAddress: formData.address,
-          shippingCity: formData.city,
-          shippingZip: formData.zip,
-          paymentMethod: 'yoco',
         });
-
-        const itemName = items.length === 1 ? items[0].name : `Quirkify Order ${order.orderNumber}`;
-        await initiateYocoCheckout(orderTotal, itemName, order.id);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Payment processing failed. Please try again.';
         setPaymentError(errorMessage);

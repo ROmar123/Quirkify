@@ -1,3 +1,54 @@
+interface StoreCheckoutPayload {
+  firebaseUid: string;
+  email: string;
+  displayName?: string | null;
+  phone: string;
+  address: string;
+  city: string;
+  zip: string;
+  items: { productId: string; quantity: number }[];
+}
+
+export const startStoreCheckout = async (payload: StoreCheckoutPayload) => {
+  const response = await fetch('/api/commerce/store-checkout', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to start checkout');
+  }
+
+  if (!data.redirectUrl) {
+    throw new Error('Payment redirect URL missing from checkout response');
+  }
+
+  window.location.href = data.redirectUrl;
+};
+
+export const cancelStoreCheckout = async (orderId: string, reason?: string) => {
+  const response = await fetch('/api/commerce/cancel-order', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ orderId, reason }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to cancel checkout order');
+  }
+
+  return data.order;
+};
+
 export const initiateYocoCheckout = async (amount: number, itemName: string, mPaymentId: string) => {
   try {
     const response = await fetch('/api/payments/yoco/initiate', {
