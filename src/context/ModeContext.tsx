@@ -22,11 +22,19 @@ export function ModeProvider({ children }: { children: ReactNode }) {
 
   const handleSetIsAdmin = (val: boolean) => {
     setIsAdmin(val);
-    if (val) setMode('employee');
+    setMode(val ? 'employee' : 'customer');
+  };
+
+  const handleSetMode = (nextMode: Mode) => {
+    if (nextMode === 'employee' && !isAdmin) {
+      setMode('customer');
+      return;
+    }
+    setMode(nextMode);
   };
 
   return (
-    <ModeContext.Provider value={{ mode, setMode, isAdmin, setIsAdmin: handleSetIsAdmin }}>
+    <ModeContext.Provider value={{ mode, setMode: handleSetMode, isAdmin, setIsAdmin: handleSetIsAdmin }}>
       {children}
     </ModeContext.Provider>
   );

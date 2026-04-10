@@ -137,7 +137,10 @@ export default function LiveStreamRoom() {
               // Get AI talking points if host
               if (auth.currentUser?.uid === sessionData.hostId && auctionData.product) {
                 try {
-                  const points = await getHostTalkingPoints(auctionData.product);
+                  const points = await getHostTalkingPoints(
+                    auctionData.product.name,
+                    auctionData.product.category || 'General'
+                  );
                   setTalkingPoints(points);
                 } catch (err) {
                   console.error('Failed to get talking points:', err);

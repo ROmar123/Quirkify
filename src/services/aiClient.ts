@@ -29,3 +29,13 @@ export async function getHostTalkingPoints(productName: string, category: string
   if (!res.ok) throw new Error('Host talking points generation failed');
   return res.json();
 }
+
+export async function getPersonalizedRecommendations(products: any[], userInterests: string[] = []) {
+  const res = await fetch(`${API_BASE}/personalize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ products, userInterests }),
+  });
+  if (!res.ok) throw new Error('Personalized recommendations failed');
+  return res.json();
+}

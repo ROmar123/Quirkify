@@ -41,6 +41,29 @@ function RequireAuth({ user, children }: { user: AuthUser | null; children: Reac
   return <>{children}</>;
 }
 
+function RequireAdmin({
+  user,
+  isAdmin,
+  children,
+}: {
+  user: AuthUser | null;
+  isAdmin: boolean;
+  children: ReactNode;
+}) {
+  const location = useLocation();
+
+  if (!user) {
+    const next = encodeURIComponent(`${location.pathname}${location.search}`);
+    return <Navigate to={`/auth?next=${next}`} replace />;
+  }
+
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: AuthUser | null }) {
   const location = useLocation();
 
@@ -64,14 +87,14 @@ function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: AuthUser | 
         <Route path="/profile/:uid" element={<PublicProfile />} />
         <Route path="/orders" element={<RequireAuth user={user}><Orders /></RequireAuth>} />
         <Route path="/seller/onboarding" element={<RequireAuth user={user}><SellerOnboarding /></RequireAuth>} />
-        <Route path="/admin" element={isAdmin ? <AdminDashboard /> : <Navigate to="/" />} />
-        <Route path="/admin/inventory" element={isAdmin ? <Inventory /> : <Navigate to="/" />} />
-        <Route path="/admin/reviews"  element={isAdmin ? <ProductsPage /> : <Navigate to="/" />} />
-        <Route path="/admin/orders"   element={isAdmin ? <CommercePage /> : <Navigate to="/" />} />
-        <Route path="/admin/campaigns" element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
-        <Route path="/admin/social"   element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
-        <Route path="/admin/streams"  element={isAdmin ? <GrowthPage /> : <Navigate to="/" />} />
-        <Route path="/admin/resources" element={isAdmin ? <ResourceMonitor /> : <Navigate to="/" />} />
+        <Route path="/admin" element={<RequireAdmin user={user} isAdmin={isAdmin}><AdminDashboard /></RequireAdmin>} />
+        <Route path="/admin/inventory" element={<RequireAdmin user={user} isAdmin={isAdmin}><Inventory /></RequireAdmin>} />
+        <Route path="/admin/reviews"  element={<RequireAdmin user={user} isAdmin={isAdmin}><ProductsPage /></RequireAdmin>} />
+        <Route path="/admin/orders"   element={<RequireAdmin user={user} isAdmin={isAdmin}><CommercePage /></RequireAdmin>} />
+        <Route path="/admin/campaigns" element={<RequireAdmin user={user} isAdmin={isAdmin}><GrowthPage /></RequireAdmin>} />
+        <Route path="/admin/social"   element={<RequireAdmin user={user} isAdmin={isAdmin}><GrowthPage /></RequireAdmin>} />
+        <Route path="/admin/streams"  element={<RequireAdmin user={user} isAdmin={isAdmin}><GrowthPage /></RequireAdmin>} />
+        <Route path="/admin/resources" element={<RequireAdmin user={user} isAdmin={isAdmin}><ResourceMonitor /></RequireAdmin>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </motion.div>
@@ -93,6 +116,7 @@ function AppInner() {
       const isFirstLoad = !prevUser;
       prevUser = u;
       setUser(u);
+      setIsAdmin(false);
 
       if (u) {
         try {

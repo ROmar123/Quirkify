@@ -5,14 +5,15 @@ import { db, auth, handleFirestoreError, OperationType } from '../../firebase';
 import { CollectionItem, Product, UserProgress, Auction, UserProfile } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Trophy, Star, Shield, Zap, Gavel, Box, Bell, Settings, Wallet, CreditCard, User as UserIcon, LogIn, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { ensureUserProgress } from '../../services/gamificationService';
 import { subscribeToNotifications, Notification, markAsRead, deleteNotification } from '../../services/notificationService';
 import { getUserProfile, createOrUpdateProfile } from '../../services/userService';
 import { uploadProfilePicture } from '../../services/storageService';
 import { initiateYocoCheckout } from '../../services/paymentService';
-import { signIn } from '../../firebase';
+import { createOrder } from '../../services/orderService';
+import { getProfileByUid, type Profile as CommerceProfile } from '../../services/profileService';
 type CollectionTab = 'vault' | 'bids' | 'profile';
 
 const TABS: { id: CollectionTab; label: string; icon: React.ElementType }[] = [
@@ -22,12 +23,14 @@ const TABS: { id: CollectionTab; label: string; icon: React.ElementType }[] = [
 ];
 
 export default function Collection() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<CollectionTab>('vault');
   const [items, setItems] = useState<CollectionItem[]>([]);
   const [activeBids, setActiveBids] = useState<Auction[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [commerceProfile, setCommerceProfile] = useState<CommerceProfile | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [topUpError, setTopUpError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,6 +51,12 @@ export default function Collection() {
       .then(setUserProgress)
       .catch(() => {
         // Silently fail - user progress will be created on first interaction
+      });
+
+    getProfileByUid(uid)
+      .then(setCommerceProfile)
+      .catch(() => {
+        // Silently fail - commerce profile is synced elsewhere
       });
 
     getUserProfile(uid)
@@ -151,31 +160,46 @@ export default function Collection() {
     if (!auth.currentUser) return;
     setTopUpError(null);
     try {
-      const orderRef = await addDoc(collection(db, 'orders'), {
-        userId: auth.currentUser.uid,
-        userEmail: auth.currentUser.email,
-        total: topUpAmount,
-        status: 'pending_payment',
-        createdAt: serverTimestamp(),
-        orderType: 'topup'
+      if (!Number.isFinite(topUpAmount) || topUpAmount <= 0) {
+        throw new Error('Enter a valid top-up amount.');
+      }
+
+      const supabaseProfile = commerceProfile || await getProfileByUid(auth.currentUser.uid);
+      if (!supabaseProfile) {
+        throw new Error('Your account profile is not ready yet. Please sign in again.');
+      }
+
+      const order = await createOrder({
+        profileId: supabaseProfile.id,
+        customerEmail: auth.currentUser.email || supabaseProfile.email,
+        customerName: profile?.displayName || supabaseProfile.displayName || auth.currentUser.email || 'Quirkify Customer',
+        customerPhone: supabaseProfile.phone || undefined,
+        channel: 'manual',
+        sourceRef: 'wallet_topup',
+        items: [{
+          productId: null,
+          productName: 'Wallet Top Up',
+          unitPrice: topUpAmount,
+          quantity: 1,
+        }],
+        paymentMethod: 'yoco',
       });
-      await initiateYocoCheckout(topUpAmount, 'Wallet Top Up', orderRef.id);
+      await initiateYocoCheckout(topUpAmount, 'Wallet Top Up', order.id);
     } catch (error: any) {
       const errorMsg = error?.message || 'Wallet top-up failed. Please try again.';
       setTopUpError(errorMsg);
-      handleFirestoreError(error, OperationType.WRITE, 'orders');
     }
   };
 
   if (!auth.currentUser) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-32 text-center">
+      <div className="max-w-lg mx-auto px-4 py-20 pb-32 text-center md:py-32 md:pb-20">
         <div className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
           <LogIn className="w-8 h-8 text-white" />
         </div>
         <h2 className="text-3xl font-black mb-3 gradient-text">Sign in to view your vault</h2>
         <p className="text-purple-400 text-sm font-semibold mb-8">Your collection is waiting.</p>
-        <button onClick={() => void signIn('/collection')} className="btn-primary px-10 py-4 text-base">Sign In with Google</button>
+        <button onClick={() => navigate('/auth?next=%2Fcollection')} className="btn-primary px-10 py-4 text-base">Sign In or Create Account</button>
       </div>
     );
   }
@@ -183,7 +207,7 @@ export default function Collection() {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12">
+    <div className="max-w-7xl mx-auto px-4 py-12 pb-32 md:pb-12">
       {/* Header */}
       <header className="mb-12">
         <motion.h1
@@ -233,7 +257,7 @@ export default function Collection() {
           <div className="rounded-3xl p-6 text-white relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #A855F7, #F472B6)' }}>
             <Wallet className="absolute top-4 right-4 w-12 h-12 opacity-20" />
             <p className="text-[9px] font-bold uppercase tracking-widest text-white/70 mb-1">Quirkify Wallet</p>
-            <p className="text-4xl font-black mb-6">R{userProgress?.balance || 0}</p>
+            <p className="text-4xl font-black mb-6">R{commerceProfile?.balance ?? userProgress?.balance ?? 0}</p>
             <button
               onClick={() => setShowTopUp(true)}
               className="w-full py-2.5 bg-white/20 hover:bg-white/30 border border-white/30 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2"
@@ -448,6 +472,11 @@ export default function Collection() {
                 <label className="text-[9px] font-bold text-purple-400 uppercase tracking-widest block mb-1.5">Custom Amount</label>
                 <input type="number" value={topUpAmount} onChange={e => setTopUpAmount(Number(e.target.value))} className="w-full p-3 bg-purple-50 border-2 border-purple-100 rounded-2xl text-lg font-bold text-purple-800 focus:outline-none focus:border-purple-400 transition-colors" />
               </div>
+              {topUpError && (
+                <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+                  {topUpError}
+                </div>
+              )}
               <button onClick={handleTopUp} className="btn-primary w-full py-4 text-sm justify-center">
                 <CreditCard className="w-4 h-4" />
                 Proceed to Yoco

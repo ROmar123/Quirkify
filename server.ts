@@ -283,6 +283,21 @@ async function startServer() {
 
         try {
           const supabase = getSupabaseAdmin();
+          const { data: currentOrder, error: orderReadError } = await supabase
+            .from('orders')
+            .select('id, status, source_ref, profile_id, total')
+            .eq('id', orderId)
+            .maybeSingle();
+
+          if (orderReadError) {
+            throw new Error(orderReadError.message);
+          }
+
+          const shouldCreditWallet =
+            currentOrder?.status === 'pending' &&
+            currentOrder?.source_ref === 'wallet_topup' &&
+            !!currentOrder.profile_id;
+
           const { error } = await supabase.rpc('mark_order_payment_succeeded', {
             p_order_id: orderId,
             p_payment_id: event.data.id,
@@ -298,6 +313,28 @@ async function startServer() {
           if (error) {
             throw new Error(error.message);
           }
+
+          if (shouldCreditWallet && currentOrder?.profile_id) {
+            const { data: profile, error: profileReadError } = await supabase
+              .from('profiles')
+              .select('id, balance')
+              .eq('id', currentOrder.profile_id)
+              .single();
+
+            if (profileReadError) {
+              throw new Error(profileReadError.message);
+            }
+
+            const { error: balanceUpdateError } = await supabase
+              .from('profiles')
+              .update({ balance: Number(profile?.balance || 0) + Number(currentOrder.total || 0) })
+              .eq('id', currentOrder.profile_id);
+
+            if (balanceUpdateError) {
+              throw new Error(balanceUpdateError.message);
+            }
+          }
+
           await sendOrderStatusEmail(orderId, 'paid');
           console.log(`Order ${orderId} payment confirmed in Supabase`);
         } catch (error) {

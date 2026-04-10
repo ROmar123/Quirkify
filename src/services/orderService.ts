@@ -98,7 +98,7 @@ export async function createOrder(params: {
   customerPhone?: string;
   channel: OrderChannel;
   sourceRef?: string;
-  items: { productId: string; productName: string; productImageUrl?: string; unitPrice: number; quantity: number }[];
+  items: { productId?: string | null; productName: string; productImageUrl?: string; unitPrice: number; quantity: number }[];
   discount?: number;
   shippingCost?: number;
   shippingAddress?: string;
@@ -135,7 +135,7 @@ export async function createOrder(params: {
   // Insert line items
   const itemRows = params.items.map(i => ({
     order_id: order.id,
-    product_id: i.productId,
+    product_id: i.productId || null,
     product_name: i.productName,
     product_image_url: i.productImageUrl || null,
     unit_price: i.unitPrice,

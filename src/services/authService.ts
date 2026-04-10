@@ -1,5 +1,4 @@
 import { supabase } from '../supabase';
-import { User as FirebaseUser } from 'firebase/auth';
 
 // Map Supabase user to the same shape Firebase used
 export interface QuirkifyUser {
@@ -12,9 +11,7 @@ export interface QuirkifyUser {
 
 // Get the current session (sync, for initial render)
 export function getCurrentUser(): QuirkifyUser | null {
-  const session = supabase.auth.session();
-  if (!session?.user) return null;
-  return mapUser(session.user);
+  return null;
 }
 
 // Sign in with magic link / email OTP
@@ -53,14 +50,18 @@ export function onAuthStateChange(callback: (user: QuirkifyUser | null) => void)
 
 // Update user metadata
 export async function updateUserMetadata(updates: Partial<QuirkifyUser>): Promise<{ error: any }> {
-  const { error } = await supabase.auth.updateUser(updates);
+  const { error } = await supabase.auth.updateUser({
+    data: {
+      display_name: updates.displayName,
+      avatar_url: updates.photoURL,
+    },
+  });
   return { error };
 }
 
 // Delete account
 export async function deleteAccount(): Promise<{ error: any }> {
-  const { error } = await supabase.auth.deleteUser();
-  return { error };
+  return { error: new Error('Self-service account deletion is not enabled on the client.') };
 }
 
 // Map Supabase user to familiar shape
