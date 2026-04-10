@@ -17,6 +17,11 @@ export default function MobileNav() {
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
 
+  const isActivePath = (itemPath: string) => {
+    if (itemPath === '/') return effectivePath === '/';
+    return effectivePath === itemPath || effectivePath.startsWith(`${itemPath}/`);
+  };
+
   const customerItems = [
     { label: 'Store', path: '/', icon: ShoppingBag },
     { label: 'Auctions', path: '/auctions', icon: Gavel },
@@ -32,14 +37,11 @@ export default function MobileNav() {
   ];
 
   const navItems = isAdmin && mode === 'employee' ? employeeItems : customerItems;
-  const isInInventory = location.pathname.includes('/admin/inventory');
-
-  if (isInInventory) return null;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-purple-100 px-6 py-2 pb-8 flex items-center justify-between z-50 md:hidden">
       {navItems.map((item) => {
-        const isActive = effectivePath === item.path || (item.path !== '/admin' && effectivePath.startsWith(item.path));
+        const isActive = isActivePath(item.path);
 
         return (
           <Link
