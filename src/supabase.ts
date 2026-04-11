@@ -1,7 +1,14 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Accept both Vite-style and Next.js-style env var names for flexibility.
+const supabaseUrl =
+  import.meta.env.NEXT_PUBLIC_SUPABASE_URL ||
+  import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey =
+  import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ||
+  import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 if (!isSupabaseConfigured) {
@@ -50,7 +57,7 @@ export const supabase: SupabaseClient = isSupabaseConfigured
 export const getImageUrl = (path: string) => {
   if (!path) return '';
   if (path.startsWith('http')) return path;
-  
+
   // Build public URL from storage
   return `https://mvoigokzsaybwiogjpvr.supabase.co/storage/v1/object/public/product-images/${path}`;
 };
