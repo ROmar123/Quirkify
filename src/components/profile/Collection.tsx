@@ -311,12 +311,13 @@ export default function Collection() {
                       <motion.div key={item.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="group bg-white rounded-3xl border border-purple-100 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300">
                         <div className="aspect-[3/4] overflow-hidden relative">
                           <img src={item.product?.imageUrl} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="" referrerPolicy="no-referrer" />
-                          <div className={cn(
-                            'absolute top-3 left-3 px-2 py-1 text-[8px] font-bold uppercase tracking-widest',
-                            item.product?.rarity === 'Unique' ? 'bg-cyber text-black' :
-                            item.product?.rarity === 'Super Rare' ? 'bg-hot text-white' :
-                            item.product?.rarity === 'Rare' ? 'bg-quirky text-white' : 'bg-black text-white'
-                          )}>
+                          <div className="absolute top-3 left-3 px-2 py-1 text-[8px] font-bold uppercase tracking-widest rounded-full text-white"
+                            style={{
+                              background: item.product?.rarity === 'Unique' ? 'linear-gradient(135deg,#FBBF24,#F59E0B)' :
+                                item.product?.rarity === 'Super Rare' ? 'linear-gradient(135deg,#F472B6,#EC4899)' :
+                                item.product?.rarity === 'Rare' ? 'linear-gradient(135deg,#A855F7,#6366F1)' : '#4B5563',
+                              color: item.product?.rarity === 'Unique' ? '#000' : '#fff',
+                            }}>
                             {item.product?.rarity}
                           </div>
                         </div>
@@ -427,7 +428,12 @@ export default function Collection() {
                     </div>
                   </div>
 
-                  <button type="submit" disabled={saving} className="btn-primary mt-6 px-8 py-3 text-sm disabled:opacity-40">
+                  {updateError && (
+                    <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+                      {updateError}
+                    </div>
+                  )}
+                  <button type="submit" disabled={saving} className="btn-primary mt-4 px-8 py-3 text-sm disabled:opacity-40">
                     {saving ? 'Saving...' : 'Update Profile'}
                   </button>
                 </form>

@@ -303,7 +303,7 @@ export default function Checkout() {
   const currentStepIdx = STEPS.findIndex(s => s.id === step);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-12">
+    <div className="max-w-5xl mx-auto px-4 py-8 pb-36 md:py-12 md:pb-12">
       {/* Step Indicator */}
       <div className="flex items-center justify-center gap-4 mb-12">
         {STEPS.map((s, i) => {
@@ -444,7 +444,7 @@ export default function Checkout() {
                         )}
                         {key === 'address' && !validationErrors.address && (
                           <p className="text-[11px] font-bold text-purple-300 mt-1">
-                            Start typing your street address to auto-complete from Mapbox.
+                            Start typing for address suggestions.
                           </p>
                         )}
                       </div>
@@ -522,8 +522,8 @@ export default function Checkout() {
                   </div>
 
                   <div className="flex items-center gap-2 justify-center mb-2">
-                    <Sparkles className="w-4 h-4 text-purple-400" />
-                    <p className="text-[10px] font-bold text-purple-400">You'll earn XP for this purchase!</p>
+                    <Shield className="w-4 h-4 text-green-500" />
+                    <p className="text-[10px] font-bold text-purple-400">256-bit encrypted · SSL secured</p>
                   </div>
                 </div>
               </motion.div>
@@ -559,7 +559,7 @@ export default function Checkout() {
               </div>
             </div>
 
-            <div className="mt-6 space-y-3">
+            <div className="mt-6 space-y-3 hidden lg:block">
               <button
                 onClick={handleNext}
                 disabled={isProcessing || (step === 'cart' && stockErrors.length > 0)}
@@ -583,6 +583,38 @@ export default function Checkout() {
               )}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Mobile sticky CTA — always visible above mobile nav */}
+      <div className="fixed bottom-[4.5rem] left-0 right-0 z-40 px-4 pb-2 lg:hidden">
+        <div className="rounded-3xl bg-white/95 backdrop-blur-md border border-purple-100 shadow-[0_-8px_40px_rgba(168,85,247,0.15)] px-4 py-3 flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-purple-300">Order total</p>
+            <p className="text-lg font-black text-purple-900">R{orderTotal}</p>
+          </div>
+          {step !== 'cart' && (
+            <button onClick={handleBack} className="flex items-center gap-1 px-3 py-2.5 rounded-2xl border-2 border-purple-200 text-purple-600 text-xs font-black">
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            onClick={handleNext}
+            disabled={isProcessing || (step === 'cart' && stockErrors.length > 0)}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-white text-sm font-black disabled:opacity-50 flex-shrink-0"
+            style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
+          >
+            {isProcessing ? (
+              <>
+                <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }} className="w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                Processing...
+              </>
+            ) : step === 'payment' ? (
+              <><CreditCard className="w-4 h-4" /> Pay with Yoco</>
+            ) : (
+              <>Next <ArrowRight className="w-4 h-4" /></>
+            )}
+          </button>
         </div>
       </div>
     </div>

@@ -273,7 +273,7 @@ export default function Orders() {
                     </div>
                     <div className="rounded-3xl bg-purple-50 px-4 py-3">
                       <p className="text-[10px] font-black uppercase tracking-[0.24em] text-purple-300">Payment</p>
-                      <p className="mt-2 text-base font-black text-purple-900">{order.paymentMethod?.toUpperCase() || 'Pending'}</p>
+                      <p className="mt-2 text-base font-black text-purple-900">{order.paymentMethod ? order.paymentMethod.charAt(0).toUpperCase() + order.paymentMethod.slice(1) : '—'}</p>
                     </div>
                     <button
                       onClick={() => setSelectedOrderId(order.id)}

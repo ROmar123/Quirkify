@@ -102,7 +102,7 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
 
   if (resolution === 'pending') {
     return (
-      <div className="max-w-lg mx-auto px-4 py-24 text-center">
+      <div className="max-w-lg mx-auto px-4 py-16 pb-32 text-center md:py-24 md:pb-16">
         <div className="bg-white rounded-3xl border border-purple-100 p-12 shadow-xl">
           <motion.div
             animate={{ rotate: 360 }}
@@ -122,7 +122,7 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
   }
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-24 text-center">
+    <div className="max-w-lg mx-auto px-4 py-16 pb-32 text-center md:py-24 md:pb-16">
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}

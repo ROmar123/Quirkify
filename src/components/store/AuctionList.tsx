@@ -53,7 +53,7 @@ export default function AuctionList() {
 
   if (loading) {
     return (
-      <div className="px-4 py-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="px-4 py-6 pb-32 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:pb-6">
         {[1, 2, 3].map(i => (
           <div key={i} className="aspect-[3/4] bg-purple-50 animate-pulse rounded-3xl" />
         ))}
@@ -62,7 +62,7 @@ export default function AuctionList() {
   }
 
   return (
-    <div className="px-4 py-6 max-w-7xl mx-auto">
+    <div className="px-4 py-6 pb-32 max-w-7xl mx-auto md:pb-8">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-black gradient-text">Live Auctions 🔴</h1>
@@ -197,7 +197,7 @@ function AuctionCard({ auction, onBid, bidValue, setBidValue }: {
                 <p className="text-xs text-purple-400 font-semibold text-center py-2">No bids yet — be first!</p>
               ) : bids.map(bid => (
                 <div key={bid.id} className="flex justify-between items-center text-xs">
-                  <span className="font-bold text-purple-700 truncate">{(bid as any).bidderName || 'Anonymous'}</span>
+                  <span className="font-bold text-purple-700 truncate">{(bid as Bid & { bidderName?: string }).bidderName || 'Anonymous'}</span>
                   <span className="font-black text-purple-900">R{bid.amount}</span>
                 </div>
               ))}

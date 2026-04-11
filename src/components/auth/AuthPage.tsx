@@ -87,7 +87,7 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] px-4 py-10">
+    <div className="min-h-[calc(100vh-3.5rem)] px-4 py-10 pb-32 md:pb-10">
       <div className="max-w-5xl mx-auto grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <motion.section
           initial={{ opacity: 0, y: 18 }}
@@ -151,7 +151,7 @@ export default function AuthPage() {
                   <input
                     value={fullName}
                     onChange={(event) => setFullName(event.target.value)}
-                    placeholder="Rhidaa Omar"
+                    placeholder="Your full name"
                     className="w-full rounded-2xl border border-purple-100 bg-purple-50/50 py-3 pl-11 pr-4 text-sm font-semibold text-purple-900 outline-none transition-colors focus:border-purple-400 focus:bg-white"
                   />
                 </div>
@@ -207,10 +207,6 @@ export default function AuthPage() {
           </div>
 
           <div className="space-y-3">
-            <div className="rounded-2xl border border-purple-100 bg-purple-50 px-4 py-3 text-sm font-semibold text-purple-700">
-              Google sign-in is disabled for now. Email and magic link are the active auth paths.
-            </div>
-
             <button
               onClick={handleMagicLink}
               disabled={busyAction !== null}
