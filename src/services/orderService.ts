@@ -198,12 +198,14 @@ export async function fetchOrders(filters?: {
   status?: OrderStatus;
   channel?: OrderChannel;
   limit?: number;
+  excludeSourceRef?: string;
 }): Promise<Order[]> {
   const params = new URLSearchParams();
   if (filters?.profileId) params.set('profileId', filters.profileId);
   if (filters?.status) params.set('status', filters.status);
   if (filters?.channel) params.set('channel', filters.channel);
   if (filters?.limit) params.set('limit', String(filters.limit));
+  if (filters?.excludeSourceRef) params.set('excludeSourceRef', filters.excludeSourceRef);
 
   const response = await fetch(`/api/commerce/order-status?${params.toString()}`, {
     headers: {

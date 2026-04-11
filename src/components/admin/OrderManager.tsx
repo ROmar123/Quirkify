@@ -32,7 +32,7 @@ export default function OrderManager() {
 
   const loadOrders = async () => {
     try {
-      const data = await fetchOrders();
+      const data = await fetchOrders({ excludeSourceRef: 'wallet_topup' });
       setOrders(data);
     } catch (err: any) {
       setError(err.message || 'Failed to load orders');

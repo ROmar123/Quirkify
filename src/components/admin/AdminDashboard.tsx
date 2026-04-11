@@ -17,7 +17,7 @@ export default function AdminDashboard() {
       try {
         const [prods, orders] = await Promise.all([
           fetchProducts(),
-          fetchOrders({ limit: 5 }),
+          fetchOrders({ limit: 5, excludeSourceRef: 'wallet_topup' }),
         ]);
         setProducts(prods);
         setRecentOrders(orders);
