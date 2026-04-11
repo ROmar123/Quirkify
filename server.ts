@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import axios from 'axios';
 import crypto from 'crypto';
 import { sendOrderStatusEmail } from './api/_lib/orderNotifications';
-import { ensureProfileByIdentity, expireStalePendingOrders, getSupabaseAdmin } from './api/_lib/supabaseAdmin';
+import { ensureProfileByIdentity, expireStalePendingOrders, getSupabaseAdmin } from './api/_lib/supabaseAdmin.js';
 import { getShippingQuote, getTrackingDetails } from './api/_lib/shipping';
 
 dotenv.config({ path: '.env.local' });

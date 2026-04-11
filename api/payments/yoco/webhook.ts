@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import crypto from "crypto";
 import { sendOrderStatusEmail } from "../../_lib/orderNotifications";
-import { getSupabaseAdmin } from "../../_lib/supabaseAdmin";
+import { getSupabaseAdmin } from "../../_lib/supabaseAdmin.js";
 
 // In-memory idempotency cache with 24hr TTL
 // For production, replace with Redis or Firestore-based tracking

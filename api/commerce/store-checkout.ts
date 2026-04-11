@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ensureProfileByIdentity, expireStalePendingOrders, getSupabaseAdmin } from '../_lib/supabaseAdmin';
+import { ensureProfileByIdentity, expireStalePendingOrders, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 import { getShippingQuote } from '../_lib/shipping.js';
 
 interface CheckoutItemInput {
