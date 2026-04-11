@@ -304,7 +304,7 @@ async function startServer() {
         if (profileId) query = query.eq('profile_id', profileId);
         if (status) query = query.eq('status', status);
         if (channel) query = query.eq('channel', channel);
-        if (excludeSourceRef) query = query.neq('source_ref', excludeSourceRef);
+        if (excludeSourceRef) query = query.or(`source_ref.is.null,source_ref.neq.${excludeSourceRef}`);
         if (limit) query = query.limit(limit);
 
         const { data: orders, error: ordersError } = await query;
