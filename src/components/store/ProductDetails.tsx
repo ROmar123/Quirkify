@@ -260,9 +260,9 @@ export default function ProductDetails() {
             {/* Trust Badges */}
             <div className="grid grid-cols-3 gap-3 mt-8 pt-8 border-t border-purple-100">
               {[
-                { icon: ShieldCheck, label: 'Authentic Only', color: '#A855F7' },
-                { icon: Truck, label: 'Free Shipping', color: '#4ADE80' },
-                { icon: RefreshCcw, label: '30 Day Returns', color: '#60A5FA' },
+                { icon: ShieldCheck, label: 'AI Verified', color: '#A855F7' },
+                { icon: Truck, label: 'Nationwide Delivery', color: '#4ADE80' },
+                { icon: RefreshCcw, label: 'Secure Checkout', color: '#60A5FA' },
               ].map(({ icon: Icon, label, color }) => (
                 <div key={label} className="text-center">
                   <div className="w-10 h-10 rounded-full mx-auto mb-2 flex items-center justify-center" style={{ background: `${color}20` }}>

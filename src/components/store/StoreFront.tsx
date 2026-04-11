@@ -80,38 +80,38 @@ export default function StoreFront() {
               Curated resale, auction energy, and quirky finds in one clean storefront.
             </h1>
             <p className="mt-3 text-sm font-semibold leading-6 text-purple-500 md:max-w-xl">
-              The shell is now set up for page-by-page review on mobile and desktop, with a stronger header and a visible catalogue even before live inventory is fully staged.
+              South Africa's home for verified collectibles, limited drops, and pre-loved finds. Every item is AI-checked before it hits the shelf.
             </p>
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
             <div className="rounded-2xl bg-purple-50 px-4 py-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-purple-400">Visible products</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-purple-400">Products listed</p>
               <p className="mt-1 text-2xl font-black text-purple-900">{loading ? '—' : products.length}</p>
             </div>
             <div className="rounded-2xl bg-purple-50 px-4 py-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-purple-400">Live now</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-purple-400">Live auctions</p>
               <p className="mt-1 text-2xl font-black text-purple-900">{liveSessions.length}</p>
             </div>
             <div className="rounded-2xl bg-purple-50 px-4 py-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-purple-400">Ready for review</p>
-              <p className="mt-1 text-sm font-black text-purple-900">Desktop nav + responsive catalogue</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-purple-400">Categories</p>
+              <p className="mt-1 text-2xl font-black text-purple-900">13</p>
             </div>
           </div>
         </div>
 
         <div className="rounded-[2rem] border border-purple-100 bg-[linear-gradient(135deg,#2D1B69_0%,#7E22CE_55%,#F472B6_100%)] p-5 text-white shadow-lg shadow-purple-200/50 md:p-6">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-[10px] font-black uppercase tracking-[0.28em] text-pink-100">Focus right now</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.28em] text-pink-100">Why Quirkify</span>
             <ArrowUpRight className="h-4 w-4 text-pink-100" />
           </div>
           <div className="mt-4 space-y-3">
             <div className="rounded-2xl bg-white/10 p-4 backdrop-blur-sm">
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-100">Navigation</p>
-              <p className="mt-2 text-sm font-semibold text-white/90">Desktop routes now live in the shared header so the app no longer feels mobile-only on larger screens.</p>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-100">AI Verified</p>
+              <p className="mt-2 text-sm font-semibold text-white/90">Every listing is analysed by AI before approval — no fakes, no misleading descriptions.</p>
             </div>
             <div className="rounded-2xl bg-white/10 p-4 backdrop-blur-sm">
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-100">Catalogue</p>
-              <p className="mt-2 text-sm font-semibold text-white/90">Dummy products appear only when approved inventory is empty, so design review can keep moving without polluting the real data flow.</p>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-100">Auction Drops</p>
+              <p className="mt-2 text-sm font-semibold text-white/90">Bid live on limited and rare pieces. New drops added regularly — set a reminder and don't miss out.</p>
             </div>
           </div>
         </div>
@@ -144,9 +144,9 @@ export default function StoreFront() {
           <div className="flex items-start gap-3 rounded-3xl border border-amber-200 bg-amber-50 px-4 py-4 text-left">
             <Sparkles className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
             <div>
-              <p className="text-sm font-black text-amber-900">Demo products are active for this review pass.</p>
+              <p className="text-sm font-black text-amber-900">Sample catalogue — new inventory coming soon.</p>
               <p className="mt-1 text-xs font-semibold leading-5 text-amber-700">
-                Real approved inventory will automatically replace them as soon as it exists in Supabase.
+                We're curating our first batch of verified collectibles. Follow us for launch updates.
               </p>
             </div>
           </div>

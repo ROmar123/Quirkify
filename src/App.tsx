@@ -23,6 +23,10 @@ import ProductDetails from './components/store/ProductDetails';
 import MobileNav from './components/layout/MobileNav';
 import PageHeader from './components/layout/PageHeader';
 import AuthPage from './components/auth/AuthPage';
+import TermsOfService from './components/legal/TermsOfService';
+import PrivacyPolicy from './components/legal/PrivacyPolicy';
+import ReturnsPolicy from './components/legal/ReturnsPolicy';
+import Footer from './components/layout/Footer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 import { CartProvider } from './context/CartContext';
@@ -95,6 +99,9 @@ function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: AuthUser | 
         <Route path="/admin/social"   element={<RequireAdmin user={user} isAdmin={isAdmin}><GrowthPage /></RequireAdmin>} />
         <Route path="/admin/streams"  element={<RequireAdmin user={user} isAdmin={isAdmin}><GrowthPage /></RequireAdmin>} />
         <Route path="/admin/resources" element={<RequireAdmin user={user} isAdmin={isAdmin}><ResourceMonitor /></RequireAdmin>} />
+        <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/returns" element={<ReturnsPolicy />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </motion.div>
@@ -166,6 +173,7 @@ function AppInner() {
           <AnimatedRoutes isAdmin={isAdmin} user={user} />
         </ErrorBoundary>
       </main>
+      <Footer />
       <MobileNav />
     </div>
   );
