@@ -133,7 +133,11 @@ async function handlePaymentCompleted(event: YocoEvent): Promise<void> {
       }
     }
 
-    await sendOrderStatusEmail(orderId, "paid");
+    try {
+      await sendOrderStatusEmail(orderId, "paid");
+    } catch (emailError) {
+      console.error(`[${event.id}] Paid email send failed for order ${orderId}:`, emailError);
+    }
     console.log(`[${event.id}] Order ${orderId} payment confirmed in Supabase`);
   } catch (error) {
     console.error(`[${event.id}] Failed to update order ${orderId}:`, error);
@@ -164,7 +168,11 @@ async function handlePaymentFailed(event: YocoEvent): Promise<void> {
       throw new Error(error.message);
     }
 
-    await sendOrderStatusEmail(orderId, "payment_failed");
+    try {
+      await sendOrderStatusEmail(orderId, "payment_failed");
+    } catch (emailError) {
+      console.error(`[${event.id}] Failed-payment email send failed for order ${orderId}:`, emailError);
+    }
     console.log(`[${event.id}] Order ${orderId} marked as payment_failed in Supabase`);
   } catch (error) {
     console.error(`[${event.id}] Failed to update failed order ${orderId}:`, error);
@@ -237,21 +245,7 @@ export async function handleYocoWebhook(
   }
 
   console.log(`[${body.id}] Received webhook: type=${body.type}, createdAt=${body.createdAt}`);
-
-  // Return 200 immediately, process asynchronously
-  // The caller should call processEvent separately if needed
   return { status: 200, body: { received: true } };
-}
-
-// Background processor for async handling
-export async function processWebhookAsync(event: YocoEvent): Promise<void> {
-  try {
-    await processEvent(event);
-  } catch (error) {
-    console.error(`[${event.id}] Async processing failed:`, error);
-    // In production, consider retrying with exponential backoff
-    // or publishing to a dead-letter queue
-  }
 }
 
 // Default export for Next.js API route
@@ -267,15 +261,17 @@ export default async function handler(req: any, res: any) {
   const rawBody = req.rawBody || Buffer.from(JSON.stringify(req.body));
   const signatureHeader = req.headers["x-yoco-signature"] as string | null;
 
-  // Verify and respond immediately
+  // Verify first, then process before responding so Vercel does not drop work.
   const { status, body } = await handleYocoWebhook(req.body, rawBody, signatureHeader);
-  res.status(status).json(body);
+  if (status !== 200) {
+    return res.status(status).json(body);
+  }
 
-  // If signature was valid, process asynchronously after response
-  if (status === 200) {
-    // Fire and forget - don't await
-    processWebhookAsync(req.body).catch((error) => {
-      console.error("Async webhook processing error:", error);
-    });
+  try {
+    await processEvent(req.body);
+    return res.status(200).json(body);
+  } catch (error) {
+    console.error(`[${req.body?.id || "unknown"}] Webhook processing failed before response:`, error);
+    return res.status(500).json({ error: "Webhook processing failed" });
   }
 }

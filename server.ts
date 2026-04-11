@@ -202,7 +202,7 @@ async function startServer() {
       const supabase = getSupabaseAdmin();
       const { data, error } = await supabase
         .from('orders')
-        .select(includeEvents ? '*' : 'id, order_number, status, payment_status, total, checkout_session_id, reservation_expires_at, created_at, updated_at')
+        .select(includeEvents ? '*' : 'id, order_number, status, payment_status, total, checkout_session_id, reservation_expires_at, created_at, updated_at, source_ref, channel')
         .eq('id', orderId)
         .maybeSingle();
 
@@ -353,7 +353,7 @@ async function startServer() {
         amount: Math.round(amount * 100), // Yoco expects amount in cents
         currency: 'ZAR',
         successUrl: `${req.headers.origin}/payment/success?orderId=${m_payment_id}&amount=${amount}`,
-        cancelUrl: `${req.headers.origin}/payment/cancel`,
+        cancelUrl: `${req.headers.origin}/payment/cancel?orderId=${m_payment_id}`,
         metadata: {
           orderId: m_payment_id,
           itemName: item_name
@@ -459,7 +459,11 @@ async function startServer() {
             }
           }
 
-          await sendOrderStatusEmail(orderId, 'paid');
+          try {
+            await sendOrderStatusEmail(orderId, 'paid');
+          } catch (emailError) {
+            console.error(`Paid email send failed for order ${orderId}:`, emailError);
+          }
           console.log(`Order ${orderId} payment confirmed in Supabase`);
         } catch (error) {
           console.error(`Failed to update order ${orderId}:`, error);
@@ -489,7 +493,11 @@ async function startServer() {
           if (error) {
             throw new Error(error.message);
           }
-          await sendOrderStatusEmail(orderId, 'payment_failed');
+          try {
+            await sendOrderStatusEmail(orderId, 'payment_failed');
+          } catch (emailError) {
+            console.error(`Failed-payment email send failed for order ${orderId}:`, emailError);
+          }
           console.log(`Order ${orderId} payment failed in Supabase`);
         } catch (error) {
           console.error(`Failed to update failed order ${orderId}:`, error);

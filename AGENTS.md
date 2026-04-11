@@ -78,11 +78,21 @@ AI-powered collectibles marketplace for South Africa.
 - **quote.ts**: converted to named `POST` export (Vercel Functions best practice)
 - **TCG collection address**: configured via env vars (`TCG_COLLECTION_LAT/LNG/SUBURB/CITY/POSTAL/ZONE/ENTERED/STREET`) — defaults to Randburg, Johannesburg
 
+### Increment 4 — Local fix staged (Apr 11 2026)
+- **Yoco webhook durability**: `api/payments/yoco/webhook.ts` now processes payment events before returning 200
+  - This avoids Vercel serverless dropping the async work after the response, which could leave wallet top-ups and store checkouts stuck in `pending`
+  - Resend/email failures are now logged but do not block order/payment status updates
+- **Wallet return flow**: `api/payments/yoco/initiate.ts` now includes `orderId` on the cancel URL
+  - `/payment/cancel` can now reconcile wallet top-up cancellations instead of landing in an unmapped state
+- **PaymentResult mapping**: wallet top-ups now show wallet-specific success/cancel/failure copy and route users back to `/collection`
+  - Store checkout still routes to `/orders` or `/checkout`
+- **Order status API**: lightweight order-status responses now include `source_ref` and `channel` so the frontend can distinguish wallet top-ups from store checkout
+
 ## API Routes Status
 | Route | Status |
 |-------|--------|
 | POST /api/payments/yoco/initiate | ✅ Working |
-| POST /api/payments/yoco/webhook | ✅ Implemented (HMAC sig verify, idempotency) |
+| POST /api/payments/yoco/webhook | ✅ Implemented (HMAC sig verify, idempotency, sync processing on Vercel) |
 | POST /api/commerce/store-checkout | ✅ Working |
 | GET /api/commerce/order-status | ✅ Working |
 | POST /api/commerce/cancel-order | ✅ Working |
@@ -121,6 +131,18 @@ AI-powered collectibles marketplace for South Africa.
 - Auction bid history shows (bid as any).bidderName — type is loose
 - Admin GrowthPage: placeholder UI, no real functionality
 - LiveStreamRoom: framework only, no real streaming
+
+## Yoco Memory
+- Wallet top-up Yoco flow was already creating checkout sessions successfully, but the return/status mapping was incomplete:
+  - cancel URL did not include `orderId`
+  - shared `PaymentResult` copy/CTA assumed store checkout instead of wallet top-up
+- Store checkout Yoco flow could appear broken because the webhook acknowledged first and processed after the response
+  - on Vercel, that async work is not reliable, so order status could remain `pending`
+- Current fix path:
+  - process webhook before 200 response
+  - treat email sending as non-blocking
+  - include `source_ref` in order-status responses
+  - map wallet top-up returns separately in `PaymentResult`
 
 ## Coding Conventions
 - Tailwind CSS v4 — no `tailwind.config.js`, uses CSS variables

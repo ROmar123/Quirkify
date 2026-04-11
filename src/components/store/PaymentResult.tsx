@@ -13,6 +13,7 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
   const { clearCart } = useCart();
   const [resolution, setResolution] = useState<ResolutionState>('pending');
   const [message, setMessage] = useState('Confirming your payment with Quirkify...');
+  const [isWalletTopUp, setIsWalletTopUp] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,13 +33,19 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
         try {
           const cancelledOrder = await cancelStoreCheckout(orderId, 'Customer returned from Yoco cancel flow');
           if (!cancelled) {
+            const walletTopUp = cancelledOrder?.source_ref === 'wallet_topup';
+            setIsWalletTopUp(walletTopUp);
             setResolution(cancelledOrder?.status === 'paid' ? 'paid' : 'cancelled');
             setMessage(
               cancelledOrder?.status === 'paid'
-                ? 'Payment was already confirmed before the cancel return completed.'
-                : 'Your checkout was cancelled before payment was confirmed.'
+                ? (walletTopUp
+                  ? 'Your wallet top-up was already confirmed before the cancel return completed.'
+                  : 'Payment was already confirmed before the cancel return completed.')
+                : (walletTopUp
+                  ? 'Your wallet top-up was cancelled before payment was confirmed.'
+                  : 'Your checkout was cancelled before payment was confirmed.')
             );
-            if (cancelledOrder?.status === 'paid') {
+            if (cancelledOrder?.status === 'paid' && !walletTopUp) {
               clearCart();
             }
           }
@@ -58,11 +65,15 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
       while (!cancelled && Date.now() - startedAt < timeoutMs) {
         try {
           const order = await getStoreCheckoutStatus(orderId);
+          const walletTopUp = order.source_ref === 'wallet_topup';
+          setIsWalletTopUp(walletTopUp);
 
           if (order.status === 'paid' || order.payment_status === 'completed') {
-            clearCart();
+            if (!walletTopUp) {
+              clearCart();
+            }
             setResolution('paid');
-            setMessage('Payment confirmed. Your order is secured.');
+            setMessage(walletTopUp ? 'Payment confirmed. Your wallet has been topped up.' : 'Payment confirmed. Your order is secured.');
             return;
           }
 
@@ -70,16 +81,24 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
             setResolution(order.status === 'cancelled' ? 'cancelled' : 'payment_failed');
             setMessage(
               order.status === 'cancelled'
-                ? 'This checkout was cancelled before payment was confirmed.'
-                : 'Payment was not confirmed. Please try checkout again.'
+                ? (walletTopUp
+                  ? 'This wallet top-up was cancelled before payment was confirmed.'
+                  : 'This checkout was cancelled before payment was confirmed.')
+                : (walletTopUp
+                  ? 'Wallet top-up was not confirmed. Please try again.'
+                  : 'Payment was not confirmed. Please try checkout again.')
             );
             return;
           }
 
           setMessage(
             order.checkout_session_id
-              ? 'Waiting for Yoco to confirm payment with Quirkify...'
-              : 'Checkout was created, but the payment session is still being reconciled.'
+              ? (walletTopUp
+                ? 'Waiting for Yoco to confirm your wallet top-up with Quirkify...'
+                : 'Waiting for Yoco to confirm payment with Quirkify...')
+              : (walletTopUp
+                ? 'Top-up was created, but the payment session is still being reconciled.'
+                : 'Checkout was created, but the payment session is still being reconciled.')
           );
         } catch (error) {
           console.error('Failed to poll store checkout status:', error);
@@ -141,14 +160,14 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
               <CheckCircle2 className="w-12 h-12 text-white" />
             </motion.div>
             <h2 className="text-4xl font-black mb-3 gradient-text">Payment Successful!</h2>
-            <p className="text-purple-400 font-semibold mb-2">Your quirkiness is officially secured.</p>
+            <p className="text-purple-400 font-semibold mb-2">{isWalletTopUp ? 'Your wallet balance is ready to use.' : 'Your quirkiness is officially secured.'}</p>
             <div className="flex items-center justify-center gap-2 mb-10 p-3 rounded-2xl" style={{ background: 'linear-gradient(135deg, #ede9fe, #fce7f3)' }}>
               <Sparkles className="w-4 h-4 text-purple-500" />
               <p className="text-sm font-bold text-purple-600">{message}</p>
             </div>
             <div className="flex flex-col gap-3">
-              <button onClick={() => navigate('/orders')} className="btn-primary w-full py-4 text-sm justify-center">
-                View My Orders
+              <button onClick={() => navigate(isWalletTopUp ? '/collection' : '/orders')} className="btn-primary w-full py-4 text-sm justify-center">
+                {isWalletTopUp ? 'Back to My Vault' : 'View My Orders'}
                 <ArrowRight className="w-4 h-4" />
               </button>
               <button onClick={() => navigate('/')} className="btn-secondary w-full py-3 text-sm justify-center">
@@ -171,8 +190,8 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
             <h2 className="text-4xl font-black mb-3" style={{ color: '#2D1B69' }}>Still reconciling</h2>
             <p className="text-purple-400 font-semibold mb-10">{message}</p>
             <div className="flex flex-col gap-3">
-              <button onClick={() => navigate('/orders')} className="btn-primary w-full py-4 text-sm justify-center">
-                View My Orders
+              <button onClick={() => navigate(isWalletTopUp ? '/collection' : '/orders')} className="btn-primary w-full py-4 text-sm justify-center">
+                {isWalletTopUp ? 'Back to My Vault' : 'View My Orders'}
                 <ArrowRight className="w-4 h-4" />
               </button>
               <button onClick={() => navigate('/')} className="btn-secondary w-full py-3 text-sm justify-center">
@@ -196,9 +215,9 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
             </h2>
             <p className="text-purple-400 font-semibold mb-10">{message}</p>
             <div className="flex flex-col gap-3">
-              <button onClick={() => navigate('/checkout')} className="btn-primary w-full py-4 text-sm justify-center">
-                <ShoppingBag className="w-4 h-4" />
-                Back to Checkout
+              <button onClick={() => navigate(isWalletTopUp ? '/collection' : '/checkout')} className="btn-primary w-full py-4 text-sm justify-center">
+                {isWalletTopUp ? null : <ShoppingBag className="w-4 h-4" />}
+                {isWalletTopUp ? 'Back to My Vault' : 'Back to Checkout'}
               </button>
               <button onClick={() => navigate('/')} className="btn-secondary w-full py-3 text-sm justify-center">
                 Continue Shopping

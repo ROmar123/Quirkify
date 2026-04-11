@@ -68,6 +68,8 @@ export const getStoreCheckoutStatus = async (orderId: string) => {
     order_number: string;
     status: string;
     payment_status: string | null;
+    source_ref: string | null;
+    channel: string;
     total: number;
     checkout_session_id: string | null;
     reservation_expires_at: string | null;

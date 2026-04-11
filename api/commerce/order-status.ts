@@ -12,7 +12,7 @@ export default async function handler(req: any, res: any) {
       const supabase = getSupabaseAdmin();
       const { data, error } = await supabase
         .from('orders')
-        .select(includeEvents ? '*' : 'id, order_number, status, payment_status, total, checkout_session_id, reservation_expires_at, created_at, updated_at')
+        .select(includeEvents ? '*' : 'id, order_number, status, payment_status, total, checkout_session_id, reservation_expires_at, created_at, updated_at, source_ref, channel')
         .eq('id', orderId)
         .maybeSingle();
 

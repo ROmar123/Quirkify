@@ -57,7 +57,7 @@ export default async function handler(req: any, res: any) {
       amount: amountCents,
       currency: 'ZAR',
       successUrl: `${origin}/payment/success?orderId=${m_payment_id}&amount=${amount}`,
-      cancelUrl: `${origin}/payment/cancel`,
+      cancelUrl: `${origin}/payment/cancel?orderId=${m_payment_id}`,
       metadata: {
         orderId: m_payment_id,
         itemName: item_name
