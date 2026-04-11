@@ -27,13 +27,13 @@ AI-powered collectibles marketplace for South Africa.
 |-------|-----------|--------|
 | / | StoreFront | ✅ Production-ready (Apr 2025) |
 | /product/:id | ProductDetails | ✅ Production-ready (Apr 2025) |
-| /checkout | Checkout | 🔄 Next to harden |
-| /orders | Orders | 🔄 Next to harden |
-| /auctions | AuctionList | 🔄 Next to harden |
-| /collection | Collection | 🔄 Next to harden |
-| /auth | AuthPage | 🔄 Next to harden |
-| /payment/success | PaymentResult | 🔄 To review |
-| /payment/cancel | PaymentResult | 🔄 To review |
+| /checkout | Checkout | ✅ Production-ready (Apr 2025) |
+| /orders | Orders | ✅ Production-ready (Apr 2025) |
+| /auctions | AuctionList | ✅ Production-ready (Apr 2025) |
+| /collection | Collection | ✅ Production-ready (Apr 2025) |
+| /auth | AuthPage | ✅ Production-ready (Apr 2025) |
+| /payment/success | PaymentResult | ✅ Production-ready (Apr 2025) |
+| /payment/cancel | PaymentResult | ✅ Production-ready (Apr 2025) |
 | /terms | TermsOfService | ✅ Created (Apr 2025) |
 | /privacy | PrivacyPolicy | ✅ Created (Apr 2025) |
 | /returns | ReturnsPolicy | ✅ Created (Apr 2025) |
@@ -45,6 +45,14 @@ AI-powered collectibles marketplace for South Africa.
 
 ## What Was Done (Session — Apr 2025)
 
+### Increment 2 — Live (commit 1d733a9)
+- Checkout: mobile sticky CTA bar (Next/Pay always visible), SSL badge replaces XP message, Mapbox brand removed from hints, pb-36 mobile padding
+- AuthPage: removed "Google sign-in is disabled" notice, fixed placeholder name, pb-32
+- PaymentResult: pb-32 mobile padding
+- Collection: fixed broken rarity badge CSS (bg-cyber/bg-hot/bg-quirky → inline gradients), surfaced updateError to UI
+- Orders: fixed paymentMethod display (null → "—" not "Pending")
+- Auctions: pb-32 mobile padding, removed loose `as any` cast
+
 ### Increment 1 — Live (commit fffd6e0)
 - StoreFront: removed all dev/placeholder text, real marketing copy
 - StoreFront: demo banner now customer-facing language
@@ -54,6 +62,21 @@ AI-powered collectibles marketplace for South Africa.
 - Legal: created Terms of Service, Privacy Policy, Returns Policy
   - All SA-law compliant (POPIA, Consumer Protection Act)
 - App.tsx: wired /terms, /privacy, /returns routes
+
+## What Was Done (Session — Apr 11 2025)
+
+### Increment 3 — Live (commit 224689b)
+- **Checkout mobile CTA**: fixed floating button clipping under mobile nav (`bottom-[4.5rem]` → `bottom-24` = 96px, clears 70px nav)
+- **Courier Guy API**: real live integration via `POST https://api-tcg.co.za/rates?api_key=...`
+  - Auth: `api_key` query param (format: `accountid|key`) — get from portal.thecourierguy.co.za
+  - Prefers Economy (ECO) rate, falls back to cheapest available, falls back to zone-based mock if no key
+  - Tracking: `GET https://api-tcg.co.za/tracking/shipments/public?waybill=...` (no auth needed)
+- **Mapbox**: code was always implemented; wired lat/lng from selected suggestion into shipping quote
+  - Checkout stores `selectedAddressCoords` from Mapbox suggestion selection
+  - Coords passed through shippingService → quote API → TCG `/rates`
+  - Manual address edits clear coords (triggers zone fallback)
+- **quote.ts**: converted to named `POST` export (Vercel Functions best practice)
+- **TCG collection address**: configured via env vars (`TCG_COLLECTION_LAT/LNG/SUBURB/CITY/POSTAL/ZONE/ENTERED/STREET`) — defaults to Randburg, Johannesburg
 
 ## API Routes Status
 | Route | Status |
@@ -67,8 +90,8 @@ AI-powered collectibles marketplace for South Africa.
 | POST /api/ai/campaign | ✅ gemini-1.5-flash |
 | POST /api/ai/personalize | ✅ gemini-1.5-flash |
 | POST /api/ai/talking-points | ✅ gemini-1.5-flash |
-| GET /api/shipping/quote | ✅ Working (fallback pricing if no API key) |
-| GET /api/shipping/track/:id | ✅ Working |
+| POST /api/shipping/quote | ✅ Live TCG API (with zone fallback). Needs VITE_MAPBOX_ACCESS_TOKEN + TCG_API_KEY |
+| GET /api/shipping/track/:id | ✅ Live TCG tracking (public endpoint, no key needed) |
 | GET /api/health | ✅ Working |
 
 ## Env Vars in Vercel (confirmed)
@@ -78,8 +101,13 @@ AI-powered collectibles marketplace for South Africa.
 - VITE_GEMINI_API_KEY ✅
 - GEMINI_API_KEY ✅
 - YOCO_SECRET_KEY ✅
-- VITE_MAPBOX_ACCESS_TOKEN ✅
-- COURIER_GUY_API_KEY ✅ (set but integration still mocked/fallback)
+- VITE_MAPBOX_ACCESS_TOKEN ✅ (enables address autocomplete in checkout)
+- COURIER_GUY_API_KEY ✅ → **must be set as `TCG_API_KEY`** (format: `accountid|key` from portal.thecourierguy.co.za)
+
+### TCG Collection Address Env Vars (optional — defaults to Randburg, JHB)
+- TCG_COLLECTION_LAT, TCG_COLLECTION_LNG
+- TCG_COLLECTION_STREET, TCG_COLLECTION_SUBURB, TCG_COLLECTION_CITY
+- TCG_COLLECTION_POSTAL, TCG_COLLECTION_ZONE, TCG_COLLECTION_ENTERED
 
 ## Supabase RPCs (confirmed applied)
 - mark_order_payment_succeeded ✅
@@ -87,10 +115,10 @@ AI-powered collectibles marketplace for South Africa.
 - checkout (store checkout RPC) ✅
 
 ## Known Remaining Issues
-- Courier Guy shipping API: key set but integration returns fallback pricing (real quote call may need endpoint/format fix)
+- TCG_API_KEY env var: confirm it's set correctly in Vercel (format: `accountid|key`)
+- Mapbox: needs user to select suggestion from dropdown for live TCG quote — manual entry falls back to zone pricing
 - Bundle size warning: 1.39MB JS — consider code splitting in future
 - Auction bid history shows (bid as any).bidderName — type is loose
-- Collection page: not yet reviewed
 - Admin GrowthPage: placeholder UI, no real functionality
 - LiveStreamRoom: framework only, no real streaming
 
