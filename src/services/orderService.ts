@@ -31,6 +31,8 @@ export interface Order {
   paymentMethod: PaymentMethod | null;
   paymentId: string | null;
   paymentStatus: string | null;
+  checkoutSessionId: string | null;
+  reservationExpiresAt: string | null;
   paidAt: string | null;
   status: OrderStatus;
   shippingAddress: string | null;
@@ -79,6 +81,8 @@ function rowToOrder(row: any, items: any[] = []): Order {
     paymentMethod: row.payment_method,
     paymentId: row.payment_id,
     paymentStatus: row.payment_status,
+    checkoutSessionId: row.checkout_session_id ?? null,
+    reservationExpiresAt: row.reservation_expires_at ?? null,
     paidAt: row.paid_at,
     status: row.status,
     shippingAddress: row.shipping_address,
@@ -195,34 +199,25 @@ export async function fetchOrders(filters?: {
   channel?: OrderChannel;
   limit?: number;
 }): Promise<Order[]> {
-  let query = supabase.from('orders').select('*');
+  const params = new URLSearchParams();
+  if (filters?.profileId) params.set('profileId', filters.profileId);
+  if (filters?.status) params.set('status', filters.status);
+  if (filters?.channel) params.set('channel', filters.channel);
+  if (filters?.limit) params.set('limit', String(filters.limit));
 
-  if (filters?.profileId) query = query.eq('profile_id', filters.profileId);
-  if (filters?.status) query = query.eq('status', filters.status);
-  if (filters?.channel) query = query.eq('channel', filters.channel);
+  const response = await fetch(`/api/commerce/orders?${params.toString()}`, {
+    headers: {
+      Accept: 'application/json',
+    },
+  });
 
-  query = query.order('created_at', { ascending: false });
-  if (filters?.limit) query = query.limit(filters.limit);
-
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-
-  const orderIds = (data || []).map(o => o.id);
-  if (orderIds.length === 0) {
-    return [];
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to load orders');
   }
 
-  const { data: allItems } = await supabase
-    .from('order_items')
-    .select('*')
-    .in('order_id', orderIds);
-
-  const itemsByOrder = (allItems || []).reduce((acc: Record<string, any[]>, item) => {
-    (acc[item.order_id] = acc[item.order_id] || []).push(item);
-    return acc;
-  }, {});
-
-  return (data || []).map(o => rowToOrder(o, itemsByOrder[o.id] || []));
+  const itemsByOrder = data.itemsByOrder || {};
+  return (data.orders || []).map((order: any) => rowToOrder(order, itemsByOrder[order.id] || []));
 }
 
 function rowToEvent(row: any): OrderEvent {

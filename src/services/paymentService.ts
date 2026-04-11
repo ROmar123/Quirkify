@@ -50,6 +50,29 @@ export const cancelStoreCheckout = async (orderId: string, reason?: string) => {
   return data.order;
 };
 
+export const resumeStoreCheckout = async (orderId: string) => {
+  const response = await fetch('/api/commerce/resume-checkout', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ orderId }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to resume checkout');
+  }
+
+  if (!data.redirectUrl) {
+    throw new Error('Payment redirect URL missing from resume response');
+  }
+
+  window.location.href = data.redirectUrl;
+};
+
 export const getStoreCheckoutStatus = async (orderId: string) => {
   const response = await fetch(`/api/commerce/order-status?orderId=${encodeURIComponent(orderId)}`, {
     headers: {

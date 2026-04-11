@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from '../_lib/supabaseAdmin';
+import { expireStalePendingOrders, getSupabaseAdmin } from '../_lib/supabaseAdmin';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
@@ -13,10 +13,11 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Missing orderId' });
     }
 
+    await expireStalePendingOrders();
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase.rpc('cancel_pending_order', {
       p_order_id: String(orderId),
-      p_note: reason ? String(reason) : 'Checkout cancelled by customer',
+      p_note: reason ? String(reason) : 'customer_cancelled_from_orders',
     });
 
     if (error) {

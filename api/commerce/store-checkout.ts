@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ensureProfileByIdentity, getSupabaseAdmin } from '../_lib/supabaseAdmin';
+import { ensureProfileByIdentity, expireStalePendingOrders, getSupabaseAdmin } from '../_lib/supabaseAdmin';
 import { getShippingQuote } from '../_lib/shipping.js';
 
 interface CheckoutItemInput {
@@ -40,6 +40,7 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Invalid checkout items' });
     }
 
+    await expireStalePendingOrders();
     const profile = await ensureProfileByIdentity({
       firebaseUid: String(firebaseUid),
       email: String(email),
@@ -105,7 +106,7 @@ export default async function handler(req: any, res: any) {
     if (!checkoutSessionId || !yocoResponse.data?.redirectUrl) {
       await supabase.rpc('cancel_pending_order', {
         p_order_id: checkoutRow.order_id,
-        p_note: 'Yoco checkout session could not be created',
+        p_note: 'checkout_session_creation_failed',
       });
       return res.status(502).json({ error: 'Payment provider did not return a valid checkout session' });
     }
@@ -120,7 +121,7 @@ export default async function handler(req: any, res: any) {
     if (updateError) {
       await supabase.rpc('cancel_pending_order', {
         p_order_id: checkoutRow.order_id,
-        p_note: 'Checkout session created but order could not be updated',
+        p_note: 'checkout_order_update_failed',
       });
       return res.status(500).json({ error: updateError.message });
     }
@@ -141,7 +142,7 @@ export default async function handler(req: any, res: any) {
         const supabase = getSupabaseAdmin();
         await supabase.rpc('cancel_pending_order', {
           p_order_id: String(createdOrderId),
-          p_note: 'Checkout failed before redirecting to Yoco',
+          p_note: 'checkout_redirect_failed',
         });
       }
     } catch (cleanupError) {

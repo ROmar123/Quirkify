@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import { fetchOrderDetail, fetchOrders, Order, OrderDetail, OrderEvent } from '../../services/orderService';
 import { getProfileByUid } from '../../services/profileService';
 import { fetchShipmentTracking, ShipmentTracking } from '../../services/shippingService';
+import { cancelStoreCheckout, resumeStoreCheckout } from '../../services/paymentService';
 import { cn } from '../../lib/utils';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; accent: string; icon: any }> = {
@@ -41,6 +42,22 @@ function formatEventLabel(event: OrderEvent) {
   return event.note || event.eventType.replace(/_/g, ' ');
 }
 
+function isCustomerVisibleOrder(order: Order) {
+  if (order.sourceRef === 'wallet_topup') {
+    return false;
+  }
+
+  if ((order.status === 'cancelled' || order.status === 'payment_failed') && !order.paidAt) {
+    return false;
+  }
+
+  if (order.status === 'pending' && order.reservationExpiresAt) {
+    return new Date(order.reservationExpiresAt).getTime() > Date.now();
+  }
+
+  return true;
+}
+
 export default function Orders() {
   const [user, setUser] = useState<AuthUser | null>(auth.currentUser);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -50,6 +67,7 @@ export default function Orders() {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [trackingLoading, setTrackingLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
@@ -146,16 +164,45 @@ export default function Orders() {
     };
   }, [selectedOrderId]);
 
+  const visibleOrders = useMemo(() => orders.filter(isCustomerVisibleOrder), [orders]);
+
   const headlineStats = useMemo(() => {
-    const paidOrders = orders.filter((order) => ['paid', 'processing', 'shipped', 'delivered'].includes(order.status));
-    const inFlightOrders = orders.filter((order) => ['processing', 'shipped'].includes(order.status));
+    const paidOrders = visibleOrders.filter((order) => ['paid', 'processing', 'shipped', 'delivered'].includes(order.status));
+    const inFlightOrders = visibleOrders.filter((order) => ['processing', 'shipped'].includes(order.status));
 
     return {
       totalSpend: paidOrders.reduce((sum, order) => sum + order.total, 0),
       activeOrders: inFlightOrders.length,
-      totalOrders: orders.length,
+      totalOrders: visibleOrders.length,
     };
-  }, [orders]);
+  }, [visibleOrders]);
+
+  const handleCancelPending = async (orderId: string) => {
+    setActionLoading(orderId);
+    setError(null);
+    try {
+      await cancelStoreCheckout(orderId, 'customer_cancelled_from_orders');
+      setOrders((prev) => prev.filter((order) => order.id !== orderId));
+      if (selectedOrderId === orderId) {
+        setSelectedOrderId(null);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to cancel pending order');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleResumePending = async (orderId: string) => {
+    setActionLoading(orderId);
+    setError(null);
+    try {
+      await resumeStoreCheckout(orderId);
+    } catch (err: any) {
+      setError(err.message || 'Failed to resume checkout');
+      setActionLoading(null);
+    }
+  };
 
   if (!user) {
     return (
@@ -220,7 +267,7 @@ export default function Orders() {
         </div>
       </section>
 
-      {orders.length === 0 ? (
+      {visibleOrders.length === 0 ? (
         <div className="mt-8 text-center py-32 rounded-3xl border border-purple-100 bg-purple-50">
           <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #A855F7, #6366F1)' }}>
             <ShoppingBag className="w-8 h-8 text-white" />
@@ -232,7 +279,7 @@ export default function Orders() {
         </div>
       ) : (
         <div className="mt-8 grid gap-5">
-          {orders.map((order) => {
+          {visibleOrders.map((order) => {
             const statusInfo = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
             const StatusIcon = statusInfo.icon;
             const activeStep = ORDER_STEPS.indexOf((ORDER_STEPS.includes(order.status as any) ? order.status : 'pending') as typeof ORDER_STEPS[number]);
@@ -317,6 +364,26 @@ export default function Orders() {
                     </button>
                   </div>
                 )}
+
+                {order.status === 'pending' && (
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <button
+                      onClick={() => void handleResumePending(order.id)}
+                      disabled={actionLoading === order.id}
+                      className="rounded-full px-5 py-3 text-sm font-black text-white disabled:opacity-60"
+                      style={{ background: 'linear-gradient(135deg, #F472B6, #7C3AED)' }}
+                    >
+                      {actionLoading === order.id ? 'Opening checkout...' : 'Resume payment'}
+                    </button>
+                    <button
+                      onClick={() => void handleCancelPending(order.id)}
+                      disabled={actionLoading === order.id}
+                      className="rounded-full border border-red-200 bg-red-50 px-5 py-3 text-sm font-black text-red-600 disabled:opacity-60"
+                    >
+                      Cancel checkout
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -372,6 +439,9 @@ export default function Orders() {
                         <div>
                           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-purple-300">Current status</p>
                           <p className="mt-1 text-sm font-black text-purple-900">{STATUS_CONFIG[selectedOrder.status]?.label || selectedOrder.status}</p>
+                          {selectedOrder.paymentStatus && (
+                            <p className="mt-1 text-[11px] font-bold text-purple-400">Payment signal: {selectedOrder.paymentStatus}</p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -409,6 +479,32 @@ export default function Orders() {
                       )}
                     </div>
                   </div>
+
+                  {selectedOrder.status === 'pending' && (
+                    <div className="rounded-3xl border border-amber-100 bg-amber-50 p-5">
+                      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-500">Checkout still open</p>
+                      <p className="mt-2 text-sm font-bold text-amber-900">
+                        This payment attempt is still active{selectedOrder.reservationExpiresAt ? ` until ${new Date(selectedOrder.reservationExpiresAt).toLocaleString('en-ZA')}` : ''}.
+                      </p>
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        <button
+                          onClick={() => void handleResumePending(selectedOrder.id)}
+                          disabled={actionLoading === selectedOrder.id}
+                          className="rounded-full px-5 py-3 text-sm font-black text-white disabled:opacity-60"
+                          style={{ background: 'linear-gradient(135deg, #F472B6, #7C3AED)' }}
+                        >
+                          {actionLoading === selectedOrder.id ? 'Opening checkout...' : 'Resume payment'}
+                        </button>
+                        <button
+                          onClick={() => void handleCancelPending(selectedOrder.id)}
+                          disabled={actionLoading === selectedOrder.id}
+                          className="rounded-full border border-red-200 bg-white px-5 py-3 text-sm font-black text-red-600 disabled:opacity-60"
+                        >
+                          Cancel checkout
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
                     <div className="rounded-3xl border border-purple-100 p-5">

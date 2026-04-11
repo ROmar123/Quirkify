@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import axios from 'axios';
 import crypto from 'crypto';
 import { sendOrderStatusEmail } from './api/_lib/orderNotifications';
-import { ensureProfileByIdentity, getSupabaseAdmin } from './api/_lib/supabaseAdmin';
+import { ensureProfileByIdentity, expireStalePendingOrders, getSupabaseAdmin } from './api/_lib/supabaseAdmin';
 import { getShippingQuote, getTrackingDetails } from './api/_lib/shipping';
 
 dotenv.config({ path: '.env.local' });
@@ -55,6 +55,7 @@ async function startServer() {
         return res.status(400).json({ error: 'Invalid checkout items' });
       }
 
+      await expireStalePendingOrders();
       const profile = await ensureProfileByIdentity({
         firebaseUid: String(firebaseUid),
         email: String(email),
@@ -118,7 +119,7 @@ async function startServer() {
       if (!checkoutSessionId || !yocoResponse.data?.redirectUrl) {
         await supabase.rpc('cancel_pending_order', {
           p_order_id: checkoutRow.order_id,
-          p_note: 'Yoco checkout session could not be created',
+          p_note: 'checkout_session_creation_failed',
         });
         return res.status(502).json({ error: 'Payment provider did not return a valid checkout session' });
       }
@@ -134,7 +135,7 @@ async function startServer() {
       if (updateError) {
         await supabase.rpc('cancel_pending_order', {
           p_order_id: checkoutRow.order_id,
-          p_note: 'Checkout session created but order could not be updated',
+          p_note: 'checkout_order_update_failed',
         });
         return res.status(500).json({ error: updateError.message });
       }
@@ -155,7 +156,7 @@ async function startServer() {
           const supabase = getSupabaseAdmin();
           await supabase.rpc('cancel_pending_order', {
             p_order_id: String(createdOrderId),
-            p_note: 'Checkout failed before redirecting to Yoco',
+            p_note: 'checkout_redirect_failed',
           });
         }
       } catch (cleanupError) {
@@ -173,10 +174,11 @@ async function startServer() {
         return res.status(400).json({ error: 'Missing orderId' });
       }
 
+      await expireStalePendingOrders();
       const supabase = getSupabaseAdmin();
       const { data, error } = await supabase.rpc('cancel_pending_order', {
         p_order_id: String(orderId),
-        p_note: reason ? String(reason) : 'Checkout cancelled by customer',
+        p_note: reason ? String(reason) : 'customer_cancelled_from_orders',
       });
 
       if (error) {
@@ -191,6 +193,110 @@ async function startServer() {
     }
   });
 
+  app.post('/api/commerce/resume-checkout', async (req, res) => {
+    try {
+      const orderId = String(req.body?.orderId || '').trim();
+
+      if (!orderId) {
+        return res.status(400).json({ error: 'Missing orderId' });
+      }
+
+      await expireStalePendingOrders();
+      const supabase = getSupabaseAdmin();
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .select('id, order_number, status, total, checkout_session_id, reservation_expires_at, source_ref, channel')
+        .eq('id', orderId)
+        .single();
+
+      if (orderError || !order) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+
+      if (order.channel !== 'store' || order.source_ref === 'wallet_topup') {
+        return res.status(400).json({ error: 'Only active store checkouts can be resumed' });
+      }
+
+      if (order.status !== 'pending') {
+        return res.status(400).json({ error: 'Only pending orders can be resumed' });
+      }
+
+      const { data: orderItems, error: itemsError } = await supabase
+        .from('order_items')
+        .select('product_name')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: true })
+        .limit(1);
+
+      if (itemsError) {
+        return res.status(400).json({ error: itemsError.message });
+      }
+
+      const yocoSecretKey = process.env.YOCO_SECRET_KEY;
+      if (!yocoSecretKey) {
+        return res.status(500).json({ error: 'Payment system not configured' });
+      }
+
+      const origin = req.headers.origin || `http://${req.headers.host}`;
+      const amountCents = Math.round(Number(order.total) * 100);
+      const itemName = orderItems?.[0]?.product_name || `Quirkify Order ${order.order_number}`;
+
+      const yocoResponse = await axios.post('https://payments.yoco.com/api/checkouts', {
+        amount: amountCents,
+        currency: 'ZAR',
+        successUrl: `${origin}/payment/success?orderId=${order.id}`,
+        cancelUrl: `${origin}/payment/cancel?orderId=${order.id}`,
+        metadata: {
+          orderId: order.id,
+          orderNumber: order.order_number,
+          itemName,
+        }
+      }, {
+        headers: {
+          Authorization: `Bearer ${yocoSecretKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const checkoutSessionId = yocoResponse.data?.id || null;
+      if (!checkoutSessionId || !yocoResponse.data?.redirectUrl) {
+        return res.status(502).json({ error: 'Payment provider did not return a valid checkout session' });
+      }
+
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({
+          checkout_session_id: checkoutSessionId,
+          payment_status: 'redirected',
+        })
+        .eq('id', order.id);
+
+      if (updateError) {
+        return res.status(400).json({ error: updateError.message });
+      }
+
+      await supabase.rpc('log_order_event', {
+        p_order_id: order.id,
+        p_event_type: 'checkout_resumed',
+        p_from_status: order.status,
+        p_to_status: order.status,
+        p_note: 'customer_resumed_checkout',
+        p_metadata: {
+          checkout_session_id: checkoutSessionId,
+        },
+      });
+
+      return res.json({
+        orderId: order.id,
+        redirectUrl: yocoResponse.data.redirectUrl,
+      });
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.response?.data?.error || error?.message || 'Failed to resume checkout';
+      console.error('Resume checkout error:', message);
+      return res.status(500).json({ error: message });
+    }
+  });
+
   app.get('/api/commerce/order-status', async (req, res) => {
     try {
       const orderId = String(req.query?.orderId || '').trim();
@@ -199,6 +305,7 @@ async function startServer() {
         return res.status(400).json({ error: 'Missing orderId' });
       }
 
+      await expireStalePendingOrders();
       const supabase = getSupabaseAdmin();
       const { data, error } = await supabase
         .from('orders')
@@ -243,6 +350,7 @@ async function startServer() {
         return res.status(400).json({ error: 'Missing orderId' });
       }
 
+      await expireStalePendingOrders();
       const supabase = getSupabaseAdmin();
       const { data: currentOrder, error: orderError } = await supabase
         .from('orders')

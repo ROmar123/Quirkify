@@ -88,6 +88,21 @@ AI-powered collectibles marketplace for South Africa.
   - Store checkout still routes to `/orders` or `/checkout`
 - **Order status API**: lightweight order-status responses now include `source_ref` and `channel` so the frontend can distinguish wallet top-ups from store checkout
 
+### Increment 5 — Local hardening staged (Apr 11 2026)
+- **Pending checkout policy**:
+  - keep every attempt in the database for audit/ops
+  - hide pre-payment cancelled/failed attempts from the customer `Orders` page
+  - hide wallet top-up attempts from the customer `Orders` page entirely
+- **Customer pending actions**:
+  - active pending store orders can now be resumed from `Orders`
+  - active pending store orders can now be cancelled from `Orders`
+- **Audit notes**:
+  - explicit reasons now use machine-readable notes such as `customer_cancelled_on_checkout`, `customer_cancelled_from_orders`, `checkout_session_expired`, `checkout_session_creation_failed`
+- **Abandonment cleanup**:
+  - stale pending orders are cancelled by the DB function `expire_stale_pending_orders()`
+  - commerce list/detail/mutation APIs now invoke expiry before reading or mutating order state
+  - no Vercel cron dependency
+
 ## API Routes Status
 | Route | Status |
 |-------|--------|
@@ -143,6 +158,8 @@ AI-powered collectibles marketplace for South Africa.
   - treat email sending as non-blocking
   - include `source_ref` in order-status responses
   - map wallet top-up returns separately in `PaymentResult`
+  - customer-facing `Orders` should only show real/actionable commerce orders, not dead pre-payment attempts
+  - abandoned checkout cleanup now runs via DB RPC before commerce reads/writes, not via Vercel cron
 
 ## Coding Conventions
 - Tailwind CSS v4 — no `tailwind.config.js`, uses CSS variables

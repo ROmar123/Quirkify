@@ -87,3 +87,11 @@ export async function ensureProfileByIdentity(params: {
 
   return inserted;
 }
+
+export async function expireStalePendingOrders() {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase.rpc('expire_stale_pending_orders');
+  if (error) {
+    throw new Error(error.message);
+  }
+}

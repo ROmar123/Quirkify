@@ -31,7 +31,7 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
 
       if (type === 'cancel') {
         try {
-          const cancelledOrder = await cancelStoreCheckout(orderId, 'Customer returned from Yoco cancel flow');
+          const cancelledOrder = await cancelStoreCheckout(orderId, 'customer_cancelled_on_checkout');
           if (!cancelled) {
             const walletTopUp = cancelledOrder?.source_ref === 'wallet_topup';
             setIsWalletTopUp(walletTopUp);
