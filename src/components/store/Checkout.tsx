@@ -32,6 +32,7 @@ export default function Checkout() {
   const [addressLoading, setAddressLoading] = useState(false);
   const [addressError, setAddressError] = useState<string | null>(null);
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
+  const [selectedAddressCoords, setSelectedAddressCoords] = useState<{ lat: number; lng: number; suburb: string; entered_address: string } | null>(null);
   const [validationErrors, setValidationErrors] = useState<Partial<Record<keyof typeof formData, string>>>({});
   const navigate = useNavigate();
 
@@ -126,6 +127,11 @@ export default function Checkout() {
         const quote = await fetchShippingQuote({
           city: formData.city,
           zip: formData.zip,
+          lat: selectedAddressCoords?.lat ?? null,
+          lng: selectedAddressCoords?.lng ?? null,
+          street_address: formData.address || null,
+          suburb: selectedAddressCoords?.suburb ?? null,
+          entered_address: selectedAddressCoords?.entered_address ?? null,
         });
         if (!cancelled) {
           setShippingQuote(quote);
@@ -149,7 +155,7 @@ export default function Checkout() {
       cancelled = true;
       window.clearTimeout(timeout);
     };
-  }, [formData.city, formData.zip]);
+  }, [formData.city, formData.zip, selectedAddressCoords]);
 
   useEffect(() => {
     let cancelled = false;
@@ -267,6 +273,14 @@ export default function Checkout() {
       city: suggestion.city || prev.city,
       zip: suggestion.postcode || prev.zip,
     }));
+    if (suggestion.latitude && suggestion.longitude) {
+      setSelectedAddressCoords({
+        lat: suggestion.latitude,
+        lng: suggestion.longitude,
+        suburb: suggestion.city || '',
+        entered_address: suggestion.label || suggestion.addressLine,
+      });
+    }
     setShowAddressSuggestions(false);
     setAddressSuggestions([]);
     void validateField('address', suggestion.addressLine);
@@ -409,6 +423,7 @@ export default function Checkout() {
                             onChange={(e) => {
                               setFormData(prev => ({ ...prev, [key]: e.target.value }));
                               validateField(key, e.target.value);
+                              if (key === 'address') setSelectedAddressCoords(null);
                             }}
                             className={cn(
                               'w-full p-3 rounded-2xl text-sm font-semibold transition-colors focus:outline-none',
@@ -587,7 +602,7 @@ export default function Checkout() {
       </div>
 
       {/* Mobile sticky CTA — always visible above mobile nav */}
-      <div className="fixed bottom-[4.5rem] left-0 right-0 z-40 px-4 pb-2 lg:hidden">
+      <div className="fixed bottom-24 left-0 right-0 z-40 px-4 pb-2 lg:hidden">
         <div className="rounded-3xl bg-white/95 backdrop-blur-md border border-purple-100 shadow-[0_-8px_40px_rgba(168,85,247,0.15)] px-4 py-3 flex items-center gap-3">
           <div className="flex-1 min-w-0">
             <p className="text-[9px] font-black uppercase tracking-[0.22em] text-purple-300">Order total</p>

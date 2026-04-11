@@ -26,7 +26,15 @@ export interface ShipmentTracking {
   history: TrackingEvent[];
 }
 
-export async function fetchShippingQuote(input: { city?: string; zip?: string }): Promise<ShippingQuote> {
+export async function fetchShippingQuote(input: {
+  city?: string;
+  zip?: string;
+  lat?: number | null;
+  lng?: number | null;
+  street_address?: string | null;
+  suburb?: string | null;
+  entered_address?: string | null;
+}): Promise<ShippingQuote> {
   const response = await fetch('/api/shipping/quote', {
     method: 'POST',
     headers: {
