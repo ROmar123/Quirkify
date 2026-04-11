@@ -51,13 +51,13 @@ export const cancelStoreCheckout = async (orderId: string, reason?: string) => {
 };
 
 export const resumeStoreCheckout = async (orderId: string) => {
-  const response = await fetch('/api/commerce/resume-checkout', {
+  const response = await fetch('/api/commerce/cancel-order', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
-    body: JSON.stringify({ orderId }),
+    body: JSON.stringify({ orderId, action: 'resume' }),
   });
 
   const data = await response.json();

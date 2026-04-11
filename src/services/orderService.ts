@@ -205,7 +205,7 @@ export async function fetchOrders(filters?: {
   if (filters?.channel) params.set('channel', filters.channel);
   if (filters?.limit) params.set('limit', String(filters.limit));
 
-  const response = await fetch(`/api/commerce/orders?${params.toString()}`, {
+  const response = await fetch(`/api/commerce/order-status?${params.toString()}`, {
     headers: {
       Accept: 'application/json',
     },
