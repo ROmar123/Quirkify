@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { CheckCircle2, User, Building2, CreditCard, ShieldCheck, ArrowRight, ArrowLeft, Camera, Upload, Loader2, X, RefreshCw } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { auth, onAuthStateChanged, type AuthUser } from '../../firebase';
+import { updateProfile, setUserRole, getProfileByUid } from '../../services/profileService';
 
 type OnboardingStep = 'intro' | 'business' | 'identity' | 'bank' | 'success';
 
@@ -115,19 +117,54 @@ function CameraCapture({ onCapture, label }: { onCapture: (blob: Blob) => void, 
 export default function SellerOnboarding() {
   const [step, setStep] = useState<OnboardingStep>('intro');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [idPhoto, setIdPhoto] = useState<Blob | null>(null);
   const [selfiePhoto, setSelfiePhoto] = useState<Blob | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(auth.currentUser);
   const navigate = useNavigate();
+
+  // Form state
+  const [storeName, setStoreName] = useState('');
+  const [businessType, setBusinessType] = useState('Individual / Sole Trader');
+  const [socialHandle, setSocialHandle] = useState('');
+  const [bankName, setBankName] = useState('FNB');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [accountType, setAccountType] = useState<'savings' | 'cheque'>('savings');
 
   const steps: OnboardingStep[] = ['intro', 'business', 'identity', 'bank', 'success'];
   const currentIndex = steps.indexOf(step);
 
+  // Auth guard
+  useEffect(() => onAuthStateChanged(auth, (u) => {
+    setUser(u);
+    if (!u) navigate('/auth?next=%2Fseller%2Fonboarding', { replace: true });
+  }), [navigate]);
+
+  // Check if already a seller
+  useEffect(() => {
+    if (!user) return;
+    getProfileByUid(user.uid).then(p => {
+      if (p?.isSeller) setStep('success');
+    }).catch(() => {});
+  }, [user]);
+
   const nextStep = (next: OnboardingStep) => {
+    setStep(next);
+  };
+
+  const handleCompleteSetup = async () => {
+    if (!user) return;
     setLoading(true);
-    setTimeout(() => {
-      setStep(next);
+    setError(null);
+    try {
+      await updateProfile(user.uid, { storeName: storeName.trim() || undefined });
+      await setUserRole(user.uid, 'seller');
+      setStep('success');
+    } catch (err: any) {
+      setError(err.message || 'Failed to complete setup. Please try again.');
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   return (
@@ -214,13 +251,19 @@ export default function SellerOnboarding() {
                   <label className="text-xs font-bold text-purple-600 mb-1 block">Store Name</label>
                   <input
                     type="text"
+                    value={storeName}
+                    onChange={e => setStoreName(e.target.value)}
                     className="w-full px-4 py-3 bg-white border-2 border-purple-100 rounded-2xl text-sm font-bold text-purple-800 placeholder:text-purple-300 focus:outline-none focus:border-purple-400"
                     placeholder="e.g. Cape Town Vintage"
                   />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-purple-600 mb-1 block">Business Type</label>
-                  <select className="w-full px-4 py-3 bg-white border-2 border-purple-100 rounded-2xl text-sm font-bold text-purple-800 focus:outline-none focus:border-purple-400 appearance-none">
+                  <select
+                    value={businessType}
+                    onChange={e => setBusinessType(e.target.value)}
+                    className="w-full px-4 py-3 bg-white border-2 border-purple-100 rounded-2xl text-sm font-bold text-purple-800 focus:outline-none focus:border-purple-400 appearance-none"
+                  >
                     <option>Individual / Sole Trader</option>
                     <option>Private Company (Pty) Ltd</option>
                     <option>Non-Profit</option>
@@ -230,6 +273,8 @@ export default function SellerOnboarding() {
                   <label className="text-xs font-bold text-purple-600 mb-1 block">Website / Social Handle</label>
                   <input
                     type="text"
+                    value={socialHandle}
+                    onChange={e => setSocialHandle(e.target.value)}
                     className="w-full px-4 py-3 bg-white border-2 border-purple-100 rounded-2xl text-sm font-bold text-purple-800 placeholder:text-purple-300 focus:outline-none focus:border-purple-400"
                     placeholder="@yourstore"
                   />
@@ -335,7 +380,11 @@ export default function SellerOnboarding() {
               <div className="space-y-6">
                 <div>
                   <label className="text-xs font-bold text-purple-600 mb-1 block">Bank Name</label>
-                  <select className="w-full px-4 py-3 bg-white border-2 border-purple-100 rounded-2xl text-sm font-bold text-purple-800 focus:outline-none focus:border-purple-400 appearance-none">
+                  <select
+                    value={bankName}
+                    onChange={e => setBankName(e.target.value)}
+                    className="w-full px-4 py-3 bg-white border-2 border-purple-100 rounded-2xl text-sm font-bold text-purple-800 focus:outline-none focus:border-purple-400 appearance-none"
+                  >
                     <option>FNB</option>
                     <option>Standard Bank</option>
                     <option>Absa</option>
@@ -348,6 +397,8 @@ export default function SellerOnboarding() {
                   <label className="text-xs font-bold text-purple-600 mb-1 block">Account Number</label>
                   <input
                     type="text"
+                    value={accountNumber}
+                    onChange={e => setAccountNumber(e.target.value)}
                     className="w-full px-4 py-3 bg-white border-2 border-purple-100 rounded-2xl text-sm font-bold text-purple-800 placeholder:text-purple-300 focus:outline-none focus:border-purple-400"
                     placeholder="0000000000"
                   />
@@ -356,16 +407,27 @@ export default function SellerOnboarding() {
                   <label className="text-xs font-bold text-purple-600 mb-1 block">Account Type</label>
                   <div className="grid grid-cols-2 gap-4">
                     <button
-                      className="px-6 py-3 rounded-full font-bold text-white text-sm"
-                      style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
+                      type="button"
+                      onClick={() => setAccountType('savings')}
+                      className={cn("px-6 py-3 rounded-full font-bold text-sm", accountType === 'savings' ? "text-white" : "text-purple-600 border-2 border-purple-200 hover:border-purple-400 bg-white")}
+                      style={accountType === 'savings' ? { background: 'linear-gradient(135deg, #F472B6, #A855F7)' } : {}}
                     >
                       Savings
                     </button>
-                    <button className="px-6 py-3 rounded-full font-bold text-purple-600 border-2 border-purple-200 hover:border-purple-400 bg-white text-sm">
+                    <button
+                      type="button"
+                      onClick={() => setAccountType('cheque')}
+                      className={cn("px-6 py-3 rounded-full font-bold text-sm", accountType === 'cheque' ? "text-white" : "text-purple-600 border-2 border-purple-200 hover:border-purple-400 bg-white")}
+                      style={accountType === 'cheque' ? { background: 'linear-gradient(135deg, #F472B6, #A855F7)' } : {}}
+                    >
                       Cheque
                     </button>
                   </div>
                 </div>
+
+                {error && (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{error}</div>
+                )}
 
                 <div className="flex gap-4 pt-4">
                   <button
@@ -375,11 +437,12 @@ export default function SellerOnboarding() {
                     Back
                   </button>
                   <button
-                    onClick={() => nextStep('success')}
-                    className="flex-[2] px-6 py-3 rounded-full font-bold text-white text-sm"
+                    onClick={handleCompleteSetup}
+                    disabled={loading || !storeName.trim()}
+                    className="flex-[2] px-6 py-3 rounded-full font-bold text-white text-sm disabled:opacity-50"
                     style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
                   >
-                    Complete Setup
+                    {loading ? 'Setting up...' : 'Complete Setup'}
                   </button>
                 </div>
               </div>
@@ -424,11 +487,11 @@ export default function SellerOnboarding() {
               </div>
 
               <button
-                onClick={() => navigate('/admin/inventory')}
+                onClick={() => navigate('/collection')}
                 className="w-full py-4 rounded-full font-bold text-white text-sm"
                 style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
               >
-                Go to Product Intake
+                Go to My Collection
               </button>
             </motion.div>
           )}
@@ -441,7 +504,7 @@ export default function SellerOnboarding() {
                 className="w-8 h-8 animate-spin"
                 style={{ color: '#A855F7' }}
               />
-              <p className="text-xs font-bold text-purple-400">Processing with Aura Vision...</p>
+              <p className="text-xs font-bold text-purple-400">Setting up your seller account...</p>
             </div>
           </div>
         )}
