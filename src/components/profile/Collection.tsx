@@ -2,15 +2,14 @@ import { useState, useEffect } from 'react';
 import { collection, query, onSnapshot, doc, getDoc, where, updateDoc, serverTimestamp, addDoc } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../../firebase';
 
-import { CollectionItem, Product, UserProgress, Auction, UserProfile } from '../../types';
+import { CollectionItem, Product, UserProgress, Auction } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Trophy, Star, Shield, Zap, Gavel, Box, Bell, Settings, Wallet, CreditCard, User as UserIcon, LogIn, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { ensureUserProgress } from '../../services/gamificationService';
 import { subscribeToNotifications, Notification, markAsRead, deleteNotification } from '../../services/notificationService';
-import { getUserProfile, createOrUpdateProfile } from '../../services/userService';
-import { uploadProfilePicture } from '../../services/storageService';
+import { updateProfile } from '../../services/profileService';
 import { initiateYocoCheckout } from '../../services/paymentService';
 import { createOrder } from '../../services/orderService';
 import { getProfileByUid, type Profile as CommerceProfile } from '../../services/profileService';
@@ -29,13 +28,11 @@ export default function Collection() {
   const [activeBids, setActiveBids] = useState<Auction[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [commerceProfile, setCommerceProfile] = useState<CommerceProfile | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [topUpError, setTopUpError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [showTopUp, setShowTopUp] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState(100);
 
@@ -54,14 +51,8 @@ export default function Collection() {
       });
 
     getProfileByUid(uid)
-      .then(setCommerceProfile)
-      .catch(() => {
-        // Silently fail - commerce profile is synced elsewhere
-      });
-
-    getUserProfile(uid)
       .then(p => {
-        setProfile(p);
+        setCommerceProfile(p);
         if (p) {
           setDisplayName(p.displayName || '');
           setBio(p.bio || '');
@@ -69,7 +60,7 @@ export default function Collection() {
         }
       })
       .catch(() => {
-        // Silently fail - profile will be created on first update
+        // Silently fail - commerce profile is synced elsewhere
       });
 
     let isMounted = true;
@@ -131,28 +122,13 @@ export default function Collection() {
     setSaving(true);
     setUpdateError(null);
     try {
-      await createOrUpdateProfile(auth.currentUser.uid, { displayName, bio, location });
-      const p = await getUserProfile(auth.currentUser.uid);
-      setProfile(p);
+      const updated = await updateProfile(auth.currentUser.uid, { displayName, bio, location });
+      setCommerceProfile(updated);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to update profile';
       setUpdateError(errorMsg);
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !auth.currentUser) return;
-    setUploading(true);
-    try {
-      const url = await uploadProfilePicture(auth.currentUser.uid, file);
-      await createOrUpdateProfile(auth.currentUser.uid, { photoURL: url });
-      const p = await getUserProfile(auth.currentUser.uid);
-      setProfile(p);
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -163,6 +139,9 @@ export default function Collection() {
       if (!Number.isFinite(topUpAmount) || topUpAmount <= 0) {
         throw new Error('Enter a valid top-up amount.');
       }
+      if (topUpAmount > 10000) {
+        throw new Error('Maximum top-up amount is R10,000.');
+      }
 
       const supabaseProfile = commerceProfile || await getProfileByUid(auth.currentUser.uid);
       if (!supabaseProfile) {
@@ -172,7 +151,7 @@ export default function Collection() {
       const order = await createOrder({
         profileId: supabaseProfile.id,
         customerEmail: auth.currentUser.email || supabaseProfile.email,
-        customerName: profile?.displayName || supabaseProfile.displayName || auth.currentUser.email || 'Quirkify Customer',
+        customerName: supabaseProfile.displayName || auth.currentUser.email || 'Quirkify Customer',
         customerPhone: supabaseProfile.phone || undefined,
         channel: 'manual',
         sourceRef: 'wallet_topup',
@@ -378,21 +357,17 @@ export default function Collection() {
                 <form onSubmit={handleUpdateProfile} className="bg-white rounded-3xl border border-purple-100 p-8 max-w-xl shadow-sm">
                   {/* Avatar */}
                   <div className="flex items-center gap-6 mb-8">
-                    <div className="w-20 h-20 rounded-full overflow-hidden relative group flex-shrink-0 border-4 border-purple-100">
-                      {profile?.photoURL ? (
-                        <img src={profile.photoURL} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 border-4 border-purple-100">
+                      {commerceProfile?.photoUrl ? (
+                        <img src={commerceProfile.photoUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
                           <UserIcon className="w-8 h-8 text-white" />
                         </div>
                       )}
-                      <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer rounded-full">
-                        <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} disabled={uploading} />
-                        <span className="text-[9px] font-bold text-white uppercase">{uploading ? '...' : 'Change'}</span>
-                      </label>
                     </div>
                     <div>
-                      <h3 className="text-xl font-black">{profile?.displayName || 'Collector'}</h3>
+                      <h3 className="text-xl font-black">{commerceProfile?.displayName || 'Collector'}</h3>
                       <p className="text-purple-400 text-xs font-semibold">{auth.currentUser?.email}</p>
                       <Link to={`/profile/${auth.currentUser?.uid}`} className="text-[9px] font-bold text-purple-500 hover:underline mt-1 inline-block">
                         View Public Profile →
