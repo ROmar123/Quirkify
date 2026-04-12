@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../../firebase';
 import { Product, ProductCondition, AllocationSnapshot } from '../../types';
+import { fetchProducts, updateProduct } from '../../services/productService';
 import { motion, AnimatePresence } from 'motion/react';
 import { Check, Eye, Clock, Edit3, Save, ShoppingBag, Gavel, LayoutGrid, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -15,17 +14,19 @@ export default function ReviewQueue() {
   const [editedProduct, setEditedProduct] = useState<Product | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const loadProducts = async () => {
+    try {
+      const data = await fetchProducts('pending');
+      setProducts(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load products');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const q = query(collection(db, 'products'), where('status', '==', 'pending'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-      setProducts(docs);
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'products');
-      setLoading(false);
-    });
-    return unsubscribe;
+    loadProducts();
   }, []);
 
   useEffect(() => {
@@ -83,27 +84,25 @@ export default function ReviewQueue() {
     }
 
     try {
-      const updateData: any = { status };
+      const updates: Partial<Product> = { status };
       if (status === 'approved') {
-        Object.assign(updateData, {
+        Object.assign(updates, {
           name: editedProduct.name,
           description: editedProduct.description,
           retailPrice: editedProduct.retailPrice,
           markdownPercentage: editedProduct.markdownPercentage,
-          discountPrice: editedProduct.discountPrice,
           condition: editedProduct.condition,
           stock: editedProduct.stock,
-          totalStock: editedProduct.stock,
           allocations: editedProduct.allocations || { store: editedProduct.stock, auction: 0, packs: 0 },
-          approvalDate: new Date().toISOString(),
           listingType: editedProduct.listingType || 'store'
         });
       }
 
-      await updateDoc(doc(db, 'products', id), updateData);
+      await updateProduct(id, updates);
+      setProducts(prev => prev.filter(p => p.id !== id));
       if (selectedProduct?.id === id) setSelectedProduct(null);
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `products/${id}`);
+      setError(err instanceof Error ? err.message : 'Failed to update product');
     }
   };
 
