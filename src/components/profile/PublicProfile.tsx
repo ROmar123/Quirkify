@@ -1,18 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { UserProfile, CollectionItem } from '../../types';
-import { getUserProfile } from '../../services/userService';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../../firebase';
-import { Trophy, Shield, Zap, Star, MapPin, Twitter, Instagram, Package, Gavel, Sparkles } from 'lucide-react';
-import { motion } from 'motion/react';
-import { cn } from '../../lib/utils';
-import { RARITY_COLORS, RARITY_BG } from '../../services/gamificationService';
+import { getProfileByUid, type Profile } from '../../services/profileService';
+import { Star, MapPin, Twitter, Instagram, Package, Sparkles } from 'lucide-react';
 
 export default function PublicProfile() {
   const { uid } = useParams<{ uid: string }>();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [items, setItems] = useState<CollectionItem[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,15 +13,9 @@ export default function PublicProfile() {
     const loadProfile = async () => {
       if (!uid) return;
       try {
-        const p = await getUserProfile(uid);
+        const p = await getProfileByUid(uid);
         setProfile(p);
         setError(null);
-
-        // Load public collection
-        const q = query(collection(db, 'users', uid, 'collection'));
-        const snap = await getDocs(q);
-        const collectionItems = snap.docs.map(d => ({ id: d.id, ...d.data() } as CollectionItem));
-        setItems(collectionItems);
       } catch (error) {
         setError(error instanceof Error ? error.message : 'Failed to load profile');
         setProfile(null);
@@ -85,9 +72,9 @@ export default function PublicProfile() {
           {/* Avatar + Name row */}
           <div className="absolute -bottom-12 left-8 flex items-end gap-6">
             <div className="w-32 h-32 rounded-3xl bg-white p-1 border-4 border-white shadow-xl overflow-hidden">
-              {profile.photoURL ? (
+              {profile.photoUrl ? (
                 <img
-                  src={profile.photoURL}
+                  src={profile.photoUrl}
                   alt={profile.displayName}
                   className="w-full h-full object-cover rounded-2xl"
                   referrerPolicy="no-referrer"
@@ -110,7 +97,7 @@ export default function PublicProfile() {
                   className="px-3 py-1 rounded-full text-white text-xs font-bold"
                   style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
                 >
-                  Level {profile.stats ? Math.floor(Math.sqrt((profile.stats.itemsCollected * 100) / 100)) + 1 : 1} Collector
+                  Level {profile.level || 1} Collector
                 </span>
               </div>
             </div>
@@ -128,13 +115,13 @@ export default function PublicProfile() {
               </p>
 
               <div className="flex gap-4">
-                {profile.socialLinks?.twitter && (
-                  <a href={profile.socialLinks.twitter} className="text-purple-400 hover:text-purple-600 transition-colors">
+                {profile.socialLinks?.twitter && profile.socialLinks.twitter.startsWith('https://') && (
+                  <a href={profile.socialLinks.twitter} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-600 transition-colors">
                     <Twitter className="w-4 h-4" />
                   </a>
                 )}
-                {profile.socialLinks?.instagram && (
-                  <a href={profile.socialLinks.instagram} className="text-purple-400 hover:text-purple-600 transition-colors">
+                {profile.socialLinks?.instagram && profile.socialLinks.instagram.startsWith('https://') && (
+                  <a href={profile.socialLinks.instagram} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-600 transition-colors">
                     <Instagram className="w-4 h-4" />
                   </a>
                 )}
@@ -146,10 +133,10 @@ export default function PublicProfile() {
               <h3 className="text-lg font-black text-purple-900 mb-4">Stats</h3>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { value: profile.stats?.itemsCollected || 0, label: 'Items' },
-                  { value: profile.stats?.auctionsWon || 0, label: 'Wins' },
-                  { value: profile.stats?.totalBids || 0, label: 'Bids' },
-                  { value: profile.badges?.length || 0, label: 'Badges' },
+                  { value: profile.itemsCollected || 0, label: 'Items' },
+                  { value: profile.auctionsWon || 0, label: 'Wins' },
+                  { value: profile.totalBids || 0, label: 'Bids' },
+                  { value: (profile.badges || []).length, label: 'Badges' },
                 ].map(({ value, label }) => (
                   <div key={label} className="p-4 bg-purple-50 rounded-2xl border border-purple-100">
                     <div className="text-2xl font-black text-purple-900 tracking-tighter">{value}</div>
@@ -163,7 +150,7 @@ export default function PublicProfile() {
             <div className="bg-white rounded-3xl border border-purple-100 shadow-sm p-6">
               <h3 className="text-lg font-black text-purple-900 mb-4">Badges</h3>
               <div className="flex flex-wrap gap-2">
-                {profile.badges.map(badge => (
+                {(profile.badges || []).map(badge => (
                   <span
                     key={badge}
                     className="px-3 py-1 bg-purple-50 border border-purple-100 rounded-full text-xs font-bold text-purple-700"
@@ -171,7 +158,7 @@ export default function PublicProfile() {
                     {badge}
                   </span>
                 ))}
-                {profile.badges.length === 0 && (
+                {(!profile.badges || profile.badges.length === 0) && (
                   <span className="text-xs font-bold text-purple-400">No badges earned yet</span>
                 )}
               </div>
@@ -186,50 +173,20 @@ export default function PublicProfile() {
                   <Package className="w-5 h-5 text-purple-500" />
                   Public Collection
                 </h2>
-                <span className="text-xs font-bold text-purple-400">{items.length} Items</span>
+                <span className="text-xs font-bold text-purple-400">{profile.itemsCollected} Items</span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {items.map((item, idx) => (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    className="group bg-white rounded-3xl border border-purple-100 shadow-sm p-4 hover:border-purple-300 hover:shadow-md transition-all"
-                  >
-                    <div className="aspect-square bg-purple-50 rounded-2xl mb-4 overflow-hidden relative">
-                      {item.product?.imageUrl && (
-                        <img
-                          src={item.product.imageUrl}
-                          alt={item.product.name}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                          referrerPolicy="no-referrer"
-                        />
-                      )}
-                      <div className="absolute top-2 right-2">
-                        <span className={cn(
-                          "px-2 py-0.5 text-xs font-bold rounded-full",
-                          RARITY_BG[item.product?.rarity || 'Common'],
-                          RARITY_COLORS[item.product?.rarity || 'Common']
-                        )}>
-                          {item.product?.rarity || 'Common'}
-                        </span>
-                      </div>
-                    </div>
-                    <h4 className="font-black text-sm text-purple-900 tracking-tight mb-1">{item.product?.name || 'Unknown Item'}</h4>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-purple-400">
-                        Acquired {new Date(item.acquiredAt).toLocaleDateString()}
-                      </span>
-                      <span className="text-sm font-black text-purple-600">R{item.purchasePrice}</span>
-                    </div>
-                  </motion.div>
-                ))}
-                {items.length === 0 && (
+                {profile.itemsCollected > 0 ? (
+                  <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-purple-100">
+                    <Package className="w-12 h-12 text-purple-200 mx-auto mb-4" />
+                    <p className="text-sm font-black text-purple-700">{profile.itemsCollected} items collected</p>
+                    <p className="text-xs font-bold text-purple-400 mt-1">Collection details coming soon</p>
+                  </div>
+                ) : (
                   <div className="col-span-full py-20 text-center bg-white rounded-3xl border-2 border-dashed border-purple-100">
                     <Package className="w-12 h-12 text-purple-200 mx-auto mb-4" />
-                    <p className="text-xs font-bold text-purple-400">Collection is hidden or empty</p>
+                    <p className="text-xs font-bold text-purple-400">No items collected yet</p>
                   </div>
                 )}
               </div>
