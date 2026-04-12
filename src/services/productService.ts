@@ -1,6 +1,5 @@
 import { isSupabaseConfigured, supabase } from '../supabase';
 import { Product, AllocationSnapshot } from '../types';
-import { DEMO_PRODUCTS, isDemoProductId } from '../constants/demoProducts';
 
 const PRODUCT_POLL_INTERVAL_MS = 30000;
 let productSubscriptionSequence = 0;
@@ -95,21 +94,10 @@ export async function fetchProducts(status?: Product['status']): Promise<Product
     const { data, error } = await query.order('created_at', { ascending: false });
     if (error) throw new Error(error.message);
 
-    const products = (data || []).map(rowToProduct);
-    if (products.length > 0) {
-      return products;
-    }
+    return (data || []).map(rowToProduct);
   } catch (error) {
-    if (status && status !== 'approved') {
-      throw error;
-    }
+    throw error;
   }
-
-  if (!status || status === 'approved') {
-    return DEMO_PRODUCTS;
-  }
-
-  return [];
 }
 
 /** Fetch a single product by ID */
@@ -121,17 +109,11 @@ export async function fetchProduct(id: string): Promise<Product | null> {
       .eq('id', id)
       .single();
     if (error) {
-      if (error.code === 'PGRST116' && isDemoProductId(id)) {
-        return DEMO_PRODUCTS.find(product => product.id === id) ?? null;
-      }
       if (error.code === 'PGRST116') return null;
       throw new Error(error.message);
     }
     return rowToProduct(data);
   } catch (error) {
-    if (isDemoProductId(id)) {
-      return DEMO_PRODUCTS.find(product => product.id === id) ?? null;
-    }
     throw error;
   }
 }

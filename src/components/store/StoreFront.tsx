@@ -9,7 +9,6 @@ import { Link } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useCart } from '../../context/CartContext';
 import { PRODUCT_CATEGORIES } from '../../lib/categories';
-import { isDemoProductId } from '../../constants/demoProducts';
 
 const CONDITION_FILTERS = [
   { key: null,        label: 'All' },
@@ -58,8 +57,6 @@ export default function StoreFront() {
     return list;
   }, [products, activeFilter, activeCategory, search]);
 
-  const isDemoCatalog = !loading && products.length > 0 && products.every((product) => isDemoProductId(product.id));
-
   return (
     <div className="max-w-7xl mx-auto">
       <div className="px-4 py-4 pb-8 md:pb-12">
@@ -69,11 +66,6 @@ export default function StoreFront() {
             <span className="rounded-full bg-purple-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-purple-700">
               Quirkify Storefront
             </span>
-            {isDemoCatalog && (
-              <span className="rounded-full bg-amber-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-amber-700">
-                Demo Catalogue Active
-              </span>
-            )}
           </div>
           <div className="mt-4 max-w-2xl">
             <h1 className="text-3xl font-black leading-tight text-purple-900 md:text-5xl">
@@ -140,17 +132,6 @@ export default function StoreFront() {
 
       {/* Search + Filters */}
       <div className="mb-8 space-y-4">
-        {isDemoCatalog && (
-          <div className="flex items-start gap-3 rounded-3xl border border-amber-200 bg-amber-50 px-4 py-4 text-left">
-            <Sparkles className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
-            <div>
-              <p className="text-sm font-black text-amber-900">Sample catalogue — new inventory coming soon.</p>
-              <p className="mt-1 text-xs font-semibold leading-5 text-amber-700">
-                We're curating our first batch of verified collectibles. Follow us for launch updates.
-              </p>
-            </div>
-          </div>
-        )}
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-300 pointer-events-none" />
           <input

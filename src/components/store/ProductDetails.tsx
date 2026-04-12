@@ -61,8 +61,9 @@ export default function ProductDetails() {
     );
   }
 
-  const images = product.imageUrls || [product.imageUrl];
-  const isSoldOut = (product as any).stock === 0;
+  const images = product.imageUrls?.length ? product.imageUrls : [product.imageUrl];
+  const isSoldOut = product.stock === 0;
+  const maxQty = product.allocations?.store ?? product.stock;
 
   const handleBuyNow = () => {
     addToCart(product, quantity);
@@ -235,7 +236,7 @@ export default function ProductDetails() {
                     <div className="flex items-center bg-white rounded-2xl border-2 border-purple-200 overflow-hidden">
                       <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-4 py-3 hover:bg-purple-50 transition-colors font-bold text-purple-500">-</button>
                       <span className="w-10 text-center text-sm font-bold text-purple-700">{quantity}</span>
-                      <button onClick={() => setQuantity(quantity + 1)} className="px-4 py-3 hover:bg-purple-50 transition-colors font-bold text-purple-500">+</button>
+                      <button onClick={() => setQuantity(Math.min(maxQty, quantity + 1))} className="px-4 py-3 hover:bg-purple-50 transition-colors font-bold text-purple-500">+</button>
                     </div>
                     <button
                       onClick={() => addToCart(product, quantity)}
