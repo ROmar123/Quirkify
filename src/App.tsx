@@ -28,11 +28,14 @@ import PrivacyPolicy from './components/legal/PrivacyPolicy';
 import ReturnsPolicy from './components/legal/ReturnsPolicy';
 import Footer from './components/layout/Footer';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { Announcer, SkipLink } from './components/ui/Announcer';
 
 import { CartProvider } from './context/CartContext';
 import { ModeProvider, useMode } from './context/ModeContext';
 
-const ADMIN_EMAILS = new Set(['patengel85@gmail.com']);
+const ADMIN_EMAILS = new Set(
+  (import.meta.env.VITE_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+);
 
 function RequireAuth({ user, children }: { user: AuthUser | null; children: ReactNode }) {
   const location = useLocation();
@@ -166,9 +169,11 @@ function AppInner() {
 
   return (
     <div className="min-h-screen font-sans" style={{ background: '#FDF4FF', color: '#2D1B69' }}>
+      <Announcer />
+      <SkipLink />
       <PageHeader />
 
-      <main className="pb-20">
+      <main id="main-content" className="pb-20" role="main">
         <ErrorBoundary>
           <AnimatedRoutes isAdmin={isAdmin} user={user} />
         </ErrorBoundary>
