@@ -1,14 +1,16 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Product, LiveSession } from '../../types';
 import { fetchProducts } from '../../services/productService';
 import { motion } from 'motion/react';
 import { ShoppingBag, Play, Users, Search, X, Tag, Shield, Truck, Sparkles, ArrowUpRight, SlidersHorizontal } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useCart } from '../../context/CartContext';
 import { PRODUCT_CATEGORIES } from '../../lib/categories';
+import { sanitizeInput, searchRateLimiter } from '../../lib/security';
+import { ProductSkeleton, ErrorState } from '../ui/LoadingSpinner';
 
 const CONDITION_FILTERS = [
   { key: null,        label: 'All' },
@@ -32,12 +34,43 @@ export default function StoreFront() {
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [rateLimitError, setRateLimitError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Sanitized search handler with rate limiting
+  const handleSearchChange = useCallback((value: string) => {
+    const sanitized = sanitizeInput(value);
+    
+    if (sanitized !== value) {
+      console.warn('[Security] Potentially dangerous input sanitized');
+    }
+    
+    if (!searchRateLimiter.canProceed('storefront_search')) {
+      setRateLimitError('Please slow down your search. Try again in a moment.');
+      setTimeout(() => setRateLimitError(null), 3000);
+      return;
+    }
+    
+    setRateLimitError(null);
+    setSearch(sanitized);
+  }, []);
+
+  const loadProducts = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchProducts('approved');
+      setProducts(data);
+    } catch (err) {
+      console.error('Failed to load products:', err);
+      setError('Failed to load products. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Products from Supabase
-    fetchProducts('approved')
-      .then(data => { setProducts(data); setLoading(false); })
-      .catch(err => { console.error('Failed to load products:', err); setLoading(false); });
+    loadProducts();
 
     // Live sessions stay on Firestore (real-time bidding)
     const qLive = query(collection(db, 'live_sessions'), where('status', '==', 'live'), limit(3));
@@ -53,7 +86,13 @@ export default function StoreFront() {
     if (activeFilter === 'sale') list = list.filter(p => p.discountPrice && p.discountPrice < p.priceRange.min);
     else if (activeFilter) list = list.filter(p => p.condition === activeFilter);
     if (activeCategory) list = list.filter(p => p.category === activeCategory);
-    if (search.trim()) list = list.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.category?.toLowerCase().includes(search.toLowerCase()));
+    if (search.trim()) {
+      const safeSearch = search.toLowerCase();
+      list = list.filter(p => 
+        p.name.toLowerCase().includes(safeSearch) || 
+        p.category?.toLowerCase().includes(safeSearch)
+      );
+    }
     return list;
   }, [products, activeFilter, activeCategory, search]);
 
@@ -136,16 +175,23 @@ export default function StoreFront() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-300 pointer-events-none" />
           <input
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => handleSearchChange(e.target.value)}
             placeholder="Search products…"
             className="w-full pl-11 pr-10 py-3.5 bg-white border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-800 placeholder:text-purple-300 focus:outline-none focus:border-purple-400 transition-colors"
+            maxLength={100}
+            aria-label="Search products"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-purple-50">
+            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-purple-50" aria-label="Clear search">
               <X className="w-4 h-4 text-purple-400" />
             </button>
           )}
         </div>
+        {rateLimitError && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs font-bold text-amber-700">
+            {rateLimitError}
+          </div>
+        )}
 
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_220px]">
           <div className="hidden md:flex items-center gap-2 rounded-2xl border-2 border-dashed border-purple-100 bg-white px-4 text-xs font-bold uppercase tracking-[0.22em] text-purple-400">
@@ -184,9 +230,14 @@ export default function StoreFront() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {[...Array(8)].map((_, i) => <div key={i} className="aspect-[3/4] bg-purple-50 animate-pulse rounded-3xl" />)}
-          </div>
+          <ProductSkeleton count={8} />
+        ) : error ? (
+          <ErrorState
+            title="Couldn't load products"
+            message={error}
+            onRetry={loadProducts}
+            onGoHome={() => navigate('/')}
+          />
         ) : filtered.length === 0 ? (
           <div className="text-center py-24 rounded-3xl border border-purple-100 bg-purple-50">
             <ShoppingBag className="w-10 h-10 mx-auto mb-3 text-purple-200" />
@@ -205,9 +256,17 @@ export default function StoreFront() {
                 >
                   {/* Image */}
                   <Link to={`/product/${product.id}`} className="relative block aspect-[3/4] overflow-hidden bg-purple-50">
-                    <img src={product.imageUrl} alt={product.name}
+                    <img 
+                      src={product.imageUrl} 
+                      alt={product.name}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      referrerPolicy="no-referrer" />
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/placeholder-product.png';
+                      }}
+                    />
                     {/* Badges */}
                     <div className="absolute top-2 left-2 flex flex-col gap-1">
                       {product.rarity && (
