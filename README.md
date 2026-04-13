@@ -43,3 +43,5 @@ View your app in AI Studio: https://ai.studio/apps/3a0606b8-4950-4129-84f3-037b3
 <!-- Deploy: 2026-04-14T02:04:26.699103 - Improved header design and animations -->
 
 <!-- Deploy: 2026-04-14T02:06:13.870192 - Polished header, footer, auth page -->
+
+<!-- Deploy: 2026-04-14T02:06:51.679074 - Improved mobile nav animations -->
