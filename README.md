@@ -27,3 +27,5 @@ View your app in AI Studio: https://ai.studio/apps/3a0606b8-4950-4129-84f3-037b3
 <!-- Deploy: 2026-04-14T01:14:57.212525 - Added logging -->
 
 <!-- Deploy: 2026-04-14T01:17:52.527062 - Fixed error state bug -->
+
+<!-- Deploy: 2026-04-14T01:19:57.420350 - Add debug info -->
