@@ -1,53 +1,178 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Quirkify - Gamified Social Commerce Platform
 
-# Run and deploy your AI Studio app
+South Africa's home for verified collectibles, limited drops, and pre-loved finds.
 
-This contains everything you need to run your app locally.
+## Features
 
-View your app in AI Studio: https://ai.studio/apps/3a0606b8-4950-4129-84f3-037b307d2152
+- **AI-Powered Product Verification**: Every item is AI-checked before approval
+- **Live Auctions**: Bid on exclusive drops in real-time
+- **Secure Payments**: Powered by Yoco
+- **Order Tracking**: Full shipment tracking integration
+- **Gamification**: Level up and earn rewards as you shop
+- **Mobile-First**: Optimized for mobile experience
 
-## Run Locally
+## Tech Stack
 
-**Prerequisites:**  Node.js
+- React 19 + TypeScript
+- Vite 6
+- Tailwind CSS 4
+- Firebase (Firestore, Storage)
+- Supabase (Auth, PostgreSQL)
+- Motion (animations)
+- Yoco (payments)
 
+## Quick Start
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### Prerequisites
 
+- Node.js 20+
+- npm or yarn
 
-<!-- Last deployed: 2026-04-13T13:09:16.666511 -->
+### Installation
 
-<!-- Test deploy: 2026-04-14T01:09:19.953962 -->
+```bash
+# Clone the repository
+git clone https://github.com/ROmar123/Quirkify.git
+cd Quirkify
 
-<!-- Deploy: 2026-04-14T01:14:57.212525 - Added logging -->
+# Install dependencies
+npm install
 
-<!-- Deploy: 2026-04-14T01:17:52.527062 - Fixed error state bug -->
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your credentials
 
-<!-- Deploy: 2026-04-14T01:19:57.420350 - Add debug info -->
+# Start development server
+npm run dev
+```
 
-<!-- Deploy: 2026-04-14T01:22:23.032661 - Load all products -->
+### Environment Variables
 
-<!-- Deploy: 2026-04-14T01:26:58.058028 - Fixed Supabase key -->
+Create a `.env` file with:
 
-<!-- Deploy: 2026-04-14T01:32:17.153508 - Product added -->
+```bash
+# Firebase
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project
+VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
+VITE_FIREBASE_APP_ID=1:123456789:web:abcdef
 
-<!-- Deploy: 2026-04-14T01:46:04.257603 - All fixes applied -->
+# Supabase
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_anon_key
 
-<!-- Deploy: 2026-04-14T01:56:31.346284 - Added email service, order confirmation emails -->
+# Admin Emails (comma-separated)
+VITE_ADMIN_EMAILS=admin@example.com
+```
 
-<!-- Deploy: 2026-04-14T02:04:26.699103 - Improved header design and animations -->
+### Build for Production
 
-<!-- Deploy: 2026-04-14T02:06:13.870192 - Polished header, footer, auth page -->
+```bash
+npm run build
+```
 
-<!-- Deploy: 2026-04-14T02:06:51.679074 - Improved mobile nav animations -->
+The build output will be in the `dist/` directory.
 
-<!-- Deploy: 2026-04-14T02:07:51.562951 - Improved StoreFront with better animations and empty state -->
+## Project Structure
 
-<!-- Deploy: 2026-04-14T02:11:18.507376 - Improved Orders page with better loading and empty states -->
+```
+src/
+├── components/
+│   ├── admin/          # Admin dashboard components
+│   ├── auth/           # Authentication components
+│   ├── inventory/      # Inventory management
+│   ├── layout/         # Header, Footer, Navigation
+│   ├── legal/          # Terms, Privacy, Returns
+│   ├── live/           # Live streaming
+│   ├── profile/        # User profile, Orders, Collection
+│   ├── store/          # Storefront, Product details, Checkout
+│   └── ui/             # Reusable UI components
+├── context/            # React contexts (Cart, Mode)
+├── hooks/              # Custom React hooks
+├── lib/                # Utilities (security, retry, utils)
+├── services/           # API services
+├── types/              # TypeScript types
+├── firebase.ts         # Firebase configuration
+├── supabase.ts         # Supabase configuration
+└── App.tsx             # Main app component
+```
 
-<!-- Deploy: 2026-04-14T02:12:04.929716 - Improved Admin Dashboard empty states -->
+## Key Features Implemented
+
+### Security
+- XSS protection with input sanitization
+- Rate limiting on API calls
+- CSRF token generation
+- Secure localStorage wrapper
+- Content Security Policy headers
+
+### Performance
+- Code splitting with Vite
+- Lazy loading for images
+- Exponential backoff retry logic
+- Circuit breaker pattern
+- Cart persistence
+
+### Accessibility
+- Screen reader support
+- Keyboard navigation
+- Focus management
+- ARIA labels
+- Skip links
+
+### Mobile
+- 44px minimum touch targets
+- Bottom navigation
+- Safe area support
+- Responsive grids
+- Touch-optimized interactions
+
+## Database Setup
+
+### Supabase RLS Policy
+
+Add this policy for public product access:
+
+```sql
+CREATE POLICY "Allow public read access to approved products"
+ON products FOR SELECT
+TO public
+USING (status = 'approved');
+```
+
+## Deployment
+
+### Vercel
+
+1. Connect your GitHub repository
+2. Add environment variables in Vercel dashboard
+3. Deploy
+
+### Manual
+
+```bash
+npm run build
+# Upload dist/ to your hosting provider
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+MIT License - see LICENSE file for details
+
+## Support
+
+For support, email support@quirkify.co.za or join our Discord community.
+
+---
+
+Built with ❤️ in Cape Town, South Africa
