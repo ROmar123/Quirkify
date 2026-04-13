@@ -2,7 +2,9 @@ import { supabase } from '../supabase';
 import type { AuthUser } from '../firebase';
 
 export type UserRole = 'customer' | 'seller' | 'admin';
-const ADMIN_EMAILS = new Set(['patengel85@gmail.com']);
+const ADMIN_EMAILS = new Set(
+  (import.meta.env.VITE_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+);
 
 export interface Profile {
   id: string;
