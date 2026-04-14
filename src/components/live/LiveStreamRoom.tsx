@@ -15,10 +15,11 @@ function HostSetup({ onReady }: { onReady: (stream: MediaStream) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const startSetup = async () => {
+    setError(null);
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user' },
-        audio: true 
+        audio: true
       });
       setStream(mediaStream);
       if (videoRef.current) {
@@ -26,7 +27,7 @@ function HostSetup({ onReady }: { onReady: (stream: MediaStream) => void }) {
       }
     } catch (err) {
       console.error('Host setup error:', err);
-      setError('Camera or Microphone access denied. These are required to host a live stream.');
+      setError('Camera or microphone access denied. Grant permissions to host a live stream.');
     }
   };
 
@@ -39,50 +40,55 @@ function HostSetup({ onReady }: { onReady: (stream: MediaStream) => void }) {
 
   if (error) {
     return (
-      <div className="fixed inset-0 bg-black z-[70] flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-white p-8 text-center">
-          <X className="w-12 h-12 text-hot mx-auto mb-6" />
-          <h2 className="text-2xl font-bold tracking-tighter uppercase mb-4">Permissions Required</h2>
-          <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-8 leading-relaxed">
-            To host a live auction, you must grant access to your camera and microphone.
-          </p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="w-full py-4 bg-black text-white text-[10px] font-bold uppercase tracking-widest hover:bg-quirky transition-all"
-          >
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-6">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-sm w-full bg-white rounded-2xl p-8 text-center shadow-2xl"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4">
+            <X className="w-7 h-7 text-red-500" />
+          </div>
+          <h2 className="text-lg font-bold text-gray-900 mb-2">Permissions Required</h2>
+          <p className="text-gray-500 text-sm mb-6">{error}</p>
+          <button onClick={() => window.location.reload()} className="btn-primary w-full py-3 justify-center">
             Retry Permissions
           </button>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-black z-[70] flex items-center justify-center p-6">
-      <div className="max-w-xl w-full bg-white overflow-hidden shadow-2xl">
-        <div className="aspect-video bg-zinc-900 relative">
-          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover grayscale" />
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[70] flex items-center justify-center p-6">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="max-w-lg w-full bg-white rounded-2xl overflow-hidden shadow-2xl"
+      >
+        <div className="aspect-video bg-gray-900 relative">
+          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
           {!stream && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+              <div className="w-8 h-8 rounded-full animate-spin"
+                style={{ border: '2.5px solid rgba(255,255,255,0.2)', borderTopColor: '#fff' }} />
+              <p className="text-white/60 text-xs font-medium">Accessing camera…</p>
             </div>
           )}
         </div>
-        <div className="p-8 text-center">
-          <h2 className="text-2xl font-bold tracking-tighter uppercase mb-2">Ready to go Live?</h2>
-          <p className="text-zinc-400 text-[8px] font-bold uppercase tracking-widest mb-8">Check your look and sound before the quirkiness begins.</p>
-          <div className="flex gap-4">
-            <button 
-              onClick={() => stream && onReady(stream)}
-              disabled={!stream}
-              className="flex-1 py-4 bg-black text-white text-[10px] font-bold uppercase tracking-widest hover:bg-quirky transition-all flex items-center justify-center gap-2 disabled:bg-zinc-100 disabled:text-zinc-300"
-            >
-              <Play className="w-4 h-4 fill-current" />
-              Start Streaming
-            </button>
-          </div>
+        <div className="p-6 text-center">
+          <h2 className="text-xl font-bold text-gray-900 mb-1">Ready to go live?</h2>
+          <p className="text-gray-400 text-xs mb-5">Check your look before the session begins.</p>
+          <button
+            onClick={() => stream && onReady(stream)}
+            disabled={!stream}
+            className="btn-primary w-full py-3 justify-center disabled:opacity-40"
+          >
+            <Play className="w-4 h-4 fill-current" />
+            Start Streaming
+          </button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -281,21 +287,23 @@ export default function LiveStreamRoom() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="bg-white p-4 rounded-none border-l-4 border-quirky shadow-2xl max-w-xs"
+                  className="bg-white/95 backdrop-blur-md p-4 rounded-2xl border-l-4 border-purple-500 shadow-2xl max-w-xs"
                 >
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-12 bg-zinc-100 rounded-none overflow-hidden border border-zinc-100">
-                      <img src={currentAuction.product?.imageUrl} className="w-full h-full object-cover" alt="" />
+                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+                      {currentAuction.product?.imageUrl && (
+                        <img src={currentAuction.product.imageUrl} className="w-full h-full object-cover" alt="" />
+                      )}
                     </div>
-                    <div>
-                      <h4 className="text-[10px] font-bold uppercase tracking-tight truncate">{currentAuction.product?.name}</h4>
-                      <p className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest">Current Bid</p>
-                      <p className="text-lg font-bold text-black">R{currentAuction.currentBid}</p>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-semibold text-gray-900 truncate">{currentAuction.product?.name}</h4>
+                      <p className="text-[10px] text-gray-400">Current Bid</p>
+                      <p className="text-lg font-bold text-gray-900">R{currentAuction.currentBid}</p>
                     </div>
                   </div>
-                  <button className="w-full py-3 bg-black text-white text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-quirky transition-all flex items-center justify-center gap-2">
-                    <Gavel className="w-3 h-3" />
-                    BID R{currentAuction.currentBid + 10}
+                  <button className="btn-primary w-full py-2 justify-center text-sm">
+                    <Gavel className="w-3.5 h-3.5" />
+                    Bid R{currentAuction.currentBid + 10}
                   </button>
                 </motion.div>
               )}
@@ -316,45 +324,45 @@ export default function LiveStreamRoom() {
         </div>
       </div>
 
-      {/* Chat Area */}
-      <div className="w-full md:w-[400px] bg-white flex flex-col border-l border-zinc-100">
+      {/* Chat Panel */}
+      <div className="w-full md:w-[360px] bg-white flex flex-col border-l border-gray-100">
         {isHost && talkingPoints && (
-          <div className="p-6 bg-black text-white border-b border-zinc-800">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="w-4 h-4 text-quirky" />
-              <h3 className="text-[10px] font-bold uppercase tracking-[0.3em]">AI Host Assistant</h3>
+          <div className="p-4 bg-gray-950 text-white border-b border-white/10">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-purple-400">AI Host Assistant</span>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {talkingPoints.talkingPoints.map((point, i) => (
-                <p key={i} className="text-[10px] text-zinc-400 leading-relaxed">• {point}</p>
+                <p key={i} className="text-[11px] text-white/60 leading-relaxed">• {point}</p>
               ))}
-              <div className="mt-4 p-3 bg-zinc-900 border border-zinc-800 italic text-[10px] text-quirky">
+              <div className="mt-3 p-2.5 bg-white/5 rounded-lg border border-white/10 text-[11px] text-purple-300 italic">
                 "{talkingPoints.hypePhrase}"
               </div>
             </div>
           </div>
         )}
-        
-        <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
-          <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">Live Chat</h3>
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-3 h-3 text-quirky" />
-            <span className="text-[8px] font-bold uppercase tracking-widest text-quirky">Aura AI Moderating</span>
+
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+          <span className="section-label">Live Chat</span>
+          <div className="flex items-center gap-1.5">
+            <span className="live-dot" />
+            <span className="text-[10px] font-semibold text-purple-500">AI Moderating</span>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.map((msg) => (
-            <div key={msg.id} className="flex flex-col">
-              <div className="flex items-baseline gap-2 mb-1">
-                <span className="text-[10px] font-bold uppercase tracking-tight text-black">{msg.senderName}</span>
-                <span className="text-[8px] text-zinc-300 font-bold uppercase tracking-widest">
-                  {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}
+            <div key={msg.id}>
+              <div className="flex items-baseline gap-2 mb-0.5">
+                <span className="text-xs font-semibold text-gray-900">{msg.senderName}</span>
+                <span className="text-[10px] text-gray-400">
+                  {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '…'}
                 </span>
               </div>
               <p className={cn(
-                "text-xs leading-relaxed",
-                msg.type === 'bid' ? "text-quirky font-bold italic" : "text-zinc-600"
+                'text-xs leading-relaxed',
+                msg.type === 'bid' ? 'text-purple-600 font-semibold' : 'text-gray-600'
               )}>
                 {msg.text}
               </p>
@@ -363,18 +371,18 @@ export default function LiveStreamRoom() {
           <div ref={chatEndRef} />
         </div>
 
-        <form onSubmit={handleSendMessage} className="p-6 bg-zinc-50 border-t border-zinc-100">
-          <div className="flex gap-3">
-            <input 
-              type="text" 
+        <form onSubmit={handleSendMessage} className="p-3 bg-gray-50 border-t border-gray-100">
+          <div className="flex gap-2">
+            <input
+              type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Say something quirky..."
-              className="flex-1 bg-white border border-zinc-200 px-4 py-3 text-xs font-medium focus:outline-none focus:border-quirky transition-colors"
+              placeholder="Say something quirky…"
+              className="input flex-1 py-2 text-sm"
             />
-            <button 
+            <button
               type="submit"
-              className="w-12 h-12 bg-black text-white flex items-center justify-center hover:bg-quirky transition-all"
+              className="btn-primary px-3 py-2"
             >
               <Send className="w-4 h-4" />
             </button>
