@@ -45,50 +45,49 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
     <>
       <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 pointer-events-none">
-        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md pointer-events-auto overflow-hidden">
-          <div className="relative p-6 pb-4" style={{ background: 'linear-gradient(135deg, #FDF4FF, #F5F3FF)' }}>
-            <button onClick={onClose} className="absolute right-4 top-4 p-1 hover:bg-purple-100 rounded-full">
-              <X className="w-5 h-5 text-purple-400" />
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md pointer-events-auto overflow-hidden">
+          <div className="relative px-6 pt-6 pb-4">
+            <button onClick={onClose} className="absolute right-4 top-4 p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+              <X className="w-4 h-4 text-gray-400" />
             </button>
-            <h2 className="text-2xl font-black text-purple-900">
+            <h2 className="text-xl font-bold text-gray-900">
               {mode === 'signin' ? 'Welcome back' : mode === 'signup' ? 'Create account' : 'Magic link'}
             </h2>
-            <p className="text-purple-500 text-sm font-semibold mt-1">
-              {mode === 'signin' ? 'Sign in to your Quirkify account' : mode === 'signup' ? 'Join the commerce revolution' : "We'll email you a sign-in link"}
+            <p className="text-gray-500 text-sm mt-1">
+              {mode === 'signin' ? 'Sign in to your Quirkify account' : mode === 'signup' ? 'Join the Quirkify community' : "We'll email you a sign-in link"}
             </p>
           </div>
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            {error && <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-600 text-sm font-semibold">{error}</div>}
-            {success && <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-green-600 text-sm font-semibold">{success}</div>}
+          <form onSubmit={handleSubmit} className="px-6 pb-4 space-y-3">
+            {error && <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-red-600 text-sm">{error}</div>}
+            {success && <div className="rounded-xl border border-green-100 bg-green-50 p-3 text-green-700 text-sm">{success}</div>}
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-300" />
+              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input type="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} required
-                className="w-full pl-10 pr-4 py-3 border-2 border-purple-100 rounded-xl text-sm font-semibold focus:outline-none focus:border-purple-400 transition-colors bg-purple-50/30" />
+                className="input pl-10" />
             </div>
             {mode !== 'magic' && (
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-300" />
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)}
                   required={mode === 'signin'} minLength={6}
-                  className="w-full pl-10 pr-4 py-3 border-2 border-purple-100 rounded-xl text-sm font-semibold focus:outline-none focus:border-purple-400 transition-colors bg-purple-50/30" />
+                  className="input pl-10" />
               </div>
             )}
-            <button type="submit" disabled={loading}
-              className="w-full py-3 rounded-xl font-black text-white text-sm disabled:opacity-60"
-              style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
-              {loading ? <span className="flex items-center justify-center gap-2"><Loader className="w-4 h-4 animate-spin" /> Please wait...</span>
-               : mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Magic Link'}
+            <button type="submit" disabled={loading} className="btn-primary w-full py-3 justify-center disabled:opacity-60">
+              {loading
+                ? <><Loader className="w-4 h-4 animate-spin" /> Please wait…</>
+                : mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Magic Link'}
             </button>
           </form>
-          <div className="px-6 pb-6 text-center">
+          <div className="px-6 pb-5 text-center">
             {mode === 'signin' && (
               <>
-                <button onClick={() => setMode('magic')} className="text-purple-400 text-xs font-semibold hover:underline">Forgot password? Use magic link</button>
-                <p className="mt-2 text-purple-400 text-xs font-semibold">No account? <button onClick={() => setMode('signup')} className="text-purple-600 font-bold hover:underline">Sign up</button></p>
+                <button onClick={() => setMode('magic')} className="text-gray-400 text-xs hover:text-gray-600">Forgot password? Use magic link</button>
+                <p className="mt-2 text-gray-400 text-xs">No account? <button onClick={() => setMode('signup')} className="text-purple-600 font-semibold hover:underline">Sign up</button></p>
               </>
             )}
             {(mode === 'signup' || mode === 'magic') && (
-              <p className="text-purple-400 text-xs font-semibold">Already have an account? <button onClick={() => setMode('signin')} className="text-purple-600 font-bold hover:underline">Sign in</button></p>
+              <p className="text-gray-400 text-xs">Already have an account? <button onClick={() => setMode('signin')} className="text-purple-600 font-semibold hover:underline">Sign in</button></p>
             )}
           </div>
         </div>
