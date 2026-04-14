@@ -19,20 +19,17 @@ export default function Inventory() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-white border-b border-purple-100 shadow-sm">
+      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-black text-purple-900 truncate">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate tracking-tight">
                 {titles[state].title}
               </h1>
-              <p className="text-purple-400 text-xs font-semibold mt-1">{titles[state].description}</p>
+              <p className="text-gray-400 text-xs mt-0.5">{titles[state].description}</p>
             </div>
             {state !== 'hub' && (
-              <button
-                onClick={() => setState('hub')}
-                className="flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold text-purple-700 bg-purple-50 border-2 border-purple-100 hover:border-purple-300 hover:bg-purple-100 transition-all whitespace-nowrap"
-              >
+              <button onClick={() => setState('hub')} className="btn-secondary">
                 <ArrowLeft className="w-4 h-4" />
                 Back
               </button>

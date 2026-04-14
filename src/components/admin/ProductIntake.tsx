@@ -208,15 +208,15 @@ export default function ProductIntake({ onSuccess }: ProductIntakeProps) {
     }
   };
 
-  const inputCls = 'w-full px-4 py-2.5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-800 focus:outline-none focus:border-purple-400 transition-colors';
-  const labelCls = 'block text-xs font-bold text-purple-400 mb-1';
+  const inputCls = 'input';
+  const labelCls = 'section-label block mb-1.5';
   const conditions: ProductCondition[] = ['New', 'Like New', 'Pre-owned', 'Refurbished'];
 
   return (
     <div className="px-4 py-6 max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-black gradient-text">AI Product Intake</h1>
-        <p className="text-purple-400 text-xs font-semibold mt-1">Upload photos — AI identifies the product, you review and approve</p>
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">AI Product Intake</h1>
+        <p className="text-gray-400 text-sm mt-0.5">Upload photos — AI identifies the product, you review and approve</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -226,7 +226,7 @@ export default function ProductIntake({ onSuccess }: ProductIntakeProps) {
             {...getRootProps()}
             className={cn(
               'aspect-square border-2 border-dashed rounded-3xl flex flex-col items-center justify-center p-6 transition-all cursor-pointer overflow-hidden relative bg-white',
-              isDragActive ? 'border-purple-400 bg-purple-50' : 'border-purple-100 hover:border-purple-300',
+              isDragActive ? 'border-quirky bg-purple-50/30' : 'border-gray-200 hover:border-gray-300',
               previews.length > 0 && 'border-transparent p-0'
             )}
           >
@@ -243,19 +243,18 @@ export default function ProductIntake({ onSuccess }: ProductIntakeProps) {
                   </div>
                 ))}
                 {previews.length < 3 && (
-                  <div className="flex items-center justify-center bg-purple-50 border-2 border-dashed border-purple-100 rounded-2xl">
-                    <PlusCircle className="w-6 h-6 text-purple-300" />
+                  <div className="flex items-center justify-center bg-gray-50 border border-dashed border-gray-200 rounded-2xl">
+                    <PlusCircle className="w-6 h-6 text-gray-300" />
                   </div>
                 )}
               </div>
             ) : (
               <>
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-3"
-                  style={{ background: 'linear-gradient(135deg, #FDF4FF, #EDE9FE)' }}>
-                  <Camera className="w-8 h-8 text-purple-400" />
+                <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mb-3">
+                  <Camera className="w-8 h-8 text-gray-300" />
                 </div>
-                <p className="text-purple-400 text-center text-xs font-bold">Drag & drop photos</p>
-                <p className="text-purple-300 text-xs mt-1">Up to 3 images</p>
+                <p className="text-gray-400 text-center text-sm font-medium">Drag & drop photos</p>
+                <p className="text-gray-400 text-xs mt-1">Up to 3 images</p>
               </>
             )}
           </div>
@@ -268,8 +267,7 @@ export default function ProductIntake({ onSuccess }: ProductIntakeProps) {
 
           {files.length > 0 && !result && (
             <button onClick={handleAnalyze} disabled={loading}
-              className="w-full py-3 rounded-2xl font-black text-sm text-white disabled:opacity-50 flex items-center justify-center gap-2 hover:opacity-90 transition-all"
-              style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
+              className="btn-primary w-full justify-center py-3">
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
               {loading ? 'Analysing…' : 'Identify with AI'}
             </button>
@@ -287,33 +285,31 @@ export default function ProductIntake({ onSuccess }: ProductIntakeProps) {
                 <p className="text-green-600 text-xs font-semibold mb-6">Product saved and awaiting approval.</p>
                 <div className="flex flex-col gap-3 w-full">
                   <button onClick={() => onSuccess ? onSuccess() : navigate('/admin/reviews')}
-                    className="w-full py-3 rounded-2xl text-sm font-black text-white hover:opacity-90 transition-all"
-                    style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
+                    className="btn-primary w-full justify-center py-3">
                     View Review Queue
                   </button>
-                  <button onClick={() => setSuccess(false)}
-                    className="w-full py-3 rounded-2xl text-sm font-black text-purple-600 bg-purple-50 border-2 border-purple-100 hover:border-purple-300 transition-all">
+                  <button onClick={() => setSuccess(false)} className="btn-secondary w-full justify-center py-3">
                     Intake Another
                   </button>
                 </div>
               </motion.div>
             ) : loading ? (
               <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="h-full flex flex-col items-center justify-center text-center p-8 bg-white rounded-3xl border border-purple-100">
+                className="h-full flex flex-col items-center justify-center text-center p-8 bg-white rounded-2xl border border-gray-100">
                 <div className="relative w-16 h-16 mb-4">
                   <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                    className="absolute inset-0 border-4 border-purple-100 border-t-purple-500 rounded-full" />
-                  <Sparkles className="absolute inset-0 m-auto w-6 h-6 text-purple-500" />
+                    className="absolute inset-0 border-4 border-gray-100 border-t-quirky rounded-full" />
+                  <Sparkles className="absolute inset-0 m-auto w-6 h-6 text-quirky" />
                 </div>
-                <p className="text-sm font-black text-purple-900">AI is thinking…</p>
-                <p className="text-xs text-purple-400 font-semibold mt-1">Scanning Cape Town market trends</p>
+                <p className="text-sm font-semibold text-gray-900">AI is thinking…</p>
+                <p className="text-xs text-gray-400 mt-1">Scanning Cape Town market trends</p>
               </motion.div>
             ) : editedResult ? (
               <motion.div key="result" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-                <div className="bg-white rounded-3xl border border-purple-100 p-5 shadow-sm">
+                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
                   {/* Confidence */}
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-xs font-black text-purple-900">AI Result</span>
+                    <span className="section-label">AI Result</span>
                     <span className={cn('px-3 py-1 rounded-full text-xs font-black border',
                       (result?.confidenceScore || 0) > 0.8
                         ? 'bg-green-50 border-green-200 text-green-700'
@@ -358,53 +354,53 @@ export default function ProductIntake({ onSuccess }: ProductIntakeProps) {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <h2 className="text-lg font-black text-purple-900">{editedResult.name}</h2>
-                      <p className="text-xs text-purple-400 font-semibold leading-relaxed">{editedResult.description}</p>
+                      <h2 className="text-lg font-bold text-gray-900">{editedResult.name}</h2>
+                      <p className="text-xs text-gray-400 leading-relaxed">{editedResult.description}</p>
                       <div className="grid grid-cols-2 gap-2">
-                        <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100">
-                          <p className="text-[10px] font-bold text-purple-400 mb-0.5">Retail</p>
-                          <p className="text-sm font-black text-purple-400 line-through">R{editedResult.retailPrice}</p>
+                        <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                          <p className="section-label mb-0.5">Retail</p>
+                          <p className="text-sm font-medium text-gray-400 line-through">R{editedResult.retailPrice}</p>
                           <p className="text-[10px] text-pink-500 font-bold">-{editedResult.markdownPercentage}%</p>
                         </div>
                         <div className="p-3 rounded-2xl text-white" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
                           <p className="text-[10px] font-bold opacity-80 mb-0.5">Sale Price</p>
                           <p className="text-lg font-black">R{editedResult.discountPrice}</p>
                         </div>
-                        <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100">
-                          <p className="text-[10px] font-bold text-purple-400 mb-0.5">Condition</p>
-                          <p className="text-xs font-black text-purple-900">{editedResult.condition}</p>
+                        <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                          <p className="section-label mb-0.5">Condition</p>
+                          <p className="text-xs font-semibold text-gray-900">{editedResult.condition}</p>
                         </div>
-                        <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100">
-                          <p className="text-[10px] font-bold text-purple-400 mb-0.5">Stock</p>
-                          <p className="text-xs font-black text-purple-900">{editedResult.stock} units</p>
+                        <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                          <p className="section-label mb-0.5">Stock</p>
+                          <p className="text-xs font-semibold text-gray-900">{editedResult.stock} units</p>
                         </div>
                       </div>
                     </div>
                   )}
 
                   <div className="flex gap-2 mt-4">
-                    <button onClick={() => setIsEditing(!isEditing)}
-                      className="flex-1 py-2.5 rounded-2xl text-xs font-black text-purple-700 bg-purple-50 border-2 border-purple-100 hover:border-purple-300 transition-all flex items-center justify-center gap-1.5">
+                    <button onClick={() => setIsEditing(!isEditing)} className="btn-secondary flex-1 justify-center py-2">
                       {isEditing ? <><Save className="w-3.5 h-3.5" />Done</> : <><Edit3 className="w-3.5 h-3.5" />Edit</>}
                     </button>
                     <button onClick={() => handleSave('rejected')} disabled={loading}
-                      className="px-4 py-2.5 rounded-2xl text-xs font-black text-red-500 bg-red-50 border-2 border-red-100 hover:border-red-300 transition-all disabled:opacity-50 flex items-center gap-1.5">
+                      className="px-4 py-2 rounded-full text-sm font-medium text-red-500 bg-red-50 border border-red-200 hover:border-red-300 transition-all disabled:opacity-50 flex items-center gap-1.5">
                       <Trash2 className="w-3.5 h-3.5" />Reject
                     </button>
                   </div>
 
                   <button onClick={() => handleSave('pending')} disabled={loading}
-                    className="w-full mt-2 py-3 rounded-2xl text-sm font-black text-white disabled:opacity-50 hover:opacity-90 transition-all flex items-center justify-center gap-2"
-                    style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
-                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+                    className="btn-primary w-full justify-center py-3 mt-2">
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                     Send to Review Queue
                   </button>
                 </div>
               </motion.div>
             ) : (
-              <div key="empty" className="h-full flex flex-col items-center justify-center text-center p-8 bg-white rounded-3xl border-2 border-dashed border-purple-100">
-                <Upload className="w-10 h-10 text-purple-200 mb-3" />
-                <p className="text-xs font-bold text-purple-400">Upload photos to start AI analysis</p>
+              <div key="empty" className="h-full flex flex-col items-center justify-center text-center p-8 bg-white rounded-2xl border border-dashed border-gray-200">
+                <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center mb-3">
+                  <Upload className="w-6 h-6 text-gray-300" />
+                </div>
+                <p className="text-sm text-gray-400">Upload photos to start AI analysis</p>
               </div>
             )}
           </AnimatePresence>

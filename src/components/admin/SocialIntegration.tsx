@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { MessageCircle, Send, ShoppingCart, CreditCard, Truck, CheckCircle2, Smartphone, Zap, Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import { motion } from 'motion/react';
+import { MessageCircle, Send, CreditCard, Truck, CheckCircle2, Zap, Sparkles } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface Message {
@@ -48,15 +48,9 @@ export default function SocialIntegration() {
         let auraText = '';
         let type: 'text' | 'payment' | 'delivery' = 'text';
 
-        if (step === 0) {
-          auraText = 'Perfect. I am sending a secure payment link now.';
-          type = 'payment';
-        } else if (step === 1) {
-          auraText = 'Payment confirmed! Please select your delivery option.';
-          type = 'delivery';
-        } else if (step === 2) {
-          auraText = 'All set. Your order is being processed for delivery tomorrow.';
-        }
+        if (step === 0) { auraText = 'Perfect. I am sending a secure payment link now.'; type = 'payment'; }
+        else if (step === 1) { auraText = 'Payment confirmed! Please select your delivery option.'; type = 'delivery'; }
+        else if (step === 2) { auraText = 'All set. Your order is being processed for delivery tomorrow.'; }
 
         if (auraText) {
           setMessages(prev => [...prev, {
@@ -72,133 +66,146 @@ export default function SocialIntegration() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12">
-      <div className="mb-16">
-        <h1 className="text-5xl font-black tracking-tighter mb-2 text-purple-900 uppercase">Social Commerce</h1>
-        <p className="text-purple-400 text-[10px] font-bold uppercase tracking-[0.3em]">TikTok sales routed to WhatsApp with automated Aura AI.</p>
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Social Commerce</h1>
+        <p className="text-gray-400 text-sm mt-0.5">TikTok sales routed to WhatsApp with automated Aura AI.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Chat simulator */}
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-3xl border-2 border-purple-100 overflow-hidden flex flex-col h-[700px] shadow-sm">
-            <div className="p-6 bg-purple-50 border-b-2 border-purple-100 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-purple-600 rounded-2xl flex items-center justify-center text-white">
-                  <MessageCircle className="w-6 h-6" />
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden flex flex-col h-[600px] shadow-sm">
+            <div className="p-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white"
+                  style={{ background: 'var(--gradient-primary)' }}>
+                  <MessageCircle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-xs uppercase tracking-widest text-purple-900">WhatsApp Business</h3>
-                  <p className="text-[8px] text-purple-400 font-bold uppercase tracking-[0.3em]">Aura AI Active</p>
+                  <p className="text-sm font-semibold text-gray-900">WhatsApp Business</p>
+                  <p className="text-xs text-gray-400">Aura AI Active</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 px-4 py-2 bg-white border-2 border-purple-100 rounded-full">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-[8px] text-purple-400 font-bold uppercase tracking-[0.2em]">LIVE SESSION</span>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-100 rounded-full">
+                <div className="live-dot" />
+                <span className="text-xs font-medium text-gray-500">Live Session</span>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-white">
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
               {messages.map((msg) => (
                 <motion.div
                   key={msg.id}
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   className={cn(
-                    "max-w-[80%] p-5 rounded-2xl text-[11px] shadow-sm leading-relaxed border-2",
-                    msg.sender === 'user' ? "bg-purple-50 ml-auto border-purple-100 text-purple-900" :
-                    msg.sender === 'aura' ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white font-medium border-transparent" :
-                    "bg-purple-50 text-purple-400 mx-auto text-center border-purple-100 text-[8px] uppercase tracking-[0.3em] font-bold py-3 px-8"
+                    'max-w-[80%] px-4 py-3 rounded-2xl text-sm',
+                    msg.sender === 'user'
+                      ? 'bg-gray-50 ml-auto border border-gray-100 text-gray-800'
+                      : msg.sender === 'aura'
+                      ? 'text-white'
+                      : 'bg-amber-50 mx-auto border border-amber-100 text-amber-700 text-xs text-center py-2 px-5'
                   )}
+                  style={msg.sender === 'aura' ? { background: 'var(--gradient-primary)' } : {}}
                 >
                   {msg.text}
                   {msg.type === 'payment' && (
-                    <div className="mt-4 p-4 bg-white/20 rounded-xl border border-white/30 flex items-center justify-between group cursor-pointer hover:bg-white/30 transition-all">
-                      <div className="flex items-center gap-3">
+                    <div className="mt-3 p-3 bg-white/20 rounded-xl border border-white/30 flex items-center justify-between cursor-pointer hover:bg-white/30 transition-all">
+                      <div className="flex items-center gap-2">
                         <CreditCard className="w-4 h-4" />
-                        <span className="font-bold tracking-tight">Pay R1,250.00</span>
+                        <span className="font-semibold text-sm">Pay R1,250.00</span>
                       </div>
-                      <span className="text-[8px] font-bold underline uppercase tracking-[0.2em]">SECURE CHECKOUT</span>
+                      <span className="text-xs font-medium underline opacity-80">Secure Checkout</span>
                     </div>
                   )}
                   {msg.type === 'delivery' && (
-                    <div className="mt-4 space-y-3">
-                      <div className="p-4 bg-white/20 rounded-xl border border-white/30 flex items-center justify-between group cursor-pointer hover:bg-white/30 transition-all">
-                        <div className="flex items-center gap-3">
-                          <Truck className="w-4 h-4" />
-                          <span className="font-bold tracking-tight">Standard Delivery</span>
-                        </div>
-                        <span className="text-[8px] font-bold uppercase tracking-[0.2em]">R50.00</span>
+                    <div className="mt-3 p-3 bg-white/20 rounded-xl border border-white/30 flex items-center justify-between cursor-pointer hover:bg-white/30 transition-all">
+                      <div className="flex items-center gap-2">
+                        <Truck className="w-4 h-4" />
+                        <span className="font-semibold text-sm">Standard Delivery</span>
                       </div>
+                      <span className="text-xs font-medium opacity-80">R50.00</span>
                     </div>
                   )}
-                  <span className="block text-[8px] mt-3 opacity-50 font-bold uppercase tracking-widest">{msg.timestamp}</span>
+                  <span className="block text-[10px] mt-2 opacity-50">{msg.timestamp}</span>
                 </motion.div>
               ))}
             </div>
 
-            <div className="p-6 bg-purple-50 border-t-2 border-purple-100">
-              <div className="flex gap-4">
-                <div className="flex-1 bg-white border-2 border-purple-100 rounded-2xl px-6 py-4 text-[10px] text-purple-400 font-bold uppercase tracking-[0.3em] flex items-center">
+            <div className="p-4 bg-gray-50 border-t border-gray-100">
+              <div className="flex gap-3">
+                <div className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-400 flex items-center">
                   Aura AI is responding...
                 </div>
-                <button className="px-6 py-4 bg-gradient-to-br from-pink-500 to-purple-600 text-white rounded-2xl flex items-center justify-center hover:shadow-lg transition-all">
-                  <Send className="w-5 h-5" />
+                <button className="btn-primary px-4">
+                  <Send className="w-4 h-4" />
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="space-y-8">
-          <div className="p-8 bg-white border-2 border-purple-100 rounded-3xl shadow-sm">
-            <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-purple-400 mb-8">Simulation Controls</h3>
-            <div className="space-y-3">
+        <div className="space-y-4">
+          {/* Simulation controls */}
+          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+            <p className="section-label mb-4">Simulation Controls</p>
+            <div className="space-y-2">
               {steps.map((s, i) => (
                 <button
                   key={i}
                   onClick={handleNextStep}
                   disabled={step !== i || loading}
                   className={cn(
-                    "w-full p-5 rounded-2xl border-2 text-left flex items-center justify-between transition-all group",
-                    step === i ? "bg-gradient-to-r from-pink-500 to-purple-600 border-transparent text-white shadow-lg" :
-                    step > i ? "bg-purple-50 border-purple-100 text-purple-400" : "bg-white border-purple-100 text-purple-400 hover:border-purple-300"
+                    'w-full p-4 rounded-xl border text-left flex items-center justify-between transition-all text-sm font-medium',
+                    step === i
+                      ? 'text-white border-transparent'
+                      : step > i
+                      ? 'bg-gray-50 border-gray-100 text-gray-400'
+                      : 'bg-white border-gray-100 text-gray-600 hover:border-gray-200'
                   )}
+                  style={step === i ? { background: 'var(--gradient-primary)' } : {}}
                 >
-                  <span className="text-[10px] uppercase tracking-[0.2em] font-bold">{s.text}</span>
-                  {step > i ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Zap className={cn("w-4 h-4", step === i ? "text-white" : "text-purple-200")} />}
+                  <span>{s.text}</span>
+                  {step > i
+                    ? <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    : <Zap className={cn('w-4 h-4', step === i ? 'text-white' : 'text-gray-300')} />}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="p-8 bg-gradient-to-br from-pink-500 to-purple-600 text-white rounded-3xl relative overflow-hidden group">
-            <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] mb-8 relative z-10">TikTok Feed</h3>
-            <div className="space-y-6 relative z-10">
-              <div className="aspect-[9/16] bg-purple-900 border-2 border-white/20 rounded-2xl relative overflow-hidden group/video">
+          {/* TikTok feed preview */}
+          <div className="p-4 rounded-2xl relative overflow-hidden noise"
+            style={{ background: 'var(--gradient-primary)' }}>
+            <p className="section-label text-white/70 mb-3 relative z-10">TikTok Feed</p>
+            <div className="relative z-10">
+              <div className="aspect-[9/16] bg-black/30 rounded-xl relative overflow-hidden">
                 <img
                   src="https://picsum.photos/seed/fashion1/400/700"
-                  className="w-full h-full object-cover opacity-60 group-hover/video:opacity-100 transition-opacity duration-700"
+                  className="w-full h-full object-cover opacity-70"
                   referrerPolicy="no-referrer"
+                  alt=""
                 />
-                <div className="absolute bottom-6 left-6 right-6">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-8 h-8 bg-white rounded-full" />
-                    <span className="text-[10px] font-bold uppercase tracking-[0.2em]">@AuraStyle</span>
+                <div className="absolute bottom-4 left-4 right-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 bg-white/30 backdrop-blur-sm rounded-full" />
+                    <span className="text-xs font-semibold text-white">@AuraStyle</span>
                   </div>
-                  <p className="text-[10px] font-medium leading-relaxed">Check out our latest vintage drop. Limited stock! #AuraVibes #CapeTownFashion</p>
+                  <p className="text-xs text-white/90 leading-relaxed">Check out our latest vintage drop. Limited stock! #AuraVibes</p>
                 </div>
-                <div className="absolute right-6 top-1/2 -translate-y-1/2 flex flex-col gap-6">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-10 h-10 bg-white/20 backdrop-blur-xl rounded-full flex items-center justify-center border border-white/40">
-                      <Sparkles className="w-5 h-5" />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col gap-4">
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                      <Sparkles className="w-4 h-4 text-white" />
                     </div>
-                    <span className="text-[8px] font-bold uppercase tracking-widest">42.8k</span>
+                    <span className="text-[10px] font-bold text-white">42.8k</span>
                   </div>
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-10 h-10 bg-white/20 backdrop-blur-xl rounded-full flex items-center justify-center border border-white/40">
-                      <MessageCircle className="w-5 h-5" />
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                      <MessageCircle className="w-4 h-4 text-white" />
                     </div>
-                    <span className="text-[8px] font-bold uppercase tracking-widest">1.2k</span>
+                    <span className="text-[10px] font-bold text-white">1.2k</span>
                   </div>
                 </div>
               </div>
@@ -209,6 +216,3 @@ export default function SocialIntegration() {
     </div>
   );
 }
-
-
-

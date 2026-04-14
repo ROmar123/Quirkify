@@ -74,7 +74,7 @@ export default function MiniDashboardCards({ onSelectOnboarding, onSelectManagem
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-red-50 border-2 border-red-200 rounded-3xl p-4 sm:p-5 flex items-start gap-3"
+          className="bg-red-50 border border-red-200 rounded-2xl p-4 sm:p-5 flex items-start gap-3"
         >
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
           <div>
@@ -99,7 +99,7 @@ export default function MiniDashboardCards({ onSelectOnboarding, onSelectManagem
               whileHover={{ y: -4, boxShadow: '0 12px 24px rgba(168, 85, 247, 0.1)' }}
               whileTap={{ scale: 0.98 }}
               onClick={card.action}
-              className="bg-white rounded-3xl border-2 border-purple-100 overflow-hidden hover:border-purple-300 transition-all group text-left shadow-sm"
+              className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:border-gray-200 hover:shadow-md transition-all group text-left shadow-sm"
             >
               {/* Gradient top bar */}
               <div className={cn('h-1.5 bg-gradient-to-r', card.color)} />
@@ -114,18 +114,18 @@ export default function MiniDashboardCards({ onSelectOnboarding, onSelectManagem
                   )}>
                     <Icon className="w-7 h-7" />
                   </div>
-                  <h3 className="text-lg sm:text-xl font-black text-purple-900 flex-1">{card.label}</h3>
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 flex-1">{card.label}</h3>
                 </div>
 
                 {/* Stats Grid */}
-                <div className="space-y-3 border-t border-purple-100 pt-4">
+                <div className="space-y-3 border-t border-gray-100 pt-4">
                   {card.stats.map((stat, i) => (
                     <div key={i} className="flex items-center justify-between">
-                      <p className="text-xs font-bold text-purple-400 uppercase tracking-widest">{stat.label}</p>
+                      <p className="section-label">{stat.label}</p>
                       <div className="flex items-center gap-2">
                         <p className={cn(
-                          'text-base sm:text-lg font-black',
-                          stat.alert ? 'text-red-600' : 'text-purple-900'
+                          'text-base sm:text-lg font-bold',
+                          stat.alert ? 'text-red-600' : 'text-gray-900'
                         )}>
                           {stat.value}
                         </p>
@@ -138,7 +138,7 @@ export default function MiniDashboardCards({ onSelectOnboarding, onSelectManagem
                 </div>
 
                 {/* Action */}
-                <div className="inline-flex items-center text-purple-600 font-bold text-sm group-hover:translate-x-1 transition-transform">
+                <div className="inline-flex items-center text-quirky font-semibold text-sm group-hover:translate-x-1 transition-transform">
                   Open Section →
                 </div>
               </div>

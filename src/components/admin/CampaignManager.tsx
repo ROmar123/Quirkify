@@ -4,7 +4,7 @@ import { db } from '../../firebase';
 import { Product, Campaign } from '../../types';
 import { suggestCampaign } from '../../services/gemini';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Loader2, CheckCircle2, TrendingUp, Megaphone } from 'lucide-react';
+import { Sparkles, Loader, CheckCircle2, TrendingUp, Megaphone } from 'lucide-react';
 
 import { handleFirestoreError, OperationType } from '../../firebase';
 
@@ -35,17 +35,13 @@ export default function CampaignManager() {
   }, []);
 
   const handleSuggest = async () => {
-    if (products.length === 0) {
-      alert('Need approved products to suggest a campaign.');
-      return;
-    }
+    if (products.length === 0) return;
     setLoading(true);
     try {
       const result = await suggestCampaign(products.slice(0, 5));
       setSuggestion(result);
     } catch (err) {
       console.error(err);
-      alert('AI failed to suggest a campaign.');
     } finally {
       setLoading(false);
     }
@@ -64,10 +60,8 @@ export default function CampaignManager() {
         createdAt: new Date().toISOString()
       });
       setSuggestion(null);
-      alert('Campaign launched successfully!');
     } catch (err) {
       console.error(err);
-      alert('Failed to launch campaign.');
     } finally {
       setLoading(false);
     }
@@ -75,89 +69,88 @@ export default function CampaignManager() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-16">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-5xl font-black tracking-tighter mb-2 text-purple-900 uppercase">Campaign Automation</h1>
-          <p className="text-purple-400 text-[10px] font-bold uppercase tracking-[0.3em]">Aura AI analyzes top sellers to suggest strategies.</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Campaign Automation</h1>
+          <p className="text-gray-400 text-sm mt-0.5">Aura AI analyses top sellers to suggest strategies.</p>
         </div>
         <button
           onClick={handleSuggest}
-          disabled={loading}
-          className="px-6 py-3 rounded-full font-bold text-white text-sm flex items-center gap-3 disabled:opacity-50 transition-opacity hover:opacity-90"
-          style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
+          disabled={loading || products.length === 0}
+          className="btn-primary disabled:opacity-50"
         >
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+          {loading ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
           Generate Suggestion
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
-        <div className="lg:col-span-2 space-y-12">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
           <AnimatePresence mode="wait">
             {suggestion ? (
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                key="suggestion"
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="p-12 bg-white rounded-3xl border border-purple-100 shadow-sm"
+                exit={{ opacity: 0, y: -12 }}
+                className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm"
               >
-                <div className="flex items-center gap-3 mb-8">
-                  <div
-                    className="w-8 h-8 rounded-2xl flex items-center justify-center text-white"
-                    style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
-                  >
-                    <Sparkles className="w-4 h-4" />
+                <div className="flex items-center gap-2.5 mb-5">
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white"
+                    style={{ background: 'var(--gradient-primary)' }}>
+                    <Sparkles className="w-3.5 h-3.5" />
                   </div>
-                  <span className="text-[8px] font-bold tracking-[0.3em] uppercase text-purple-400">Aura AI Suggestion</span>
+                  <span className="section-label">Aura AI Suggestion</span>
                 </div>
 
-                <h2 className="text-4xl font-black mb-6 uppercase tracking-tight leading-tight text-purple-900">{suggestion.title}</h2>
-                <p className="text-purple-600 text-xs mb-10 leading-relaxed font-medium">{suggestion.description}</p>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">{suggestion.title}</h2>
+                <p className="text-gray-500 text-sm mb-5 leading-relaxed">{suggestion.description}</p>
 
-                <div className="bg-purple-50 p-8 rounded-2xl border border-purple-100 mb-10">
-                  <h4 className="text-[8px] font-bold text-purple-400 uppercase tracking-[0.3em] mb-4">Strategy Details</h4>
-                  <p className="text-purple-700 italic text-sm font-medium">"{suggestion.strategy}"</p>
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-5">
+                  <p className="section-label mb-2">Strategy</p>
+                  <p className="text-gray-700 text-sm leading-relaxed">"{suggestion.strategy}"</p>
                 </div>
 
-                <div className="flex gap-6">
-                  <button
-                    onClick={handleLaunch}
-                    className="flex-1 px-6 py-3 rounded-full font-bold text-white text-sm hover:opacity-90 transition-opacity"
-                    style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
-                  >
+                <div className="flex gap-3">
+                  <button onClick={handleLaunch} disabled={loading} className="btn-primary flex-1 justify-center py-3">
                     Launch Campaign
                   </button>
-                  <button
-                    onClick={() => setSuggestion(null)}
-                    className="px-10 py-3 bg-purple-50 text-purple-400 rounded-full font-bold uppercase tracking-[0.3em] text-[10px] hover:bg-purple-100 transition-all border border-purple-100"
-                  >
+                  <button onClick={() => setSuggestion(null)} className="btn-secondary px-6 py-3 justify-center">
                     Discard
                   </button>
                 </div>
               </motion.div>
             ) : (
-              <div className="p-24 text-center bg-white rounded-3xl border border-purple-100 border-dashed shadow-sm">
-                <TrendingUp className="w-12 h-12 mx-auto mb-6 text-purple-200" />
-                <h3 className="text-[10px] font-bold text-purple-300 uppercase tracking-[0.3em]">No active suggestions</h3>
-              </div>
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="py-20 text-center bg-white rounded-2xl border border-dashed border-gray-200"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-3">
+                  <TrendingUp className="w-6 h-6 text-gray-300" />
+                </div>
+                <p className="section-label">No active suggestions</p>
+              </motion.div>
             )}
           </AnimatePresence>
 
-          <div className="space-y-6">
-            <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-purple-900 mb-8 border-b border-purple-100 pb-4">Active Campaigns</h3>
+          <div>
+            <p className="section-label mb-3">Active Campaigns</p>
             {campaigns.length === 0 ? (
-              <p className="text-purple-300 text-[8px] font-bold uppercase tracking-[0.3em]">No campaigns active.</p>
+              <p className="text-gray-400 text-sm">No campaigns active.</p>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-2">
                 {campaigns.map(c => (
-                  <div key={c.id} className="p-6 bg-white rounded-3xl border border-purple-100 flex items-center justify-between hover:border-purple-300 transition-all shadow-sm">
+                  <div key={c.id}
+                    className="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between hover:border-gray-200 transition-colors">
                     <div>
-                      <h4 className="font-bold text-xs uppercase tracking-widest text-purple-900">{c.title}</h4>
-                      <p className="text-[8px] text-purple-400 font-bold uppercase tracking-[0.2em] mt-1">{c.status} • {c.type}</p>
+                      <h4 className="font-semibold text-sm text-gray-900">{c.title}</h4>
+                      <p className="text-xs text-gray-400 mt-0.5 capitalize">{c.status} · {c.type}</p>
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1 bg-green-50 border border-green-100 rounded-full">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-green-600">Running</span>
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-50 border border-green-100 rounded-full">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                      <span className="text-xs font-medium text-green-700">Running</span>
                     </div>
                   </div>
                 ))}
@@ -166,39 +159,39 @@ export default function CampaignManager() {
           </div>
         </div>
 
-        <div className="space-y-8">
-          <div className="p-8 bg-white rounded-3xl border border-purple-100 shadow-sm">
-            <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-purple-400 mb-8">Market Insights</h3>
-            <div className="space-y-6">
-              <div className="flex items-center justify-between p-4 bg-purple-50 rounded-2xl border border-purple-100">
-                <span className="text-[8px] text-purple-400 font-bold uppercase tracking-[0.2em]">CPT Trend</span>
-                <span className="text-[10px] font-bold text-purple-900 uppercase tracking-tight">+14% Growth</span>
+        <div className="space-y-4">
+          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <p className="section-label mb-4">Market Insights</p>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-3 border-b border-gray-50">
+                <span className="text-xs text-gray-500">CPT Trend</span>
+                <span className="text-sm font-semibold text-gray-900">+14% Growth</span>
               </div>
-              <div className="flex items-center justify-between p-4 bg-purple-50 rounded-2xl border border-purple-100">
-                <span className="text-[8px] text-purple-400 font-bold uppercase tracking-[0.2em]">Top Category</span>
-                <span className="text-[10px] font-bold uppercase tracking-tight text-purple-900">Streetwear</span>
+              <div className="flex items-center justify-between py-3">
+                <span className="text-xs text-gray-500">Top Category</span>
+                <span className="text-sm font-semibold text-gray-900">Streetwear</span>
               </div>
             </div>
           </div>
 
-          <div
-            className="p-10 text-white rounded-3xl relative overflow-hidden group"
-            style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
-          >
-            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-              <Megaphone className="w-20 h-20" />
+          <div className="p-5 text-white rounded-2xl relative overflow-hidden noise"
+            style={{ background: 'var(--gradient-primary)' }}>
+            <div className="absolute -top-4 -right-4 opacity-10">
+              <Megaphone className="w-24 h-24" />
             </div>
-            <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] mb-6 relative z-10">Social Reach</h3>
-            <p className="text-[10px] text-white/70 mb-8 leading-relaxed font-medium relative z-10">TikTok integration is currently analyzing trending sounds for your products.</p>
+            <p className="section-label text-white/70 mb-2 relative z-10">Social Reach</p>
+            <p className="text-xs text-white/80 mb-4 leading-relaxed relative z-10">
+              TikTok integration is analysing trending sounds for your products.
+            </p>
             <div className="h-1 bg-white/20 rounded-full overflow-hidden relative z-10">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: '65%' }}
-                transition={{ duration: 2, ease: "easeOut" }}
+                transition={{ duration: 1.5, ease: 'easeOut' }}
                 className="h-full bg-white rounded-full"
               />
             </div>
-            <span className="text-[8px] font-bold mt-4 block uppercase tracking-[0.3em] relative z-10">65% Optimized</span>
+            <span className="text-xs text-white/70 mt-2 block relative z-10">65% Optimised</span>
           </div>
         </div>
       </div>

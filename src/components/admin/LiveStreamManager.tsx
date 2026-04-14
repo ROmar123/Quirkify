@@ -8,50 +8,53 @@ export default function LiveStreamManager() {
   const [viewerCount, setViewerCount] = useState(0);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-6">
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-4xl font-black tracking-tight mb-2 text-purple-900 uppercase">Live Stream Studio</h1>
-          <p className="text-purple-400 text-sm uppercase tracking-widest font-bold">Broadcast your products to the world in real-time.</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Live Stream Studio</h1>
+          <p className="text-gray-400 text-sm mt-0.5">Broadcast your products to the world in real-time.</p>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all",
-            isLive ? "bg-red-50 border-red-200 text-red-600" : "bg-purple-50 border-purple-100 text-purple-400"
+            'flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all text-sm font-medium',
+            isLive
+              ? 'bg-red-50 border-red-200 text-red-600'
+              : 'bg-gray-50 border-gray-200 text-gray-500'
           )}>
-            <div className={cn("w-2 h-2 rounded-full", isLive ? "bg-red-600 animate-pulse" : "bg-purple-300")} />
-            <span className="text-[10px] font-bold uppercase tracking-widest">{isLive ? 'LIVE' : 'OFFLINE'}</span>
+            <div className={cn('w-1.5 h-1.5 rounded-full', isLive ? 'bg-red-500 animate-pulse' : 'bg-gray-400')} />
+            {isLive ? 'LIVE' : 'Offline'}
           </div>
           {isLive && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 border-2 border-purple-100 rounded-full">
-              <Users className="w-4 h-4 text-purple-400" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-purple-900">{viewerCount} Viewers</span>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-full text-sm text-gray-600">
+              <Users className="w-3.5 h-3.5" />
+              <span className="font-medium">{viewerCount} Viewers</span>
             </div>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="aspect-video bg-gradient-to-br from-purple-900 to-purple-800 rounded-3xl relative overflow-hidden group border-2 border-purple-100 shadow-lg">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-4">
+          {/* Stream preview */}
+          <div className="aspect-video bg-gray-900 rounded-2xl relative overflow-hidden shadow-lg">
             {!isLive ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-12">
-                <div className="w-20 h-20 bg-purple-800 rounded-2xl flex items-center justify-center mb-6 border-2 border-purple-600">
-                  <Video className="w-10 h-10 text-purple-400" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
+                <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mb-4 border border-white/20">
+                  <Video className="w-8 h-8 text-white/60" />
                 </div>
-                <h3 className="text-white text-sm font-bold uppercase tracking-[0.3em] mb-4">Ready to go live?</h3>
-                <p className="text-purple-300 text-[10px] uppercase tracking-widest max-w-xs mx-auto leading-relaxed mb-8">
-                  Connect your camera and microphone to start broadcasting your latest drops to the Quirkify community.
+                <h3 className="text-white/90 text-base font-semibold mb-2">Ready to go live?</h3>
+                <p className="text-white/50 text-sm max-w-xs mx-auto leading-relaxed mb-6">
+                  Connect your camera and microphone to start broadcasting your latest drops.
                 </p>
                 <button
                   onClick={() => {
                     setIsLive(true);
                     setViewerCount(Math.floor(Math.random() * 100) + 50);
                   }}
-                  className="px-12 py-4 bg-gradient-to-br from-pink-500 to-purple-600 text-white text-[10px] font-bold uppercase tracking-[0.4em] hover:shadow-lg transition-all flex items-center gap-3 rounded-full"
+                  className="btn-primary px-8 py-3"
                 >
-                  <Play className="w-4 h-4" />
+                  <Play className="w-4 h-4 fill-current" />
                   Start Broadcast
                 </button>
               </div>
@@ -63,84 +66,85 @@ export default function LiveStreamManager() {
                   alt="Stream Preview"
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute top-6 left-6 flex gap-3">
-                  <div className="px-3 py-1 bg-red-600 text-white text-[8px] font-bold uppercase tracking-widest flex items-center gap-2 rounded-full">
-                    <div className="w-1 h-1 bg-white rounded-full animate-ping" />
+                <div className="absolute top-4 left-4 flex gap-2">
+                  <div className="px-3 py-1 bg-red-600 text-white text-xs font-bold flex items-center gap-1.5 rounded-full">
+                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
                     LIVE
                   </div>
-                  <div className="px-3 py-1 bg-purple-600/50 backdrop-blur-md text-white text-[8px] font-bold uppercase tracking-widest rounded-full">
+                  <div className="px-3 py-1 bg-black/40 backdrop-blur-md text-white text-xs font-medium rounded-full">
                     00:42:15
                   </div>
                 </div>
-                <div className="absolute bottom-6 right-6">
+                <div className="absolute bottom-4 right-4">
                   <button
                     onClick={() => setIsLive(false)}
-                    className="p-3 bg-red-600 text-white hover:bg-red-700 transition-all rounded-full"
+                    className="p-3 bg-red-600 text-white hover:bg-red-700 transition-colors rounded-xl"
                   >
-                    <StopCircle className="w-6 h-6" />
+                    <StopCircle className="w-5 h-5" />
                   </button>
                 </div>
               </>
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-6">
-            <button className="p-6 bg-white border-2 border-purple-100 rounded-2xl hover:border-purple-300 transition-all group text-left">
-              <Settings className="w-5 h-5 text-purple-400 group-hover:text-purple-600 mb-4" />
-              <h4 className="text-[10px] font-bold uppercase tracking-widest text-purple-900 mb-1">Stream Settings</h4>
-              <p className="text-[8px] text-purple-400 uppercase tracking-widest">Configure audio/video</p>
-            </button>
-            <button className="p-6 bg-white border-2 border-purple-100 rounded-2xl hover:border-purple-300 transition-all group text-left">
-              <Share2 className="w-5 h-5 text-purple-400 group-hover:text-purple-600 mb-4" />
-              <h4 className="text-[10px] font-bold uppercase tracking-widest text-purple-900 mb-1">Share Stream</h4>
-              <p className="text-[8px] text-purple-400 uppercase tracking-widest">Invite your audience</p>
-            </button>
-            <button className="p-6 bg-white border-2 border-purple-100 rounded-2xl hover:border-purple-300 transition-all group text-left">
-              <Sparkles className="w-5 h-5 text-purple-400 group-hover:text-purple-600 mb-4" />
-              <h4 className="text-[10px] font-bold uppercase tracking-widest text-purple-900 mb-1">AI Enhancements</h4>
-              <p className="text-[8px] text-purple-400 uppercase tracking-widest">Auto-highlight products</p>
-            </button>
+          {/* Action buttons */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { icon: Settings, label: 'Stream Settings', sub: 'Configure audio/video' },
+              { icon: Share2, label: 'Share Stream', sub: 'Invite your audience' },
+              { icon: Sparkles, label: 'AI Enhancements', sub: 'Auto-highlight products' },
+            ].map(({ icon: Icon, label, sub }) => (
+              <button key={label} className="admin-card text-left hover:border-gray-200 transition-all group">
+                <Icon className="w-4 h-4 text-gray-400 group-hover:text-gray-600 mb-3 transition-colors" />
+                <p className="text-sm font-semibold text-gray-900">{label}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{sub}</p>
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="bg-white border-2 border-purple-100 rounded-3xl flex flex-col h-[600px] shadow-sm">
-            <div className="p-6 border-b-2 border-purple-100 flex items-center justify-between">
-              <h3 className="text-[10px] font-bold uppercase tracking-widest text-purple-900">Live Chat</h3>
-              <div className="flex items-center gap-2">
-                <MessageCircle className="w-4 h-4 text-purple-400" />
-                <span className="text-[8px] text-purple-400 font-bold uppercase tracking-widest">42 New</span>
-              </div>
+        {/* Chat panel */}
+        <div className="bg-white border border-gray-100 rounded-2xl flex flex-col h-[520px] shadow-sm">
+          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+            <span className="section-label">Live Chat</span>
+            <div className="flex items-center gap-1.5">
+              <MessageCircle className="w-3.5 h-3.5 text-gray-400" />
+              <span className="text-xs text-gray-400 font-medium">42 New</span>
             </div>
-            <div className="flex-1 p-6 space-y-4 overflow-y-auto bg-purple-50/30">
-              {[
-                { user: 'Sarah M.', text: 'Is the leather jacket still available?' },
-                { user: 'John D.', text: 'Love the vintage vibes today!' },
-                { user: 'Aura AI', text: 'Yes Sarah! Only 2 units left in stock.', system: true },
-                { user: 'Mike R.', text: 'Just copped the sneakers, fire!' },
-              ].map((msg, i) => (
-                <div key={i} className={cn(
-                  "p-3 rounded-2xl text-[10px] leading-relaxed border-2",
-                  msg.system ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white border-transparent" : "bg-white text-purple-900 border-purple-100"
-                )}>
-                  <span className={cn("font-bold uppercase tracking-widest block mb-1", msg.system ? "text-white/70" : "text-purple-600")}>
-                    {msg.user}
-                  </span>
-                  {msg.text}
-                </div>
-              ))}
-            </div>
-            <div className="p-4 border-t-2 border-purple-100">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Type a message..."
-                  className="flex-1 bg-purple-50 border-2 border-purple-100 px-4 py-2 text-[10px] font-bold uppercase tracking-widest focus:outline-none focus:border-purple-300 rounded-xl text-purple-900 placeholder-purple-300"
-                />
-                <button className="p-2 bg-gradient-to-br from-pink-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all">
-                  <Zap className="w-4 h-4" />
-                </button>
+          </div>
+
+          <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+            {[
+              { user: 'Sarah M.', text: 'Is the leather jacket still available?' },
+              { user: 'John D.', text: 'Love the vintage vibes today!' },
+              { user: 'Aura AI', text: 'Yes Sarah! Only 2 units left in stock.', isAI: true },
+              { user: 'Mike R.', text: 'Just copped the sneakers, fire!' },
+            ].map((msg, i) => (
+              <div key={i} className={cn(
+                'p-3 rounded-xl text-sm',
+                msg.isAI
+                  ? 'text-white'
+                  : 'bg-gray-50 border border-gray-100 text-gray-800'
+              )}
+              style={msg.isAI ? { background: 'var(--gradient-primary)' } : {}}>
+                <span className={cn('font-semibold text-xs block mb-0.5', msg.isAI ? 'text-white/70' : 'text-gray-500')}>
+                  {msg.user}
+                </span>
+                {msg.text}
               </div>
+            ))}
+          </div>
+
+          <div className="p-3 border-t border-gray-100">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Type a message…"
+                className="input flex-1 py-2 text-sm"
+              />
+              <button className="btn-primary px-3 py-2">
+                <Zap className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>
