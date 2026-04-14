@@ -4,10 +4,7 @@ import { ShoppingBag, Gavel, ClipboardList, User, LayoutDashboard, Megaphone } f
 import { cn } from '../../lib/utils';
 import { useMode } from '../../context/ModeContext';
 import { auth, onAuthStateChanged } from '../../firebase';
-<<<<<<< HEAD
-=======
 import { motion } from 'motion/react';
->>>>>>> origin/main
 
 export default function MobileNav() {
   const location = useLocation();
@@ -43,28 +40,6 @@ export default function MobileNav() {
   const navItems = isAdmin && mode === 'employee' ? employeeItems : customerItems;
 
   return (
-<<<<<<< HEAD
-    <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-purple-100 px-6 py-2 pb-8 flex items-center justify-between z-50 md:hidden">
-      {navItems.map((item) => {
-        const isActive = isActivePath(item.path);
-
-        return (
-          <Link
-            key={item.label}
-            to={item.path}
-            className={cn(
-              'flex flex-col items-center gap-1 transition-colors',
-              isActive ? 'text-purple-500' : 'text-purple-300 hover:text-purple-400'
-            )}
-          >
-            <div className={cn('p-1.5 rounded-xl transition-all', isActive && 'bg-purple-50')}>
-              <item.icon className="w-5 h-5" />
-            </div>
-            <span className="text-[8px] font-bold uppercase tracking-widest">{item.label}</span>
-          </Link>
-        );
-      })}
-=======
     <nav
       className="fixed bottom-0 left-0 right-0 z-50 md:hidden glass border-t border-gray-100"
       style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}
@@ -104,7 +79,6 @@ export default function MobileNav() {
           );
         })}
       </div>
->>>>>>> origin/main
     </nav>
   );
 }
