@@ -1,18 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { UserProfile, CollectionItem } from '../../types';
-import { getUserProfile } from '../../services/userService';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../../firebase';
-import { Trophy, Shield, Zap, Star, MapPin, Twitter, Instagram, Package, Gavel, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
-import { cn } from '../../lib/utils';
-import { RARITY_COLORS, RARITY_BG } from '../../services/gamificationService';
+import { getProfileByUid, type Profile } from '../../services/profileService';
+import { Star, MapPin, Twitter, Instagram, Package, Sparkles, ArrowLeft, AlertCircle } from 'lucide-react';
 
 export default function PublicProfile() {
   const { uid } = useParams<{ uid: string }>();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [items, setItems] = useState<CollectionItem[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,221 +14,218 @@ export default function PublicProfile() {
     const loadProfile = async () => {
       if (!uid) return;
       try {
-        const p = await getUserProfile(uid);
+        const p = await getProfileByUid(uid);
         setProfile(p);
         setError(null);
-
-        // Load public collection
-        const q = query(collection(db, 'users', uid, 'collection'));
-        const snap = await getDocs(q);
-        const collectionItems = snap.docs.map(d => ({ id: d.id, ...d.data() } as CollectionItem));
-        setItems(collectionItems);
-      } catch (error) {
-        setError(error instanceof Error ? error.message : 'Failed to load profile');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load profile');
         setProfile(null);
       } finally {
         setLoading(false);
       }
     };
-
     loadProfile();
   }, [uid]);
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-20 flex justify-center" style={{ background: '#FDF4FF' }}>
-        <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#A855F7', borderTopColor: 'transparent' }} />
+      <div className="max-w-4xl mx-auto px-4 py-12">
+        <div className="skeleton h-40 rounded-2xl mb-6" />
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[1, 2, 3].map(i => <div key={i} className="skeleton h-32 rounded-xl" />)}
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-20 text-center" style={{ background: '#FDF4FF' }}>
-        <h2 className="text-2xl font-black text-red-600 mb-4">Error Loading Profile</h2>
-        <p className="text-red-500 text-sm mb-6">{error}</p>
-        <Link to="/" className="text-purple-500 font-bold text-sm hover:text-purple-700 transition-colors">Return to Store</Link>
+      <div className="max-w-md mx-auto px-4 py-24 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4">
+          <AlertCircle className="w-6 h-6 text-red-500" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Failed to load profile</h2>
+        <p className="text-gray-500 text-sm mb-6">{error}</p>
+        <Link to="/" className="btn-secondary py-2 px-5 inline-flex">
+          <ArrowLeft className="w-4 h-4" /> Back to Store
+        </Link>
       </div>
     );
   }
 
   if (!profile) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-20 text-center" style={{ background: '#FDF4FF' }}>
-        <h2 className="text-2xl font-black text-purple-900 mb-4">Collector Not Found</h2>
-        <Link to="/" className="text-purple-500 font-bold text-sm hover:text-purple-700 transition-colors">Return to Store</Link>
+      <div className="max-w-md mx-auto px-4 py-24 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+          <Package className="w-6 h-6 text-gray-400" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Collector not found</h2>
+        <p className="text-gray-500 text-sm mb-6">This profile doesn't exist or has been removed.</p>
+        <Link to="/" className="btn-secondary py-2 px-5 inline-flex">
+          <ArrowLeft className="w-4 h-4" /> Back to Store
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen" style={{ background: '#FDF4FF' }}>
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Profile Header */}
-        <div className="relative mb-16">
+    <div className="hero-bg min-h-screen">
+      <div className="max-w-4xl mx-auto px-4 py-8 pb-28 md:pb-12">
+
+        {/* Profile banner + avatar */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="relative mb-16"
+        >
           {/* Banner */}
           <div
-            className="h-48 rounded-3xl overflow-hidden relative"
-            style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
+            className="h-44 rounded-2xl overflow-hidden noise"
+            style={{ background: 'var(--gradient-deep)' }}
           >
-            <div className="absolute inset-0 flex items-center justify-center opacity-10">
+            <div className="absolute inset-0 flex items-center justify-center opacity-5">
               <Sparkles className="w-64 h-64 text-white" />
             </div>
           </div>
 
-          {/* Avatar + Name row */}
-          <div className="absolute -bottom-12 left-8 flex items-end gap-6">
-            <div className="w-32 h-32 rounded-3xl bg-white p-1 border-4 border-white shadow-xl overflow-hidden">
-              {profile.photoURL ? (
+          {/* Avatar + name row */}
+          <div className="absolute -bottom-10 left-6 flex items-end gap-4">
+            <div className="w-24 h-24 rounded-2xl bg-white p-0.5 border-2 border-white shadow-lg overflow-hidden flex-shrink-0">
+              {profile.photoUrl ? (
                 <img
-                  src={profile.photoURL}
+                  src={profile.photoUrl}
                   alt={profile.displayName}
-                  className="w-full h-full object-cover rounded-2xl"
+                  className="w-full h-full object-cover rounded-xl"
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <div className="w-full h-full rounded-2xl bg-purple-50 flex items-center justify-center">
-                  <Star className="w-12 h-12 text-purple-300" />
+                <div className="w-full h-full rounded-xl bg-gray-100 flex items-center justify-center">
+                  <Star className="w-8 h-8 text-gray-300" />
                 </div>
               )}
             </div>
-            <div className="mb-4">
-              <h1 className="text-4xl font-black text-purple-900 tracking-tighter font-display">{profile.displayName}</h1>
-              <div className="flex items-center gap-4 mt-2">
+            <div className="mb-2">
+              <h1 className="text-2xl font-extrabold text-gray-900 leading-tight" style={{ fontFamily: 'Nunito, sans-serif' }}>
+                {profile.displayName}
+              </h1>
+              <div className="flex flex-wrap items-center gap-2 mt-1">
                 {profile.location && (
-                  <span className="flex items-center gap-1 text-xs font-bold text-purple-400">
+                  <span className="flex items-center gap-1 text-xs text-gray-500">
                     <MapPin className="w-3 h-3" /> {profile.location}
                   </span>
                 )}
-                <span
-                  className="px-3 py-1 rounded-full text-white text-xs font-bold"
-                  style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
-                >
-                  Level {profile.stats ? Math.floor(Math.sqrt((profile.stats.itemsCollected * 100) / 100)) + 1 : 1} Collector
+                <span className="badge">
+                  Level {profile.level || 1} Collector
                 </span>
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-4">
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* About card */}
-            <div className="bg-white rounded-3xl border border-purple-100 shadow-sm p-6">
-              <h3 className="text-lg font-black text-purple-900 mb-4">About Collector</h3>
-              <p className="text-purple-600 text-sm leading-relaxed mb-6">
-                {profile.bio || "This collector hasn't shared their story yet. They are busy hunting for the next quirky treasure."}
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5"
+            >
+              <h3 className="text-sm font-bold text-gray-900 mb-3">About</h3>
+              <p className="text-gray-500 text-xs leading-relaxed mb-4">
+                {profile.bio || "This collector hasn't shared their story yet."}
               </p>
-
-              <div className="flex gap-4">
-                {profile.socialLinks?.twitter && (
-                  <a href={profile.socialLinks.twitter} className="text-purple-400 hover:text-purple-600 transition-colors">
+              <div className="flex gap-3">
+                {profile.socialLinks?.twitter && profile.socialLinks.twitter.startsWith('https://') && (
+                  <a href={profile.socialLinks.twitter} target="_blank" rel="noopener noreferrer"
+                    className="text-gray-400 hover:text-gray-600 transition-colors">
                     <Twitter className="w-4 h-4" />
                   </a>
                 )}
-                {profile.socialLinks?.instagram && (
-                  <a href={profile.socialLinks.instagram} className="text-purple-400 hover:text-purple-600 transition-colors">
+                {profile.socialLinks?.instagram && profile.socialLinks.instagram.startsWith('https://') && (
+                  <a href={profile.socialLinks.instagram} target="_blank" rel="noopener noreferrer"
+                    className="text-gray-400 hover:text-gray-600 transition-colors">
                     <Instagram className="w-4 h-4" />
                   </a>
                 )}
               </div>
-            </div>
+            </motion.div>
 
             {/* Stats card */}
-            <div className="bg-white rounded-3xl border border-purple-100 shadow-sm p-6">
-              <h3 className="text-lg font-black text-purple-900 mb-4">Stats</h3>
-              <div className="grid grid-cols-2 gap-3">
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5"
+            >
+              <h3 className="text-sm font-bold text-gray-900 mb-3">Stats</h3>
+              <div className="grid grid-cols-2 gap-2">
                 {[
-                  { value: profile.stats?.itemsCollected || 0, label: 'Items' },
-                  { value: profile.stats?.auctionsWon || 0, label: 'Wins' },
-                  { value: profile.stats?.totalBids || 0, label: 'Bids' },
-                  { value: profile.badges?.length || 0, label: 'Badges' },
+                  { value: profile.itemsCollected || 0, label: 'Items' },
+                  { value: profile.auctionsWon || 0, label: 'Wins' },
+                  { value: profile.totalBids || 0, label: 'Bids' },
+                  { value: (profile.badges || []).length, label: 'Badges' },
                 ].map(({ value, label }) => (
-                  <div key={label} className="p-4 bg-purple-50 rounded-2xl border border-purple-100">
-                    <div className="text-2xl font-black text-purple-900 tracking-tighter">{value}</div>
-                    <div className="text-xs font-bold text-purple-400 mt-1">{label}</div>
+                  <div key={label} className="p-3 bg-gray-50 rounded-xl border border-gray-100 text-center">
+                    <div className="text-xl font-bold text-gray-900">{value}</div>
+                    <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mt-0.5">{label}</div>
                   </div>
                 ))}
               </div>
-            </div>
+            </motion.div>
 
             {/* Badges card */}
-            <div className="bg-white rounded-3xl border border-purple-100 shadow-sm p-6">
-              <h3 className="text-lg font-black text-purple-900 mb-4">Badges</h3>
-              <div className="flex flex-wrap gap-2">
-                {profile.badges.map(badge => (
-                  <span
-                    key={badge}
-                    className="px-3 py-1 bg-purple-50 border border-purple-100 rounded-full text-xs font-bold text-purple-700"
-                  >
-                    {badge}
-                  </span>
-                ))}
-                {profile.badges.length === 0 && (
-                  <span className="text-xs font-bold text-purple-400">No badges earned yet</span>
-                )}
-              </div>
-            </div>
+            {profile.badges && profile.badges.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5"
+              >
+                <h3 className="text-sm font-bold text-gray-900 mb-3">Badges</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {profile.badges.map(badge => (
+                    <span key={badge} className="badge">
+                      {badge}
+                    </span>
+                  ))}
+                </div>
+              </motion.div>
+            )}
           </div>
 
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-black text-purple-900 flex items-center gap-3">
-                  <Package className="w-5 h-5 text-purple-500" />
-                  Public Collection
-                </h2>
-                <span className="text-xs font-bold text-purple-400">{items.length} Items</span>
+          {/* Main content */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+            className="lg:col-span-2"
+          >
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Package className="w-4 h-4 text-purple-500" />
+                  <h2 className="text-sm font-bold text-gray-900">Public Collection</h2>
+                </div>
+                <span className="section-label">{profile.itemsCollected || 0} items</span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {items.map((item, idx) => (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    className="group bg-white rounded-3xl border border-purple-100 shadow-sm p-4 hover:border-purple-300 hover:shadow-md transition-all"
-                  >
-                    <div className="aspect-square bg-purple-50 rounded-2xl mb-4 overflow-hidden relative">
-                      {item.product?.imageUrl && (
-                        <img
-                          src={item.product.imageUrl}
-                          alt={item.product.name}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                          referrerPolicy="no-referrer"
-                        />
-                      )}
-                      <div className="absolute top-2 right-2">
-                        <span className={cn(
-                          "px-2 py-0.5 text-xs font-bold rounded-full",
-                          RARITY_BG[item.product?.rarity || 'Common'],
-                          RARITY_COLORS[item.product?.rarity || 'Common']
-                        )}>
-                          {item.product?.rarity || 'Common'}
-                        </span>
-                      </div>
-                    </div>
-                    <h4 className="font-black text-sm text-purple-900 tracking-tight mb-1">{item.product?.name || 'Unknown Item'}</h4>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-purple-400">
-                        Acquired {new Date(item.acquiredAt).toLocaleDateString()}
-                      </span>
-                      <span className="text-sm font-black text-purple-600">R{item.purchasePrice}</span>
-                    </div>
-                  </motion.div>
-                ))}
-                {items.length === 0 && (
-                  <div className="col-span-full py-20 text-center bg-white rounded-3xl border-2 border-dashed border-purple-100">
-                    <Package className="w-12 h-12 text-purple-200 mx-auto mb-4" />
-                    <p className="text-xs font-bold text-purple-400">Collection is hidden or empty</p>
-                  </div>
-                )}
-              </div>
+              {profile.itemsCollected > 0 ? (
+                <div className="py-16 text-center rounded-xl bg-gray-50 border border-gray-100">
+                  <Package className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+                  <p className="text-sm font-semibold text-gray-700">{profile.itemsCollected} items collected</p>
+                  <p className="text-xs text-gray-400 mt-1">Public collection view coming soon</p>
+                </div>
+              ) : (
+                <div className="py-16 text-center rounded-xl border-2 border-dashed border-gray-100">
+                  <Package className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+                  <p className="text-xs text-gray-400">No items collected yet</p>
+                </div>
+              )}
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </div>

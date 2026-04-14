@@ -28,11 +28,21 @@ import PrivacyPolicy from './components/legal/PrivacyPolicy';
 import ReturnsPolicy from './components/legal/ReturnsPolicy';
 import Footer from './components/layout/Footer';
 import { ErrorBoundary } from './components/ErrorBoundary';
+<<<<<<< HEAD
+=======
+import { Announcer, SkipLink } from './components/ui/Announcer';
+>>>>>>> origin/main
 
 import { CartProvider } from './context/CartContext';
 import { ModeProvider, useMode } from './context/ModeContext';
 
+<<<<<<< HEAD
 const ADMIN_EMAILS = new Set(['patengel85@gmail.com']);
+=======
+const ADMIN_EMAILS = new Set(
+  (import.meta.env.VITE_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+);
+>>>>>>> origin/main
 
 function RequireAuth({ user, children }: { user: AuthUser | null; children: ReactNode }) {
   const location = useLocation();
@@ -74,9 +84,15 @@ function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: AuthUser | 
   return (
     <motion.div
       key={location.pathname}
+<<<<<<< HEAD
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
+=======
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+>>>>>>> origin/main
     >
       <Routes location={location}>
         <Route path="/" element={<StoreFront />} />
@@ -153,6 +169,7 @@ function AppInner() {
 
   if (loading) {
     return (
+<<<<<<< HEAD
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#FDF4FF' }}>
         <motion.div
           animate={{ rotate: 360 }}
@@ -160,15 +177,41 @@ function AppInner() {
           className="w-10 h-10 border-4 border-t-transparent rounded-full"
           style={{ borderColor: '#A855F7', borderTopColor: 'transparent' }}
         />
+=======
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          className="flex flex-col items-center gap-4"
+        >
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+            className="w-8 h-8 rounded-full"
+            style={{ border: '2.5px solid #e9d5ff', borderTopColor: '#a855f7' }}
+          />
+          <p className="text-sm font-medium text-gray-400">Loading Quirkify…</p>
+        </motion.div>
+>>>>>>> origin/main
       </div>
     );
   }
 
   return (
+<<<<<<< HEAD
     <div className="min-h-screen font-sans" style={{ background: '#FDF4FF', color: '#2D1B69' }}>
       <PageHeader />
 
       <main className="pb-20">
+=======
+    <div className="min-h-screen font-sans bg-gray-50 text-gray-900">
+      <Announcer />
+      <SkipLink />
+      <PageHeader />
+
+      <main id="main-content" className="pb-20" role="main">
+>>>>>>> origin/main
         <ErrorBoundary>
           <AnimatedRoutes isAdmin={isAdmin} user={user} />
         </ErrorBoundary>

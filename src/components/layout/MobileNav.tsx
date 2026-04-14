@@ -4,6 +4,10 @@ import { ShoppingBag, Gavel, ClipboardList, User, LayoutDashboard, Megaphone } f
 import { cn } from '../../lib/utils';
 import { useMode } from '../../context/ModeContext';
 import { auth, onAuthStateChanged } from '../../firebase';
+<<<<<<< HEAD
+=======
+import { motion } from 'motion/react';
+>>>>>>> origin/main
 
 export default function MobileNav() {
   const location = useLocation();
@@ -39,6 +43,7 @@ export default function MobileNav() {
   const navItems = isAdmin && mode === 'employee' ? employeeItems : customerItems;
 
   return (
+<<<<<<< HEAD
     <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-purple-100 px-6 py-2 pb-8 flex items-center justify-between z-50 md:hidden">
       {navItems.map((item) => {
         const isActive = isActivePath(item.path);
@@ -59,6 +64,47 @@ export default function MobileNav() {
           </Link>
         );
       })}
+=======
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 md:hidden glass border-t border-gray-100"
+      style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}
+    >
+      <div className="flex items-center justify-around px-2 py-2">
+        {navItems.map((item) => {
+          const isActive = isActivePath(item.path);
+          return (
+            <Link
+              key={item.label}
+              to={item.path}
+              className="relative flex flex-col items-center gap-1 min-w-[56px] py-1"
+            >
+              <div className="relative">
+                {isActive && (
+                  <motion.div
+                    layoutId="mobile-nav-bg"
+                    className="absolute inset-0 rounded-xl"
+                    style={{ background: 'linear-gradient(135deg,#f472b6,#a855f7)', inset: '-6px -10px' }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+                  />
+                )}
+                <item.icon
+                  className={cn(
+                    'relative z-10 w-5 h-5 transition-all duration-200',
+                    isActive ? 'text-white' : 'text-gray-400'
+                  )}
+                />
+              </div>
+              <span className={cn(
+                'text-[9px] font-semibold uppercase tracking-wide transition-colors',
+                isActive ? 'text-purple-600' : 'text-gray-400'
+              )}>
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+>>>>>>> origin/main
     </nav>
   );
 }
