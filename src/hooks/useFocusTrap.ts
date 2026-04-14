@@ -129,5 +129,3 @@ export function useListKeyboardNavigation(
 
   return { focusedIndex, setFocusedIndex, handleKeyDown };
 }
-
-import { useState } from 'react';
