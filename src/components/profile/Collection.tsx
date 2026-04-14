@@ -172,13 +172,15 @@ export default function Collection() {
 
   if (!auth.currentUser) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-20 pb-32 text-center md:py-32 md:pb-20">
-        <div className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
-          <LogIn className="w-8 h-8 text-white" />
+      <div className="max-w-md mx-auto px-4 py-20 pb-28 text-center">
+        <div className="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center" style={{ background: 'var(--gradient-primary)' }}>
+          <LogIn className="w-7 h-7 text-white" />
         </div>
-        <h2 className="text-3xl font-black mb-3 gradient-text">Sign in to view your vault</h2>
-        <p className="text-purple-400 text-sm font-semibold mb-8">Your collection is waiting.</p>
-        <button onClick={() => navigate('/auth?next=%2Fcollection')} className="btn-primary px-10 py-4 text-base">Sign In or Create Account</button>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Sign in to view your vault</h2>
+        <p className="text-gray-500 text-sm mb-7">Your collection is waiting.</p>
+        <button onClick={() => navigate('/auth?next=%2Fcollection')} className="btn-primary px-8 py-3">
+          Sign In or Create Account
+        </button>
       </div>
     );
   }
@@ -186,21 +188,22 @@ export default function Collection() {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12 pb-32 md:pb-12">
+    <div className="hero-bg min-h-screen">
+    <div className="max-w-7xl mx-auto px-4 py-8 pb-28 md:pb-10">
       {/* Header */}
-      <header className="mb-12">
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-6xl md:text-8xl font-black mb-3 leading-tight gradient-text"
-        >
-          My Vault
-        </motion.h1>
-        <p className="text-purple-400 text-sm font-semibold">Your collection of unique items, bids and profile.</p>
-      </header>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8"
+      >
+        <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-1" style={{ fontFamily: 'Nunito, sans-serif' }}>
+          My <span className="gradient-text">Vault</span>
+        </h1>
+        <p className="text-gray-500 text-sm">Your collection, active bids, and account settings.</p>
+      </motion.div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 mb-10 overflow-x-auto pb-2">
+      <div className="flex items-center gap-2 mb-8 overflow-x-auto tag-strip">
         {TABS.map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -209,18 +212,14 @@ export default function Collection() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                'flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all whitespace-nowrap relative',
-                isActive ? 'text-white shadow-md' : 'text-purple-400 bg-white border border-purple-100 hover:border-purple-300'
-              )}
-              style={isActive ? { background: 'linear-gradient(135deg, #F472B6, #A855F7)' } : {}}
+              className={cn('filter-pill', isActive && 'active')}
             >
-              <Icon className="w-4 h-4" />
+              <Icon className="w-3.5 h-3.5" />
               {tab.label}
               {badge > 0 && (
                 <span className={cn(
-                  'w-5 h-5 rounded-full text-[9px] font-bold flex items-center justify-center',
-                  isActive ? 'bg-white/30 text-white' : 'bg-purple-100 text-purple-500'
+                  'min-w-[18px] h-[18px] rounded-full text-[9px] font-bold flex items-center justify-center px-1',
+                  isActive ? 'bg-white/25 text-white' : 'bg-purple-100 text-purple-600'
                 )}>
                   {badge}
                 </span>
@@ -232,37 +231,37 @@ export default function Collection() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Wallet Sidebar */}
-        <div className="lg:col-span-1 space-y-6">
-          <div className="rounded-3xl p-6 text-white relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #A855F7, #F472B6)' }}>
-            <Wallet className="absolute top-4 right-4 w-12 h-12 opacity-20" />
-            <p className="text-[9px] font-bold uppercase tracking-widest text-white/70 mb-1">Quirkify Wallet</p>
-            <p className="text-4xl font-black mb-6">R{commerceProfile?.balance ?? userProgress?.balance ?? 0}</p>
+        <div className="lg:col-span-1 space-y-4">
+          <div className="rounded-2xl p-5 text-white relative overflow-hidden noise" style={{ background: 'linear-gradient(135deg, #4c1d95, #a855f7, #db2777)' }}>
+            <Wallet className="absolute top-4 right-4 w-10 h-10 opacity-15" />
+            <p className="section-label text-white/60 mb-1">Quirkify Wallet</p>
+            <p className="price text-3xl mb-5">R{commerceProfile?.balance ?? userProgress?.balance ?? 0}</p>
             <button
               onClick={() => setShowTopUp(true)}
-              className="w-full py-2.5 bg-white/20 hover:bg-white/30 border border-white/30 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-white/15 hover:bg-white/25 border border-white/20 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2"
             >
-              <CreditCard className="w-3 h-3" />
-              Top Up
+              <CreditCard className="w-3.5 h-3.5" />
+              Top Up Wallet
             </button>
           </div>
 
           {/* Stats */}
-          <div className="bg-white rounded-3xl border border-purple-100 p-6 space-y-4">
-            <h3 className="text-[9px] font-bold uppercase tracking-widest text-purple-400">Collector Stats</h3>
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4 shadow-sm">
+            <p className="section-label">Collector Stats</p>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-black shadow" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-sm flex-shrink-0" style={{ background: 'var(--gradient-primary)' }}>
                 {userProgress?.level || 1}
               </div>
-              <div className="flex-1">
-                <p className="text-[9px] font-bold text-purple-400 mb-1">Level {userProgress?.level || 1} · {userProgress?.xp || 0} XP</p>
-                <div className="h-2 bg-purple-100 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${(userProgress?.xp || 0) % 100}%`, background: 'linear-gradient(90deg, #F472B6, #A855F7)' }} />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-gray-600 mb-1.5">Level {userProgress?.level || 1} · {userProgress?.xp || 0} XP</p>
+                <div className="progress-bar">
+                  <div className="progress-bar-fill" style={{ width: `${(userProgress?.xp || 0) % 100}%` }} />
                 </div>
               </div>
             </div>
-            <div className="pt-3 border-t border-purple-50 flex justify-between items-center">
-              <span className="text-[9px] font-bold text-purple-400 uppercase tracking-widest">Collection Value</span>
-              <span className="text-sm font-black text-purple-800">R{items.reduce((acc, item) => acc + item.purchasePrice, 0)}</span>
+            <div className="pt-3 border-t border-gray-100 flex justify-between items-center">
+              <span className="text-xs text-gray-500">Collection Value</span>
+              <span className="text-sm font-bold gradient-text">R{items.reduce((acc, item) => acc + item.purchasePrice, 0)}</span>
             </div>
           </div>
         </div>
@@ -467,6 +466,7 @@ export default function Collection() {
           </div>
         )}
       </AnimatePresence>
+    </div>
     </div>
   );
 }

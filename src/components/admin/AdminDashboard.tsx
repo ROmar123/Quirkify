@@ -3,9 +3,14 @@ import { auth } from '../../firebase';
 import { fetchProducts } from '../../services/productService';
 import { fetchOrders, Order } from '../../services/orderService';
 import { Product } from '../../types';
-import { TrendingUp, ShoppingBag, Zap, ClipboardList, ArrowUpRight, ArrowDownRight, Package, DollarSign, Users, Activity } from 'lucide-react';
+import {
+  TrendingUp, ShoppingBag, Zap, ClipboardList, ArrowUpRight,
+  Package, DollarSign, Activity, AlertTriangle, CheckCircle2,
+  Clock, Truck, BarChart3
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../../lib/utils';
+import { motion } from 'motion/react';
 
 export default function AdminDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -23,7 +28,6 @@ export default function AdminDashboard() {
         setProducts(prods);
         setOrders(ords);
       } catch (err) {
-        console.error('Dashboard load error:', err);
         setError('Failed to load dashboard data');
       } finally {
         setLoading(false);
@@ -32,81 +36,44 @@ export default function AdminDashboard() {
     load();
   }, []);
 
-  // Calculate real metrics
   const metrics = useMemo(() => {
-    const approvedProducts = products.filter(p => p.status === 'approved');
-    const pendingProducts = products.filter(p => p.status === 'pending');
+    const approved = products.filter(p => p.status === 'approved');
+    const pending = products.filter(p => p.status === 'pending');
     const paidOrders = orders.filter(o => ['paid', 'processing', 'shipped', 'delivered'].includes(o.status));
-    const totalRevenue = paidOrders.reduce((sum, o) => sum + o.total, 0);
+    const totalRevenue = paidOrders.reduce((s, o) => s + o.total, 0);
     const avgOrderValue = paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0;
-    const lowStock = approvedProducts.filter(p => (p.stock ?? 0) < 5).length;
-    
-    // Orders by status
-    const ordersByStatus = {
-      pending: orders.filter(o => o.status === 'pending').length,
-      paid: orders.filter(o => o.status === 'paid').length,
-      processing: orders.filter(o => o.status === 'processing').length,
-      shipped: orders.filter(o => o.status === 'shipped').length,
-      delivered: orders.filter(o => o.status === 'delivered').length,
-    };
+    const lowStock = approved.filter(p => (p.stock ?? 0) < 5).length;
 
     return {
-      approvedProducts: approvedProducts.length,
-      pendingProducts: pendingProducts.length,
+      approvedProducts: approved.length,
+      pendingProducts: pending.length,
       totalProducts: products.length,
       totalOrders: orders.length,
+      paidOrders: paidOrders.length,
       totalRevenue,
       avgOrderValue,
       lowStock,
-      ordersByStatus,
+      pipeline: {
+        pending: orders.filter(o => o.status === 'pending').length,
+        paid: orders.filter(o => o.status === 'paid').length,
+        processing: orders.filter(o => o.status === 'processing').length,
+        shipped: orders.filter(o => o.status === 'shipped').length,
+        delivered: orders.filter(o => o.status === 'delivered').length,
+        cancelled: orders.filter(o => o.status === 'cancelled').length,
+      },
     };
   }, [products, orders]);
 
-  const stats = [
-    { 
-      label: 'Total Revenue', 
-      value: `R${metrics.totalRevenue.toLocaleString()}`, 
-      subtext: `${metrics.totalOrders} orders`,
-      icon: DollarSign, 
-      gradient: 'linear-gradient(135deg, #10B981, #3B82F6)' 
-    },
-    { 
-      label: 'Active Products', 
-      value: metrics.approvedProducts, 
-      subtext: metrics.lowStock > 0 ? `${metrics.lowStock} low stock` : 'All good',
-      subtextColor: metrics.lowStock > 0 ? 'text-amber-600' : 'text-green-600',
-      icon: ShoppingBag, 
-      gradient: 'linear-gradient(135deg, #F472B6, #A855F7)' 
-    },
-    { 
-      label: 'Pending Review', 
-      value: metrics.pendingProducts, 
-      subtext: 'Awaiting approval',
-      icon: Zap, 
-      gradient: 'linear-gradient(135deg, #FBBF24, #FB923C)' 
-    },
-    { 
-      label: 'Avg Order Value', 
-      value: `R${Math.round(metrics.avgOrderValue).toLocaleString()}`, 
-      subtext: 'Per transaction',
-      icon: Activity, 
-      gradient: 'linear-gradient(135deg, #A855F7, #6366F1)' 
-    },
-  ];
-
-  const quickLinks = [
-    { to: '/admin/inventory', label: 'Inventory', desc: 'Manage products & stock', icon: ShoppingBag, gradient: 'linear-gradient(135deg, #F472B6, #A855F7)' },
-    { to: '/admin/orders', label: 'Orders', desc: 'Process & fulfill orders', icon: ClipboardList, gradient: 'linear-gradient(135deg, #4ADE80, #3B82F6)' },
-    { to: '/admin/campaigns', label: 'Growth', desc: 'Campaigns & analytics', icon: TrendingUp, gradient: 'linear-gradient(135deg, #FBBF24, #FB923C)' },
-  ];
-
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-12">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="h-32 bg-purple-50 animate-pulse rounded-3xl" />
-          ))}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {[1, 2, 3, 4].map(i => <div key={i} className="skeleton h-28 rounded-2xl" />)}
+        </div>
+        <div className="skeleton h-32 rounded-2xl mb-4" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="skeleton h-64 rounded-2xl" />
+          <div className="skeleton h-64 rounded-2xl" />
         </div>
       </div>
     );
@@ -115,209 +82,332 @@ export default function AdminDashboard() {
   if (error) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-12 text-center">
-        <p className="text-red-500 font-bold">{error}</p>
-        <button onClick={() => window.location.reload()} className="mt-4 btn-primary px-6 py-2 text-sm">
+        <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-3" />
+        <p className="text-gray-600 font-medium mb-4">{error}</p>
+        <button onClick={() => window.location.reload()} className="btn-primary px-5 py-2.5 text-sm">
           Retry
         </button>
       </div>
     );
   }
 
+  const stats = [
+    {
+      label: 'Total Revenue',
+      value: `R${metrics.totalRevenue.toLocaleString()}`,
+      sub: `${metrics.paidOrders} paid orders`,
+      icon: DollarSign,
+      iconBg: '#dcfce7',
+      iconColor: '#16a34a',
+      accentColor: '#22c55e',
+    },
+    {
+      label: 'Active Products',
+      value: metrics.approvedProducts,
+      sub: metrics.lowStock > 0 ? `${metrics.lowStock} low stock` : 'All stocked',
+      subColor: metrics.lowStock > 0 ? '#d97706' : '#16a34a',
+      icon: ShoppingBag,
+      iconBg: '#f5f3ff',
+      iconColor: '#7c3aed',
+      accentColor: '#a855f7',
+    },
+    {
+      label: 'Pending Review',
+      value: metrics.pendingProducts,
+      sub: 'Awaiting approval',
+      icon: Zap,
+      iconBg: '#fffbeb',
+      iconColor: '#d97706',
+      accentColor: '#fbbf24',
+    },
+    {
+      label: 'Avg Order Value',
+      value: `R${Math.round(metrics.avgOrderValue).toLocaleString()}`,
+      sub: 'Per transaction',
+      icon: Activity,
+      iconBg: '#faf5ff',
+      iconColor: '#9333ea',
+      accentColor: '#c084fc',
+    },
+  ];
+
+  const pipelineStages = [
+    { label: 'Pending', count: metrics.pipeline.pending, icon: Clock, color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
+    { label: 'Paid', count: metrics.pipeline.paid, icon: CheckCircle2, color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
+    { label: 'Processing', count: metrics.pipeline.processing, icon: Zap, color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
+    { label: 'Shipped', count: metrics.pipeline.shipped, icon: Truck, color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc' },
+    { label: 'Delivered', count: metrics.pipeline.delivered, icon: CheckCircle2, color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+  ];
+
+  const quickLinks = [
+    { to: '/admin/inventory', label: 'Inventory', desc: 'Manage products & stock', icon: ShoppingBag, gradient: 'linear-gradient(135deg,#f472b6,#a855f7)' },
+    { to: '/admin/orders', label: 'Orders', desc: 'Process & fulfill orders', icon: ClipboardList, gradient: 'linear-gradient(135deg,#22d3ee,#3b82f6)' },
+    { to: '/admin/campaigns', label: 'Growth', desc: 'Campaigns & analytics', icon: TrendingUp, gradient: 'linear-gradient(135deg,#fbbf24,#f97316)' },
+    { to: '/admin/reviews', label: 'Review Queue', desc: 'Approve pending products', icon: Zap, gradient: 'linear-gradient(135deg,#a855f7,#6366f1)' },
+  ];
+
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="px-4 py-4">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-black gradient-text">Dashboard</h1>
-          <p className="text-purple-400 text-xs font-semibold mt-1">
-            Welcome back, {auth.currentUser?.email?.split('@')[0]}
+    <div className="max-w-7xl mx-auto px-4 py-8 pb-24">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-7 flex items-start justify-between"
+      >
+        <div>
+          <h1 className="text-2xl font-extrabold text-gray-900" style={{ fontFamily: 'Nunito, sans-serif' }}>
+            Dashboard
+          </h1>
+          <p className="text-gray-500 text-sm mt-0.5">
+            Welcome back, <span className="font-semibold text-gray-700">{auth.currentUser?.email?.split('@')[0]}</span>
           </p>
         </div>
+        <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-3 py-2">
+          <BarChart3 className="w-4 h-4 text-gray-500" />
+          <span className="text-xs font-medium text-gray-600">{metrics.totalOrders} total orders</span>
+        </div>
+      </motion.div>
 
-        {/* Key Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-          {stats.map(s => (
-            <div key={s.label} className="bg-white rounded-3xl border border-purple-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-              <div className="h-1.5" style={{ background: s.gradient }} />
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="p-2 bg-purple-50 rounded-xl">
-                    <s.icon className="w-4 h-4 text-purple-500" />
-                  </div>
-                </div>
-                <p className="text-[10px] text-purple-400 font-bold uppercase tracking-wide">{s.label}</p>
-                <p className="text-xl font-black text-purple-900 mt-1">{s.value}</p>
-                {s.subtext && (
-                  <p className={cn('text-[10px] font-semibold mt-1', s.subtextColor || 'text-purple-400')}>
-                    {s.subtext}
-                  </p>
-                )}
+      {/* Key Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        {stats.map((s, i) => (
+          <motion.div
+            key={s.label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.06 }}
+            className="admin-card relative overflow-hidden"
+          >
+            <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl" style={{ background: s.accentColor }} />
+            <div className="flex items-start justify-between mb-3">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center"
+                style={{ background: s.iconBg }}
+              >
+                <s.icon className="w-4 h-4" style={{ color: s.iconColor }} />
               </div>
             </div>
-          ))}
+            <p className="section-label mb-1">{s.label}</p>
+            <p className="text-xl font-bold text-gray-900 stat-number">{s.value}</p>
+            {s.sub && (
+              <p className="text-xs font-medium mt-0.5" style={{ color: s.subColor || '#9ca3af' }}>
+                {s.sub}
+              </p>
+            )}
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Order Pipeline */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="admin-card mb-5"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-gray-800">Order Pipeline</h2>
+          <Link to="/admin/orders" className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-700 transition-colors">
+            View all <ArrowUpRight className="w-3 h-3" />
+          </Link>
         </div>
 
-        {/* Order Pipeline */}
-        <div className="bg-white rounded-3xl border border-purple-100 p-5 shadow-sm mb-6">
-          <h2 className="text-sm font-black text-purple-900 mb-4">Order Pipeline</h2>
-          <div className="grid grid-cols-5 gap-2">
-            {[
-              { label: 'Pending', count: metrics.ordersByStatus.pending, color: 'bg-amber-100 text-amber-700' },
-              { label: 'Paid', count: metrics.ordersByStatus.paid, color: 'bg-blue-100 text-blue-700' },
-              { label: 'Processing', count: metrics.ordersByStatus.processing, color: 'bg-purple-100 text-purple-700' },
-              { label: 'Shipped', count: metrics.ordersByStatus.shipped, color: 'bg-indigo-100 text-indigo-700' },
-              { label: 'Delivered', count: metrics.ordersByStatus.delivered, color: 'bg-green-100 text-green-700' },
-            ].map((stage, i, arr) => (
-              <div key={stage.label} className="relative">
-                <div className={cn('rounded-2xl p-3 text-center', stage.color)}>
-                  <p className="text-lg font-black">{stage.count}</p>
-                  <p className="text-[9px] font-bold uppercase tracking-wide mt-1">{stage.label}</p>
-                </div>
-                {i < arr.length - 1 && (
-                  <div className="hidden lg:block absolute top-1/2 -right-2 w-4 h-0.5 bg-purple-200" />
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Quick links */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-          {quickLinks.map(l => (
-            <Link key={l.to} to={l.to}
-              className="bg-white rounded-3xl border border-purple-100 p-4 hover:shadow-md transition-all group">
-              <div className="w-10 h-10 rounded-2xl mb-3 flex items-center justify-center text-white group-hover:scale-110 transition-transform"
-                style={{ background: l.gradient }}>
-                <l.icon className="w-5 h-5" />
-              </div>
-              <p className="text-sm font-black text-purple-900">{l.label}</p>
-              <p className="text-[10px] text-purple-400 font-semibold mt-0.5">{l.desc}</p>
-            </Link>
-          ))}
-        </div>
-
-        {/* Stock Levels */}
-        <div className="bg-white rounded-3xl border border-purple-100 p-5 shadow-sm mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-black text-purple-900">Stock Levels by Channel</h2>
-            <Link to="/admin/inventory" className="text-xs font-bold text-purple-500 hover:text-purple-700">Manage →</Link>
-          </div>
-          {products.length === 0 ? (
-            <p className="text-xs text-purple-300 font-semibold text-center py-6">No products yet</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-purple-100">
-                    <th className="text-left py-2 px-3 font-bold text-purple-600">Product</th>
-                    <th className="text-center py-2 px-3 font-bold text-purple-600">Total</th>
-                    <th className="text-center py-2 px-3 font-bold text-blue-600">Store</th>
-                    <th className="text-center py-2 px-3 font-bold text-amber-600">Auction</th>
-                    <th className="text-center py-2 px-3 font-bold text-pink-600">Packs</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {products.filter(p => p.status === 'approved').slice(0, 10).map(p => {
-                    const total = p.stock ?? 0;
-                    const store = p.allocations?.store ?? 0;
-                    const auction = p.allocations?.auction ?? 0;
-                    const packs = p.allocations?.packs ?? 0;
-                    const isLowStock = total < 5;
-                    return (
-                      <tr key={p.id} className="border-b border-purple-50 hover:bg-purple-50 transition-colors">
-                        <td className="py-3 px-3">
-                          <div className="flex items-center gap-2">
-                            {p.imageUrl && (
-                              <img src={p.imageUrl} className="w-8 h-8 rounded-xl object-cover" alt="" />
-                            )}
-                            <span className={cn('truncate max-w-xs', isLowStock && 'text-amber-600 font-bold')}>{p.name}</span>
-                          </div>
-                        </td>
-                        <td className={cn('text-center py-3 px-3 font-bold', isLowStock && 'text-amber-600')}>{total}</td>
-                        <td className="text-center py-3 px-3"><span className="bg-blue-50 text-blue-700 px-2 py-1 rounded-full">{store}</span></td>
-                        <td className="text-center py-3 px-3"><span className="bg-amber-50 text-amber-700 px-2 py-1 rounded-full">{auction}</span></td>
-                        <td className="text-center py-3 px-3"><span className="bg-pink-50 text-pink-700 px-2 py-1 rounded-full">{packs}</span></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {products.filter(p => p.status === 'approved').length > 10 && (
-                <p className="text-center text-xs text-purple-400 mt-3">
-                  +{products.filter(p => p.status === 'approved').length - 10} more products
+        <div className="grid grid-cols-5 gap-2">
+          {pipelineStages.map((stage, i) => (
+            <div key={stage.label} className="relative">
+              <div
+                className="rounded-xl p-3 text-center border"
+                style={{ background: stage.bg, borderColor: stage.border }}
+              >
+                <p className="text-xl font-bold stat-number" style={{ color: stage.color }}>{stage.count}</p>
+                <p className="text-[9px] font-semibold uppercase tracking-wide mt-0.5" style={{ color: stage.color }}>
+                  {stage.label}
                 </p>
+              </div>
+              {i < pipelineStages.length - 1 && (
+                <div className="hidden lg:block absolute top-1/2 -right-1.5 w-3 h-px bg-gray-200" />
               )}
             </div>
-          )}
+          ))}
         </div>
 
-        {/* Recent activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="bg-white rounded-3xl border border-purple-100 p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-black text-purple-900">Recent Orders</h2>
-              <Link to="/admin/orders" className="text-xs font-bold text-purple-500 hover:text-purple-700">View all →</Link>
-            </div>
-            {orders.slice(0, 5).length === 0 ? (
-              <p className="text-xs text-purple-300 font-semibold text-center py-6">No orders yet</p>
-            ) : (
-              <div className="space-y-2">
-                {orders.slice(0, 5).map(o => (
-                  <div key={o.id} className="flex items-center gap-3 p-3 rounded-2xl bg-purple-50">
-                    <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center border border-purple-100">
-                      <ClipboardList className="w-3.5 h-3.5 text-purple-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-black text-purple-900 truncate">{o.orderNumber}</p>
-                      <p className="text-[10px] text-purple-400 font-semibold truncate">{o.customerEmail}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs font-black text-purple-900">R{o.total.toLocaleString()}</p>
-                      <p className={cn('text-[10px] font-bold', 
-                        o.status === 'delivered' ? 'text-green-600' : 
-                        o.status === 'cancelled' ? 'text-red-600' :
-                        'text-amber-600'
-                      )}>{o.status}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+        {/* Mini progress bar */}
+        {metrics.totalOrders > 0 && (
+          <div className="mt-4 flex h-2 rounded-full overflow-hidden">
+            {[
+              { count: metrics.pipeline.pending, color: '#fbbf24' },
+              { count: metrics.pipeline.paid, color: '#60a5fa' },
+              { count: metrics.pipeline.processing, color: '#a855f7' },
+              { count: metrics.pipeline.shipped, color: '#22d3ee' },
+              { count: metrics.pipeline.delivered, color: '#4ade80' },
+            ].map((s, i) => s.count > 0 ? (
+              <div
+                key={i}
+                className="h-full transition-all duration-500"
+                style={{
+                  width: `${(s.count / metrics.totalOrders) * 100}%`,
+                  background: s.color,
+                }}
+              />
+            ) : null)}
           </div>
+        )}
+      </motion.div>
 
-          <div className="bg-white rounded-3xl border border-purple-100 p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-black text-purple-900">Recent Products</h2>
-              <Link to="/admin/inventory" className="text-xs font-bold text-purple-500 hover:text-purple-700">View all →</Link>
-            </div>
-            {products.slice(0, 5).length === 0 ? (
-              <p className="text-xs text-purple-300 font-semibold text-center py-6">No products yet</p>
-            ) : (
-              <div className="space-y-2">
-                {products.slice(0, 5).map(p => (
-                  <div key={p.id} className="flex items-center gap-3 p-3 rounded-2xl bg-purple-50">
-                    {p.imageUrl ? (
-                      <img src={p.imageUrl} className="w-8 h-8 rounded-xl object-cover flex-shrink-0" alt="" />
-                    ) : (
-                      <div className="w-8 h-8 rounded-xl bg-purple-200 flex items-center justify-center flex-shrink-0">
-                        <Package className="w-3.5 h-3.5 text-purple-400" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-black text-purple-900 truncate">{p.name}</p>
-                      <p className="text-[10px] text-purple-400 font-semibold">{p.category} · {p.condition}</p>
-                    </div>
-                    <span className={cn('px-2 py-1 rounded-full text-[10px] font-bold',
-                      p.status === 'approved' ? 'bg-green-50 text-green-700' :
-                      p.status === 'pending'  ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-600'
-                    )}>{p.status}</span>
-                  </div>
-                ))}
+      {/* Quick Links */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        {quickLinks.map((l, i) => (
+          <motion.div
+            key={l.to}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 + i * 0.05 }}
+          >
+            <Link
+              to={l.to}
+              className="admin-card flex flex-col group hover:-translate-y-0.5 transition-all"
+            >
+              <div
+                className="w-10 h-10 rounded-xl mb-3 flex items-center justify-center text-white group-hover:scale-105 transition-transform"
+                style={{ background: l.gradient }}
+              >
+                <l.icon className="w-4 h-4" />
               </div>
-            )}
-          </div>
-        </div>
+              <p className="text-sm font-semibold text-gray-800">{l.label}</p>
+              <p className="text-[11px] text-gray-500 mt-0.5">{l.desc}</p>
+            </Link>
+          </motion.div>
+        ))}
       </div>
+
+      {/* Recent Data */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Recent Orders */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="admin-card"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-gray-800">Recent Orders</h2>
+            <Link to="/admin/orders" className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-700 transition-colors">
+              View all <ArrowUpRight className="w-3 h-3" />
+            </Link>
+          </div>
+          {orders.length === 0 ? (
+            <div className="py-8 text-center">
+              <ClipboardList className="w-7 h-7 text-gray-200 mx-auto mb-2" />
+              <p className="text-sm text-gray-400">No orders yet</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {orders.slice(0, 5).map(o => {
+                const statusColors: Record<string, string> = {
+                  delivered: '#16a34a', paid: '#2563eb', shipped: '#0891b2',
+                  processing: '#7c3aed', pending: '#d97706',
+                  cancelled: '#dc2626', payment_failed: '#dc2626',
+                };
+                return (
+                  <div key={o.id} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+                    <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center border border-gray-100 flex-shrink-0">
+                      <ClipboardList className="w-3.5 h-3.5 text-gray-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-900 truncate">{o.orderNumber}</p>
+                      <p className="text-[10px] text-gray-500 truncate">{o.customerEmail}</p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-xs font-bold text-gray-900">R{o.total.toLocaleString()}</p>
+                      <p className="text-[10px] font-medium" style={{ color: statusColors[o.status] || '#9ca3af' }}>
+                        {o.status}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </motion.div>
+
+        {/* Stock table */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="admin-card"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-gray-800">Stock Levels</h2>
+            <Link to="/admin/inventory" className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-700 transition-colors">
+              Manage <ArrowUpRight className="w-3 h-3" />
+            </Link>
+          </div>
+          {products.filter(p => p.status === 'approved').length === 0 ? (
+            <div className="py-8 text-center">
+              <Package className="w-7 h-7 text-gray-200 mx-auto mb-2" />
+              <p className="text-sm text-gray-400">No products yet</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {products.filter(p => p.status === 'approved').slice(0, 6).map(p => {
+                const total = p.stock ?? 0;
+                const isLow = total < 5;
+                return (
+                  <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors">
+                    <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                      {p.imageUrl
+                        ? <img src={p.imageUrl} className="w-full h-full object-cover" alt="" />
+                        : <Package className="w-4 h-4 text-gray-300 m-2" />
+                      }
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={cn('text-xs font-medium truncate', isLow ? 'text-amber-700' : 'text-gray-800')}>
+                        {p.name}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${Math.min(100, (total / 20) * 100)}%`,
+                              background: isLow ? '#f97316' : '#a855f7',
+                            }}
+                          />
+                        </div>
+                        <span className={cn('text-[10px] font-semibold flex-shrink-0', isLow ? 'text-amber-600' : 'text-gray-500')}>
+                          {total}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </motion.div>
+      </div>
+
+      {/* Low stock alert */}
+      {metrics.lowStock > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.45 }}
+          className="mt-4 flex items-center gap-3 p-4 rounded-2xl border border-amber-100 bg-amber-50"
+        >
+          <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-800">
+              {metrics.lowStock} product{metrics.lowStock > 1 ? 's' : ''} running low on stock
+            </p>
+            <p className="text-xs text-amber-600 mt-0.5">Items with less than 5 units remaining</p>
+          </div>
+          <Link to="/admin/inventory" className="btn-secondary text-xs px-3 py-2 border-amber-200 text-amber-700 hover:border-amber-400">
+            Review
+          </Link>
+        </motion.div>
+      )}
     </div>
   );
 }

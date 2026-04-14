@@ -77,9 +77,9 @@ function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: AuthUser | 
   return (
     <motion.div
       key={location.pathname}
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
+      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
     >
       <Routes location={location}>
         <Route path="/" element={<StoreFront />} />
@@ -156,19 +156,27 @@ function AppInner() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#FDF4FF' }}>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
         <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-          className="w-10 h-10 border-4 border-t-transparent rounded-full"
-          style={{ borderColor: '#A855F7', borderTopColor: 'transparent' }}
-        />
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          className="flex flex-col items-center gap-4"
+        >
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+            className="w-8 h-8 rounded-full"
+            style={{ border: '2.5px solid #e9d5ff', borderTopColor: '#a855f7' }}
+          />
+          <p className="text-sm font-medium text-gray-400">Loading Quirkify…</p>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: '#FDF4FF', color: '#2D1B69' }}>
+    <div className="min-h-screen font-sans bg-gray-50 text-gray-900">
       <Announcer />
       <SkipLink />
       <PageHeader />
