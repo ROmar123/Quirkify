@@ -291,9 +291,9 @@ export default function Checkout() {
                       <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide mt-0.5">{item.category}</p>
                       <div className="flex items-center gap-3 mt-2.5">
                         <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
-                          <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="px-2.5 py-1 hover:bg-gray-100 text-gray-600 font-bold text-sm transition-colors">−</button>
-                          <span className="px-2.5 py-1 text-xs font-semibold text-gray-800">{item.quantity}</span>
-                          <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="px-2.5 py-1 hover:bg-gray-100 text-gray-600 font-bold text-sm transition-colors">+</button>
+                          <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 text-gray-600 font-bold text-base transition-colors active:bg-gray-200">−</button>
+                          <span className="w-8 text-center text-sm font-semibold text-gray-800">{item.quantity}</span>
+                          <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 text-gray-600 font-bold text-base transition-colors active:bg-gray-200">+</button>
                         </div>
                         <button onClick={() => removeFromCart(item.id)} className="text-[10px] font-medium text-red-400 hover:text-red-600 transition-colors">Remove</button>
                       </div>

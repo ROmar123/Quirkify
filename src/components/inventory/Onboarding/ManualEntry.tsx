@@ -61,7 +61,7 @@ export default function ManualEntry({ onComplete, onCancel }: ManualEntryProps) 
         name: formData.name, description: formData.description, category: formData.category,
         condition: formData.condition as ProductCondition, retailPrice, discountPrice,
         markdownPercentage, stock: Number(formData.stock),
-        imageUrl, imageUrls: [imageUrl], confidenceScore: 100,
+        imageUrl, imageUrls: [imageUrl], confidenceScore: 1,
       });
     } catch (err: any) {
       setError(err.message || 'Failed to process image');

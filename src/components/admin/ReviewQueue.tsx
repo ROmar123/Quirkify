@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../../firebase';
+import { subscribeToProducts, updateProduct } from '../../services/productService';
 import { Product, ProductCondition, AllocationSnapshot } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Check, Eye, Clock, Edit3, Save, ShoppingBag, Gavel, LayoutGrid, Trash2 } from 'lucide-react';
+import { Check, Eye, Clock, Edit3, Save, ShoppingBag, Gavel, LayoutGrid, Trash2, ArrowLeft, AlertCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import AllocationEditor from '../inventory/Shared/AllocationEditor';
 
@@ -14,24 +13,21 @@ export default function ReviewQueue() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedProduct, setEditedProduct] = useState<Product | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const q = query(collection(db, 'products'), where('status', '==', 'pending'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-      setProducts(docs);
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'products');
+    const unsub = subscribeToProducts('pending', (data) => {
+      setProducts(data);
       setLoading(false);
     });
-    return unsubscribe;
+    return unsub;
   }, []);
 
   useEffect(() => {
     if (selectedProduct) {
       setEditedProduct({ ...selectedProduct });
       setIsEditing(false);
+      setError(null);
     } else {
       setEditedProduct(null);
     }
@@ -45,7 +41,7 @@ export default function ReviewQueue() {
 
   const handleRetailPriceChange = (price: number) => {
     if (!editedProduct) return;
-    const discountPrice = Math.round(price * (1 - editedProduct.markdownPercentage / 100));
+    const discountPrice = Math.round(price * (1 - (editedProduct.markdownPercentage || 0) / 100));
     setEditedProduct({ ...editedProduct, retailPrice: price, discountPrice });
   };
 
@@ -53,39 +49,26 @@ export default function ReviewQueue() {
     if (!editedProduct) return;
     setError(null);
 
-    // Validate required fields on approval
     if (status === 'approved') {
-      if (!editedProduct.name?.trim()) {
-        setError('Product name is required');
-        return;
-      }
-      if (!editedProduct.description?.trim()) {
-        setError('Description is required');
-        return;
-      }
-      if (!editedProduct.retailPrice || editedProduct.retailPrice <= 0) {
-        setError('Retail price is required and must be greater than 0');
-        return;
-      }
-      if (!editedProduct.stock || editedProduct.stock <= 0) {
-        setError('Stock must be at least 1');
-        return;
-      }
+      if (!editedProduct.name?.trim()) { setError('Product name is required'); return; }
+      if (!editedProduct.description?.trim()) { setError('Description is required'); return; }
+      if (!editedProduct.retailPrice || editedProduct.retailPrice <= 0) { setError('Retail price must be greater than 0'); return; }
+      if (!editedProduct.stock || editedProduct.stock <= 0) { setError('Stock must be at least 1'); return; }
 
-      // Validate allocations don't exceed total stock
       const totalAllocated = (editedProduct.allocations?.store || 0) +
-                            (editedProduct.allocations?.auction || 0) +
-                            (editedProduct.allocations?.packs || 0);
+        (editedProduct.allocations?.auction || 0) +
+        (editedProduct.allocations?.packs || 0);
       if (totalAllocated > (editedProduct.stock || 0)) {
-        setError(`Allocations (${totalAllocated}) cannot exceed total stock (${editedProduct.stock})`);
+        setError(`Allocations (${totalAllocated}) exceed total stock (${editedProduct.stock})`);
         return;
       }
     }
 
+    setSaving(true);
     try {
-      const updateData: any = { status };
+      const updates: Partial<Product> = { status };
       if (status === 'approved') {
-        Object.assign(updateData, {
+        Object.assign(updates, {
           name: editedProduct.name,
           description: editedProduct.description,
           retailPrice: editedProduct.retailPrice,
@@ -93,180 +76,209 @@ export default function ReviewQueue() {
           discountPrice: editedProduct.discountPrice,
           condition: editedProduct.condition,
           stock: editedProduct.stock,
-          totalStock: editedProduct.stock,
           allocations: editedProduct.allocations || { store: editedProduct.stock, auction: 0, packs: 0 },
-          approvalDate: new Date().toISOString(),
-          listingType: editedProduct.listingType || 'store'
+          listingType: editedProduct.listingType || 'store',
         });
       }
-
-      await updateDoc(doc(db, 'products', id), updateData);
+      await updateProduct(id, updates);
       if (selectedProduct?.id === id) setSelectedProduct(null);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `products/${id}`);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to update product. Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
   const conditions: ProductCondition[] = ['New', 'Like New', 'Pre-owned', 'Refurbished'];
+  const showDetail = !!selectedProduct && !!editedProduct;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-12">
+    <div className="max-w-7xl mx-auto px-4 py-6 pb-24">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl sm:text-4xl font-black tracking-tight mb-2 text-purple-900">Review Queue</h1>
-          <p className="text-purple-600 text-xs sm:text-sm font-bold">Human-in-the-loop validation for AI products.</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Review Queue</h1>
+          <p className="text-gray-400 text-xs mt-0.5">Human-in-the-loop validation for AI products</p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-2xl border border-purple-100 shadow-sm w-fit">
-          <Clock className="w-4 h-4 text-purple-400" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-purple-700">{products.length} Pending</span>
+        <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-2xl border border-gray-100 shadow-sm">
+          <Clock className="w-4 h-4 text-gray-400" />
+          <span className="text-xs font-semibold text-gray-700">{products.length} Pending</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-12">
-        <div className="lg:col-span-1 space-y-2">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Product list — hidden on mobile when one is selected */}
+        <div className={cn('lg:col-span-1 space-y-2', showDetail && 'hidden lg:block')}>
           {loading ? (
-            [1, 2, 3].map(i => (
-              <div key={`skeleton-${i}`} className="h-20 bg-purple-50 animate-pulse rounded-2xl border border-purple-100" />
-            ))
+            [1, 2, 3].map(i => <div key={i} className="skeleton h-20 rounded-2xl" />)
           ) : products.length === 0 ? (
-            <div className="p-12 text-center bg-white rounded-3xl border border-purple-100 shadow-sm">
-              <p className="text-purple-300 text-[10px] font-bold uppercase tracking-widest">Queue is empty.</p>
+            <div className="p-12 text-center bg-white rounded-2xl border border-gray-100 shadow-sm">
+              <Eye className="w-8 h-8 text-gray-200 mx-auto mb-3" />
+              <p className="text-sm font-semibold text-gray-500">Queue is empty</p>
+              <p className="text-xs text-gray-400 mt-1">New AI intake submissions appear here</p>
             </div>
           ) : (
-            products.map((product) => (
-              <button
-                key={product.id}
-                onClick={() => setSelectedProduct(product)}
-                className={cn(
-                  "w-full p-4 rounded-2xl border transition-all flex items-center gap-4 text-left",
-                  selectedProduct?.id === product.id
-                    ? "border-purple-400 text-white"
-                    : "bg-white border-purple-100 text-purple-900 hover:border-purple-300 shadow-sm"
-                )}
-                style={selectedProduct?.id === product.id ? { background: 'linear-gradient(135deg, #F472B6, #A855F7)' } : {}}
-              >
-                <div className="w-12 h-12 rounded-2xl overflow-hidden bg-purple-50 flex-shrink-0 border border-purple-100">
-                  <img src={product.imageUrl} className="w-full h-full object-cover" alt="" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-xs uppercase tracking-tight truncate">{product.name}</h3>
-                  <p className={cn(
-                    "text-[10px] font-bold uppercase tracking-widest truncate",
-                    selectedProduct?.id === product.id ? "text-white/70" : "text-purple-400"
+            products.map((product) => {
+              const active = selectedProduct?.id === product.id;
+              return (
+                <motion.button
+                  key={product.id}
+                  onClick={() => setSelectedProduct(product)}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={cn(
+                    'w-full p-4 rounded-2xl border transition-all flex items-center gap-3 text-left',
+                    active
+                      ? 'border-purple-400 bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md'
+                      : 'bg-white border-gray-100 text-gray-900 hover:border-gray-200 shadow-sm'
+                  )}
+                >
+                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-50 flex-shrink-0 border border-gray-100">
+                    {product.imageUrl
+                      ? <img src={product.imageUrl} className="w-full h-full object-cover" alt="" />
+                      : <div className="w-full h-full flex items-center justify-center"><ShoppingBag className="w-5 h-5 text-gray-200" /></div>
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-sm truncate">{product.name || 'Unnamed product'}</h3>
+                    <p className={cn('text-xs mt-0.5 truncate', active ? 'text-white/70' : 'text-gray-400')}>
+                      {product.category} · R{product.discountPrice || product.retailPrice || 0}
+                    </p>
+                  </div>
+                  <span className={cn(
+                    'px-2 py-1 rounded-full text-[10px] font-semibold flex-shrink-0',
+                    active ? 'bg-white/20 text-white' : 'bg-amber-50 text-amber-600 border border-amber-100'
                   )}>
-                    {product.category} • R{product.discountPrice || product.priceRange?.max || product.retailPrice}
-                  </p>
-                </div>
-                <span className={cn(
-                  "px-2 py-1 rounded-full text-[8px] font-bold uppercase tracking-widest flex-shrink-0",
-                  selectedProduct?.id === product.id
-                    ? "bg-white/20 text-white"
-                    : "bg-purple-100 text-purple-600"
-                )}>
-                  Pending
-                </span>
-              </button>
-            ))
+                    Pending
+                  </span>
+                </motion.button>
+              );
+            })
           )}
         </div>
 
-        <div className="lg:col-span-2">
+        {/* Detail panel */}
+        <div className={cn('lg:col-span-2', !showDetail && 'hidden lg:block')}>
           <AnimatePresence mode="wait">
-            {selectedProduct && editedProduct ? (
+            {showDetail ? (
               <motion.div
-                key={selectedProduct.id}
+                key={selectedProduct!.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="bg-white rounded-3xl border border-purple-100 shadow-sm overflow-hidden"
+                className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
               >
-                <div className="aspect-video w-full bg-purple-50 border-b border-purple-100">
-                  <img src={selectedProduct.imageUrl} className="w-full h-full object-contain" alt="" />
+                {/* Mobile back button */}
+                <div className="lg:hidden flex items-center gap-2 p-4 border-b border-gray-100">
+                  <button onClick={() => setSelectedProduct(null)} className="btn-secondary p-2">
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-sm font-semibold text-gray-900">Review Product</span>
                 </div>
-                <div className="p-8">
+
+                {/* Image */}
+                <div className="aspect-video w-full bg-gray-50 border-b border-gray-100">
+                  {selectedProduct!.imageUrl
+                    ? <img src={selectedProduct!.imageUrl} className="w-full h-full object-contain" alt="" />
+                    : <div className="w-full h-full flex items-center justify-center"><ShoppingBag className="w-12 h-12 text-gray-200" /></div>
+                  }
+                </div>
+
+                <div className="p-5 sm:p-8">
                   {error && (
-                    <div className="mb-6 p-3 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-xs font-bold flex items-center gap-2">
-                      <span>⚠</span> {error}
+                    <div className="mb-5 p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm text-red-700">{error}</p>
                     </div>
                   )}
-                  <div className="flex items-center justify-between mb-8">
-                    <div className="flex-1">
+
+                  {/* Product header */}
+                  <div className="flex items-start justify-between gap-3 mb-6">
+                    <div className="flex-1 min-w-0">
                       {isEditing ? (
                         <input
                           type="text"
-                          value={editedProduct.name}
-                          onChange={(e) => setEditedProduct({ ...editedProduct, name: e.target.value })}
-                          className="w-full px-4 py-3 bg-white border-2 border-purple-100 rounded-2xl text-sm font-bold text-purple-800 placeholder:text-purple-300 focus:outline-none focus:border-purple-400 mb-1"
+                          value={editedProduct!.name}
+                          onChange={(e) => setEditedProduct({ ...editedProduct!, name: e.target.value })}
+                          className="input w-full mb-1"
+                          placeholder="Product name"
                         />
                       ) : (
-                        <h2 className="text-3xl font-black mb-1 uppercase tracking-tight text-purple-900">{editedProduct.name}</h2>
+                        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{editedProduct!.name}</h2>
                       )}
-                      <p className="text-purple-400 text-[10px] font-bold uppercase tracking-widest">{selectedProduct.category}</p>
+                      <p className="section-label mt-1">{selectedProduct!.category}</p>
                     </div>
-                    <div className="text-right ml-4">
-                      <span className="text-[8px] text-purple-400 block mb-1 uppercase tracking-widest font-bold">AI Confidence</span>
-                      <span className="text-2xl font-black text-purple-900">{Math.round(selectedProduct.confidenceScore * 100)}%</span>
+                    <div className="text-right flex-shrink-0">
+                      <p className="section-label mb-1">AI Confidence</p>
+                      <span className="text-xl font-bold text-gray-900">
+                        {Math.round((selectedProduct!.confidenceScore || 0) * 100)}%
+                      </span>
                     </div>
                   </div>
 
-                  <div className="space-y-8 mb-12">
+                  {/* Edit / view fields */}
+                  <div className="space-y-6 mb-8">
                     {isEditing ? (
                       <div className="space-y-4">
                         <div>
-                          <label className="text-[8px] font-bold uppercase tracking-widest text-purple-400 block mb-1">Description</label>
+                          <label className="section-label block mb-1.5">Description</label>
                           <textarea
-                            value={editedProduct.description}
-                            onChange={(e) => setEditedProduct({ ...editedProduct, description: e.target.value })}
-                            className="w-full px-4 py-3 bg-white border-2 border-purple-100 rounded-2xl text-sm font-bold text-purple-800 placeholder:text-purple-300 focus:outline-none focus:border-purple-400 h-24 resize-none"
+                            value={editedProduct!.description}
+                            onChange={(e) => setEditedProduct({ ...editedProduct!, description: e.target.value })}
+                            className="input resize-none h-24"
+                            placeholder="Product description…"
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="text-[8px] font-bold uppercase tracking-widest text-purple-400 block mb-1">Retail Price (ZAR)</label>
+                            <label className="section-label block mb-1.5">Retail Price (R)</label>
                             <input
                               type="number"
-                              value={editedProduct.retailPrice}
+                              value={editedProduct!.retailPrice || ''}
                               onChange={(e) => handleRetailPriceChange(Number(e.target.value))}
-                              className="w-full px-4 py-3 bg-white border-2 border-purple-100 rounded-2xl text-sm font-bold text-purple-800 placeholder:text-purple-300 focus:outline-none focus:border-purple-400"
+                              className="input"
+                              min="0"
                             />
                           </div>
                           <div>
-                            <label className="text-[8px] font-bold uppercase tracking-widest text-purple-400 block mb-1">Markdown %</label>
+                            <label className="section-label block mb-1.5">Markdown %</label>
                             <input
                               type="number"
-                              value={editedProduct.markdownPercentage}
+                              value={editedProduct!.markdownPercentage || ''}
                               onChange={(e) => handleMarkdownChange(Number(e.target.value))}
-                              className="w-full px-4 py-3 bg-white border-2 border-purple-100 rounded-2xl text-sm font-bold text-purple-800 placeholder:text-purple-300 focus:outline-none focus:border-purple-400"
+                              className="input"
+                              min="0"
+                              max="100"
                             />
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="text-[8px] font-bold uppercase tracking-widest text-purple-400 block mb-1">Condition</label>
+                            <label className="section-label block mb-1.5">Condition</label>
                             <select
-                              value={editedProduct.condition}
-                              onChange={(e) => setEditedProduct({ ...editedProduct, condition: e.target.value as ProductCondition })}
-                              className="w-full px-4 py-3 bg-white border-2 border-purple-100 rounded-2xl text-sm font-bold text-purple-800 focus:outline-none focus:border-purple-400 appearance-none"
+                              value={editedProduct!.condition}
+                              onChange={(e) => setEditedProduct({ ...editedProduct!, condition: e.target.value as ProductCondition })}
+                              className="input"
                             >
                               {conditions.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                           </div>
                           <div>
-                            <label className="text-[8px] font-bold uppercase tracking-widest text-purple-400 block mb-1">Quantity</label>
+                            <label className="section-label block mb-1.5">Stock</label>
                             <input
                               type="number"
-                              value={editedProduct.stock}
-                              onChange={(e) => setEditedProduct({ ...editedProduct, stock: Number(e.target.value) })}
-                              className="w-full px-4 py-3 bg-white border-2 border-purple-100 rounded-2xl text-sm font-bold text-purple-800 placeholder:text-purple-300 focus:outline-none focus:border-purple-400"
+                              value={editedProduct!.stock || ''}
+                              onChange={(e) => setEditedProduct({ ...editedProduct!, stock: Number(e.target.value) })}
+                              className="input"
+                              min="1"
                             />
                           </div>
                         </div>
-
-                        <div className="mt-4 pt-4 border-t border-purple-100">
+                        <div className="pt-4 border-t border-gray-100">
                           <AllocationEditor
-                            totalStock={editedProduct.stock || 1}
-                            allocations={editedProduct.allocations || { store: 0, auction: 0, packs: 0 }}
-                            onChange={(allocations: AllocationSnapshot) => setEditedProduct({ ...editedProduct, allocations })}
+                            totalStock={editedProduct!.stock || 1}
+                            allocations={editedProduct!.allocations || { store: 0, auction: 0, packs: 0 }}
+                            onChange={(allocations: AllocationSnapshot) => setEditedProduct({ ...editedProduct!, allocations })}
                             showPercentages={true}
                             compact={false}
                           />
@@ -274,94 +286,107 @@ export default function ReviewQueue() {
                       </div>
                     ) : (
                       <>
-                        <div className="grid grid-cols-2 gap-6">
-                          <div className="p-6 bg-purple-50 rounded-2xl border border-purple-100">
-                            <h4 className="text-[8px] font-bold text-purple-400 uppercase tracking-widest mb-1">Pricing (ZAR)</h4>
-                            <div className="flex items-baseline gap-2">
-                              <p className="text-xl font-black text-purple-900">R{editedProduct.discountPrice}</p>
-                              <p className="text-[10px] text-purple-400 line-through">R{editedProduct.retailPrice}</p>
-                              <p className="text-[8px] text-quirky font-bold">-{editedProduct.markdownPercentage}%</p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                            <p className="section-label mb-2">Pricing (ZAR)</p>
+                            <div className="flex items-baseline gap-2 flex-wrap">
+                              <span className="text-lg font-bold text-gray-900">R{editedProduct!.discountPrice}</span>
+                              <span className="text-xs text-gray-400 line-through">R{editedProduct!.retailPrice}</span>
+                              {editedProduct!.markdownPercentage ? (
+                                <span className="text-xs text-quirky font-bold">-{editedProduct!.markdownPercentage}%</span>
+                              ) : null}
                             </div>
                           </div>
-                          <div className="p-6 bg-purple-50 rounded-2xl border border-purple-100">
-                            <h4 className="text-[8px] font-bold text-purple-400 uppercase tracking-widest mb-1">Condition & Stock</h4>
-                            <p className="text-xl font-black text-purple-900 uppercase">{editedProduct.condition} • {editedProduct.stock} UNITS</p>
+                          <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                            <p className="section-label mb-2">Condition & Stock</p>
+                            <p className="text-sm font-bold text-gray-900">{editedProduct!.condition} · {editedProduct!.stock} units</p>
                           </div>
                         </div>
-
-                        <div>
-                          <h4 className="text-[8px] font-bold text-purple-400 uppercase tracking-widest mb-2">Description</h4>
-                          <p className="text-purple-600 text-sm leading-relaxed">{editedProduct.description}</p>
-                        </div>
+                        {editedProduct!.description && (
+                          <div>
+                            <p className="section-label mb-2">Description</p>
+                            <p className="text-sm text-gray-600 leading-relaxed">{editedProduct!.description}</p>
+                          </div>
+                        )}
                       </>
                     )}
 
-
-                    <div className="pt-8 border-t border-purple-100">
-                      <h4 className="text-[8px] font-bold text-purple-400 uppercase tracking-widest mb-4">Listing Destination</h4>
+                    {/* Listing destination */}
+                    <div className="pt-5 border-t border-gray-100">
+                      <p className="section-label mb-3">Listing Destination</p>
                       <div className="grid grid-cols-3 gap-3">
                         {[
-                          { id: 'store', label: 'Store Only', icon: ShoppingBag },
-                          { id: 'auction', label: 'Auction Only', icon: Gavel },
+                          { id: 'store', label: 'Store', icon: ShoppingBag },
+                          { id: 'auction', label: 'Auction', icon: Gavel },
                           { id: 'both', label: 'Both', icon: LayoutGrid },
-                        ].map((type) => (
-                          <button
-                            key={type.id}
-                            onClick={() => setEditedProduct({ ...editedProduct, listingType: type.id as any })}
-                            className={cn(
-                              "flex flex-col items-center justify-center p-4 border rounded-2xl transition-all gap-2",
-                              editedProduct.listingType === type.id || (!editedProduct.listingType && type.id === 'store')
-                                ? "border-purple-400 text-white"
-                                : "bg-white border-purple-100 text-purple-400 hover:border-purple-300"
-                            )}
-                            style={
-                              editedProduct.listingType === type.id || (!editedProduct.listingType && type.id === 'store')
-                                ? { background: 'linear-gradient(135deg, #F472B6, #A855F7)' }
-                                : {}
-                            }
-                          >
-                            <type.icon className="w-5 h-5" />
-                            <span className="text-[8px] font-bold uppercase tracking-widest">{type.label}</span>
-                          </button>
-                        ))}
+                        ].map((type) => {
+                          const active = editedProduct!.listingType === type.id || (!editedProduct!.listingType && type.id === 'store');
+                          return (
+                            <button
+                              key={type.id}
+                              onClick={() => setEditedProduct({ ...editedProduct!, listingType: type.id as any })}
+                              className={cn(
+                                'flex flex-col items-center justify-center p-3 rounded-xl border transition-all gap-1.5 text-sm',
+                                active
+                                  ? 'border-transparent text-white bg-gradient-to-br from-pink-500 to-purple-600 shadow-sm'
+                                  : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                              )}
+                            >
+                              <type.icon className="w-4 h-4" />
+                              <span className="text-[10px] font-semibold uppercase tracking-wide">{type.label}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
 
+                  {/* Actions */}
                   <div className="flex flex-col gap-3">
                     <div className="flex gap-3">
                       <button
                         onClick={() => setIsEditing(!isEditing)}
-                        className="flex-1 py-3 bg-purple-50 text-purple-700 rounded-full font-bold uppercase tracking-widest text-[10px] hover:bg-purple-100 transition-all flex items-center justify-center gap-2 border border-purple-100"
+                        className="btn-secondary flex-1 justify-center"
+                        disabled={saving}
                       >
                         {isEditing ? <Save className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
-                        {isEditing ? 'Save Changes' : 'Edit Details'}
+                        {isEditing ? 'Save' : 'Edit'}
                       </button>
                       <button
-                        onClick={() => handleStatus(selectedProduct.id, 'rejected')}
-                        className="px-6 py-3 bg-red-50 text-red-500 border border-red-100 rounded-full font-bold uppercase tracking-widest text-[10px] hover:bg-red-100 transition-all flex items-center justify-center gap-2"
+                        onClick={() => handleStatus(selectedProduct!.id, 'rejected')}
+                        disabled={saving}
+                        className="px-5 py-2.5 bg-red-50 text-red-600 border border-red-100 rounded-xl font-semibold text-sm hover:bg-red-100 transition-all flex items-center gap-2 disabled:opacity-50"
                       >
                         <Trash2 className="w-4 h-4" />
                         Reject
                       </button>
                     </div>
-
                     <button
-                      onClick={() => handleStatus(selectedProduct.id, 'approved')}
-                      className="w-full px-6 py-3 rounded-full font-bold text-white text-sm flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
-                      style={{ background: 'linear-gradient(135deg, #22C55E, #16A34A)' }}
+                      onClick={() => handleStatus(selectedProduct!.id, 'approved')}
+                      disabled={saving}
+                      className="btn-primary w-full justify-center py-3 disabled:opacity-50"
                     >
-                      <Check className="w-5 h-5" />
-                      Approve &amp; Push to {editedProduct.listingType === 'both' ? 'Store + Auction' : editedProduct.listingType === 'auction' ? 'Auction' : 'Store'}
+                      {saving ? (
+                        <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} className="w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                      ) : (
+                        <Check className="w-5 h-5" />
+                      )}
+                      {saving ? 'Saving…' : `Approve & Push to ${editedProduct!.listingType === 'both' ? 'Store + Auction' : editedProduct!.listingType === 'auction' ? 'Auction' : 'Store'}`}
                     </button>
                   </div>
                 </div>
               </motion.div>
             ) : (
-              <div className="h-full flex flex-col items-center justify-center text-center p-12 bg-white rounded-3xl border border-purple-100 border-dashed shadow-sm">
-                <Eye className="w-10 h-10 text-purple-200 mb-4" />
-                <p className="text-purple-300 text-[10px] font-bold uppercase tracking-widest">Select a product to review</p>
-              </div>
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="h-80 flex flex-col items-center justify-center text-center p-12 bg-white rounded-2xl border border-gray-100 border-dashed shadow-sm"
+              >
+                <Eye className="w-10 h-10 text-gray-200 mb-4" />
+                <p className="text-sm font-semibold text-gray-500">Select a product to review</p>
+                <p className="text-xs text-gray-400 mt-1">Pick from the pending queue on the left</p>
+              </motion.div>
             )}
           </AnimatePresence>
         </div>
