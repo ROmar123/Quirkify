@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { cn } from '../../../lib/utils';
 import { AllocationSnapshot } from '../../../types';
 
@@ -19,27 +19,33 @@ export default function AllocationEditor({
   showPercentages = true,
   compact = false,
 }: AllocationEditorProps) {
-  const total = allocations.store + allocations.auction + allocations.packs;
+  // Guard against missing allocations
+  const safeAllocs: AllocationSnapshot = {
+    store: allocations?.store ?? 0,
+    auction: allocations?.auction ?? 0,
+    packs: allocations?.packs ?? 0,
+  };
+  const total = safeAllocs.store + safeAllocs.auction + safeAllocs.packs;
   const isValid = total <= totalStock;
 
   const percentages = useMemo(() => ({
-    store: totalStock > 0 ? Math.round((allocations.store / totalStock) * 100) : 0,
-    auction: totalStock > 0 ? Math.round((allocations.auction / totalStock) * 100) : 0,
-    packs: totalStock > 0 ? Math.round((allocations.packs / totalStock) * 100) : 0,
+    store: totalStock > 0 ? Math.round((safeAllocs.store / totalStock) * 100) : 0,
+    auction: totalStock > 0 ? Math.round((safeAllocs.auction / totalStock) * 100) : 0,
+    packs: totalStock > 0 ? Math.round((safeAllocs.packs / totalStock) * 100) : 0,
   }), [allocations, totalStock]);
 
   const handleChange = (channel: keyof AllocationSnapshot, value: number) => {
     const clamped = Math.max(0, Math.min(value, totalStock));
-    onChange({ ...allocations, [channel]: clamped });
+    onChange({ ...safeAllocs, [channel]: clamped });
   };
 
   const inputClass = compact
-    ? 'w-full px-2 py-1 bg-white border border-purple-100 rounded-lg text-xs font-bold text-purple-800 focus:outline-none focus:border-purple-400'
-    : 'w-full px-3 py-2 bg-white border-2 border-purple-100 rounded-2xl text-sm font-bold text-purple-800 focus:outline-none focus:border-purple-400';
+    ? 'w-full px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:border-quirky focus:bg-white transition-colors'
+    : 'w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:border-quirky focus:bg-white transition-colors';
 
   const labelClass = compact
-    ? 'text-[7px] font-bold text-purple-400 block mb-0.5'
-    : 'text-[8px] font-bold text-purple-400 block mb-1';
+    ? 'text-[9px] font-bold text-gray-400 uppercase tracking-wide block mb-1'
+    : 'text-[10px] font-bold text-gray-400 uppercase tracking-wide block mb-1.5';
 
   return (
     <div className="space-y-3">
@@ -51,13 +57,13 @@ export default function AllocationEditor({
             type="number"
             min="0"
             max={totalStock}
-            value={allocations.store}
+            value={safeAllocs.store}
             onChange={(e) => handleChange('store', Number(e.target.value))}
             disabled={disabled}
             className={cn(inputClass, disabled && 'opacity-60 cursor-not-allowed')}
           />
           {showPercentages && (
-            <p className="text-[7px] text-purple-400 mt-0.5">{percentages.store}%</p>
+            <p className="text-[9px] text-gray-400 mt-0.5 font-medium">{percentages.store}%</p>
           )}
         </div>
 
@@ -68,13 +74,13 @@ export default function AllocationEditor({
             type="number"
             min="0"
             max={totalStock}
-            value={allocations.auction}
+            value={safeAllocs.auction}
             onChange={(e) => handleChange('auction', Number(e.target.value))}
             disabled={disabled}
             className={cn(inputClass, disabled && 'opacity-60 cursor-not-allowed')}
           />
           {showPercentages && (
-            <p className="text-[7px] text-purple-400 mt-0.5">{percentages.auction}%</p>
+            <p className="text-[9px] text-gray-400 mt-0.5 font-medium">{percentages.auction}%</p>
           )}
         </div>
 
@@ -85,13 +91,13 @@ export default function AllocationEditor({
             type="number"
             min="0"
             max={totalStock}
-            value={allocations.packs}
+            value={safeAllocs.packs}
             onChange={(e) => handleChange('packs', Number(e.target.value))}
             disabled={disabled}
             className={cn(inputClass, disabled && 'opacity-60 cursor-not-allowed')}
           />
           {showPercentages && (
-            <p className="text-[7px] text-purple-400 mt-0.5">{percentages.packs}%</p>
+            <p className="text-[9px] text-gray-400 mt-0.5 font-medium">{percentages.packs}%</p>
           )}
         </div>
       </div>

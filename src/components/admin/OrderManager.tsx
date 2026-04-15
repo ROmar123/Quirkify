@@ -7,7 +7,7 @@ import { cn } from '../../lib/utils';
 const STATUS_CONFIG: Record<string, { label: string; classes: string }> = {
   pending: { label: 'Pending', classes: 'bg-amber-100 text-amber-700' },
   paid: { label: 'Paid', classes: 'bg-blue-100 text-blue-700' },
-  processing: { label: 'Processing', classes: 'bg-purple-100 text-gray-700' },
+  processing: { label: 'Processing', classes: 'bg-violet-100 text-violet-700' },
   shipped: { label: 'Shipped', classes: 'bg-indigo-100 text-indigo-700' },
   delivered: { label: 'Delivered', classes: 'bg-green-100 text-green-700' },
   cancelled: { label: 'Cancelled', classes: 'bg-red-100 text-red-700' },
@@ -92,7 +92,7 @@ export default function OrderManager() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <div className="w-10 h-10 rounded-full border-4 border-gray-200 border-t-purple-500 animate-spin" />
+        <div className="w-10 h-10 rounded-full border-4 border-gray-200 border-t-quirky animate-spin" />
       </div>
     );
   }
@@ -174,7 +174,7 @@ export default function OrderManager() {
                       <span className={cn('inline-flex items-center rounded-full px-3 py-1.5 text-[11px] font-black', statusInfo.classes)}>
                         {statusInfo.label}
                       </span>
-                      <span className="text-[11px] font-black uppercase tracking-[0.24em] text-purple-300">{order.channel}</span>
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{order.channel}</span>
                     </div>
                     <div className="mt-4 grid gap-3 sm:grid-cols-4">
                       <div>
@@ -289,18 +289,18 @@ export default function OrderManager() {
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm font-bold text-gray-700"><span>Subtotal</span><span>R{selectedOrder.subtotal.toLocaleString()}</span></div>
                       <div className="flex justify-between text-sm font-bold text-gray-700"><span>Shipping</span><span>{selectedOrder.shippingCost > 0 ? `R${selectedOrder.shippingCost.toLocaleString()}` : 'Free'}</span></div>
-                      <div className="h-px bg-purple-200 my-2" />
+                      <div className="h-px bg-gray-100 my-2" />
                       <div className="flex justify-between text-base font-black text-gray-900"><span>Total</span><span>R{selectedOrder.total.toLocaleString()}</span></div>
                     </div>
                     <div className="mt-4 space-y-3">
                       {selectedOrder.items.map((item) => (
-                        <div key={item.id} className="flex items-center gap-3 rounded-2xl bg-purple-50 px-4 py-3">
+                        <div key={item.id} className="flex items-center gap-3 rounded-xl bg-gray-50 px-4 py-3">
                           <div className="w-12 h-12 rounded-xl overflow-hidden bg-white border border-gray-100 flex items-center justify-center flex-shrink-0">
-                            {item.productImageUrl ? <img src={item.productImageUrl} alt={item.productName} className="w-full h-full object-cover" /> : <Package className="w-5 h-5 text-purple-300" />}
+                            {item.productImageUrl ? <img src={item.productImageUrl} alt={item.productName} className="w-full h-full object-cover" /> : <Package className="w-5 h-5 text-gray-300" />}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-black text-gray-900 truncate">{item.productName}</p>
-                            <p className="text-[11px] font-semibold text-purple-500">{item.quantity} × R{item.unitPrice.toLocaleString()}</p>
+                            <p className="text-sm font-semibold text-gray-900 truncate">{item.productName}</p>
+                            <p className="text-[11px] font-medium text-gray-400">{item.quantity} × R{item.unitPrice.toLocaleString()}</p>
                           </div>
                           <p className="text-sm font-black text-gray-900">R{item.lineTotal.toLocaleString()}</p>
                         </div>
