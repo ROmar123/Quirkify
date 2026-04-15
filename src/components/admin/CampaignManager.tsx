@@ -1,47 +1,52 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, addDoc, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Product, Campaign } from '../../types';
+import { subscribeToProducts } from '../../services/productService';
 import { suggestCampaign } from '../../services/gemini';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Loader, CheckCircle2, TrendingUp, Megaphone } from 'lucide-react';
-
-import { handleFirestoreError, OperationType } from '../../firebase';
 
 export default function CampaignManager() {
   const [products, setProducts] = useState<Product[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(false);
   const [suggestion, setSuggestion] = useState<any>(null);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
 
   useEffect(() => {
-    const q = query(collection(db, 'products'), where('status', '==', 'approved'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'products');
+    // Products now live in Supabase — use productService
+    const unsubProducts = subscribeToProducts('approved', (data) => {
+      setProducts(data);
     });
 
-    const unsubscribeCampaigns = onSnapshot(collection(db, 'campaigns'), (snapshot) => {
-      setCampaigns(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Campaign)));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'campaigns');
-    });
+    // Campaigns still in Firestore
+    let unsubCampaigns: (() => void) | undefined;
+    try {
+      unsubCampaigns = onSnapshot(collection(db, 'campaigns'), (snapshot) => {
+        setCampaigns(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Campaign)));
+      }, (err) => {
+        console.warn('CampaignManager: Firestore campaigns unavailable', err);
+      });
+    } catch (err) {
+      console.warn('CampaignManager: Could not subscribe to campaigns', err);
+    }
 
     return () => {
-      unsubscribe();
-      unsubscribeCampaigns();
+      unsubProducts();
+      unsubCampaigns?.();
     };
   }, []);
 
   const handleSuggest = async () => {
     if (products.length === 0) return;
     setLoading(true);
+    setSuggestError(null);
     try {
       const result = await suggestCampaign(products.slice(0, 5));
       setSuggestion(result);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      setSuggestError(err?.message || 'Failed to generate suggestion. Try again.');
     } finally {
       setLoading(false);
     }
@@ -86,6 +91,11 @@ export default function CampaignManager() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
+          {suggestError && (
+            <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700 mb-4">
+              {suggestError}
+            </div>
+          )}
           <AnimatePresence mode="wait">
             {suggestion ? (
               <motion.div

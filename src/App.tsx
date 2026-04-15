@@ -84,23 +84,23 @@ function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: AuthUser | 
       <Routes location={location}>
         <Route path="/" element={<StoreFront />} />
         <Route path="/auth" element={<AuthPage />} />
-        <Route path="/auctions" element={<AuctionList />} />
+        <Route path="/auctions" element={<ErrorBoundary><AuctionList /></ErrorBoundary>} />
         <Route path="/checkout" element={<RequireAuth user={user}><Checkout /></RequireAuth>} />
         <Route path="/product/:id" element={<ProductDetails />} />
         <Route path="/payment/success" element={<PaymentResult type="success" />} />
         <Route path="/payment/cancel" element={<PaymentResult type="cancel" />} />
         <Route path="/live/:sessionId" element={<LiveStreamRoom />} />
-        <Route path="/collection" element={<RequireAuth user={user}><Collection /></RequireAuth>} />
+        <Route path="/collection" element={<RequireAuth user={user}><ErrorBoundary><Collection /></ErrorBoundary></RequireAuth>} />
         <Route path="/profile/:uid" element={<PublicProfile />} />
-        <Route path="/orders" element={<RequireAuth user={user}><Orders /></RequireAuth>} />
+        <Route path="/orders" element={<RequireAuth user={user}><ErrorBoundary><Orders /></ErrorBoundary></RequireAuth>} />
         <Route path="/seller/onboarding" element={<RequireAuth user={user}><SellerOnboarding /></RequireAuth>} />
         <Route path="/admin" element={<RequireAdmin user={user} isAdmin={isAdmin}><AdminDashboard /></RequireAdmin>} />
-        <Route path="/admin/inventory" element={<RequireAdmin user={user} isAdmin={isAdmin}><Inventory /></RequireAdmin>} />
+        <Route path="/admin/inventory" element={<RequireAdmin user={user} isAdmin={isAdmin}><ErrorBoundary><Inventory /></ErrorBoundary></RequireAdmin>} />
         <Route path="/admin/reviews"  element={<RequireAdmin user={user} isAdmin={isAdmin}><ProductsPage /></RequireAdmin>} />
-        <Route path="/admin/orders"   element={<RequireAdmin user={user} isAdmin={isAdmin}><CommercePage /></RequireAdmin>} />
-        <Route path="/admin/campaigns" element={<RequireAdmin user={user} isAdmin={isAdmin}><GrowthPage /></RequireAdmin>} />
-        <Route path="/admin/social"   element={<RequireAdmin user={user} isAdmin={isAdmin}><GrowthPage /></RequireAdmin>} />
-        <Route path="/admin/streams"  element={<RequireAdmin user={user} isAdmin={isAdmin}><GrowthPage /></RequireAdmin>} />
+        <Route path="/admin/orders"   element={<RequireAdmin user={user} isAdmin={isAdmin}><ErrorBoundary><CommercePage /></ErrorBoundary></RequireAdmin>} />
+        <Route path="/admin/campaigns" element={<RequireAdmin user={user} isAdmin={isAdmin}><ErrorBoundary><GrowthPage /></ErrorBoundary></RequireAdmin>} />
+        <Route path="/admin/social"   element={<RequireAdmin user={user} isAdmin={isAdmin}><ErrorBoundary><GrowthPage /></ErrorBoundary></RequireAdmin>} />
+        <Route path="/admin/streams"  element={<RequireAdmin user={user} isAdmin={isAdmin}><ErrorBoundary><GrowthPage /></ErrorBoundary></RequireAdmin>} />
         <Route path="/admin/resources" element={<RequireAdmin user={user} isAdmin={isAdmin}><ResourceMonitor /></RequireAdmin>} />
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
