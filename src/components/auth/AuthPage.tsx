@@ -84,12 +84,12 @@ export default function AuthPage() {
     <div className="min-h-[calc(100vh-3.5rem)] hero-bg px-4 py-8 pb-24 md:pb-8">
       <div className="max-w-5xl mx-auto grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
 
-        {/* Left — brand panel */}
+        {/* Left — brand panel (shown below form on mobile) */}
         <motion.section
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="relative overflow-hidden rounded-3xl text-white noise"
+          className="relative overflow-hidden rounded-3xl text-white noise order-2 lg:order-1"
           style={{
             background: 'linear-gradient(145deg, #1e1b4b 0%, #4c1d95 50%, #be185d 100%)',
             boxShadow: '0 20px 60px rgba(76,29,149,0.30)',
@@ -123,12 +123,12 @@ export default function AuthPage() {
           </div>
         </motion.section>
 
-        {/* Right — form */}
+        {/* Right — form (shown first on mobile) */}
         <motion.section
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.06, ease: [0.16, 1, 0.3, 1] }}
-          className="rounded-3xl border border-gray-100 bg-white p-6 md:p-8 shadow-lg"
+          className="rounded-3xl border border-gray-100 bg-white p-6 md:p-8 shadow-lg order-1 lg:order-2"
         >
           {/* Mode toggle */}
           <div className="inline-flex rounded-xl bg-gray-100 p-1 mb-6">

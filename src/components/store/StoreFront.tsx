@@ -129,9 +129,11 @@ function ProductCard({ product, idx }: { product: Product; idx: number }) {
           {!isSoldOut ? (
             <button
               onClick={() => addToCart(product)}
-              className="text-xs font-semibold px-3 py-1.5 rounded-full border border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-400 transition-all lg:hidden"
+              className="flex items-center justify-center w-9 h-9 rounded-full text-white shadow-sm transition-all active:scale-95 lg:hidden flex-shrink-0"
+              style={{ background: 'var(--gradient-primary)' }}
+              aria-label="Add to cart"
             >
-              Add
+              <ShoppingBag className="w-4 h-4" />
             </button>
           ) : (
             <Link
@@ -269,12 +271,12 @@ export default function StoreFront() {
               </div>
             </motion.div>
 
-            {/* Right — value props */}
+            {/* Right — value props (desktop only, trust strip covers mobile) */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-              className="rounded-3xl overflow-hidden relative noise"
+              className="rounded-3xl overflow-hidden relative noise hidden lg:block"
               style={{
                 background: 'linear-gradient(145deg, #1e1b4b 0%, #4c1d95 55%, #9d174d 100%)',
                 boxShadow: '0 8px 32px rgba(76,29,149,0.30)',

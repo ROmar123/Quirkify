@@ -273,20 +273,21 @@ export default function Collection() {
               <motion.div key="vault" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
                 {loading ? (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {[1, 2, 3].map(i => <div key={i} className="aspect-[3/4] bg-purple-50 animate-pulse rounded-3xl" />)}
+                    {[1, 2, 3].map(i => <div key={i} className="aspect-[3/4] skeleton rounded-2xl" />)}
                   </div>
                 ) : items.length === 0 ? (
-                  <div className="text-center py-32 rounded-3xl border border-purple-100 bg-purple-50">
-                    <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #A855F7, #6366F1)' }}>
-                      <Shield className="w-8 h-8 text-white" />
+                  <div className="text-center py-24 rounded-2xl border border-gray-100 bg-white">
+                    <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center bg-gray-50">
+                      <Shield className="w-6 h-6 text-gray-300" />
                     </div>
-                    <p className="text-purple-400 font-bold text-sm mb-4">Your vault is empty</p>
-                    <Link to="/" className="btn-primary px-8 py-3 text-sm">Start Shopping</Link>
+                    <p className="text-gray-600 font-semibold text-sm">Your vault is empty</p>
+                    <p className="text-gray-400 text-xs mt-1 mb-5">Start shopping to fill it up.</p>
+                    <Link to="/" className="btn-primary px-8 py-3 text-sm">Browse the Store</Link>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {items.map((item) => (
-                      <motion.div key={item.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="group bg-white rounded-3xl border border-purple-100 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300">
+                      <motion.div key={item.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                         <div className="aspect-[3/4] overflow-hidden relative">
                           <img src={item.product?.imageUrl} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="" referrerPolicy="no-referrer" />
                           <div className="absolute top-3 left-3 px-2 py-1 text-[8px] font-bold uppercase tracking-widest rounded-full text-white"
@@ -300,10 +301,10 @@ export default function Collection() {
                           </div>
                         </div>
                         <div className="p-4">
-                          <h3 className="font-bold text-sm truncate mb-1">{item.product?.name}</h3>
+                          <h3 className="font-semibold text-sm text-gray-900 truncate mb-1.5">{item.product?.name}</h3>
                           <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-bold text-purple-400">#{item.product?.serialNumber || '000'}</span>
-                            <span className="text-sm font-black" style={{ color: '#A855F7' }}>R{item.purchasePrice}</span>
+                            <span className="section-label">#{item.product?.serialNumber || '000'}</span>
+                            <span className="text-sm font-bold gradient-text">R{item.purchasePrice}</span>
                           </div>
                         </div>
                       </motion.div>
@@ -316,30 +317,31 @@ export default function Collection() {
             {activeTab === 'bids' && (
               <motion.div key="bids" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
                 {activeBids.length === 0 ? (
-                  <div className="text-center py-32 rounded-3xl border border-purple-100 bg-purple-50">
-                    <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FBBF24, #FB923C)' }}>
-                      <Gavel className="w-8 h-8 text-white" />
+                  <div className="text-center py-24 rounded-2xl border border-gray-100 bg-white">
+                    <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center bg-gray-50">
+                      <Gavel className="w-6 h-6 text-gray-300" />
                     </div>
-                    <p className="text-purple-400 font-bold text-sm mb-4">No active bids</p>
+                    <p className="text-gray-600 font-semibold text-sm">No active bids</p>
+                    <p className="text-gray-400 text-xs mt-1 mb-5">Bid on exclusive auction drops.</p>
                     <Link to="/auctions" className="btn-primary px-8 py-3 text-sm">Browse Auctions</Link>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {activeBids.map((auction) => (
-                      <div key={auction.id} className="bg-white rounded-3xl border border-purple-100 p-5 flex gap-5 shadow-sm hover:shadow-md transition-all group">
-                        <div className="w-24 h-24 rounded-2xl overflow-hidden flex-shrink-0 bg-purple-50">
+                      <div key={auction.id} className="bg-white rounded-2xl border border-gray-100 p-5 flex gap-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group">
+                        <div className="w-24 h-24 rounded-2xl overflow-hidden flex-shrink-0 bg-gray-50">
                           <img src={auction.product?.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" referrerPolicy="no-referrer" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-2">
                             <span className="px-2 py-0.5 bg-green-50 text-green-600 text-[8px] font-bold uppercase tracking-widest rounded-full border border-green-100">Winning</span>
-                            <span className="text-[8px] font-bold text-purple-400">Ends {new Date(auction.endTime).toLocaleDateString()}</span>
+                            <span className="section-label">Ends {new Date(auction.endTime).toLocaleDateString()}</span>
                           </div>
                           <h4 className="font-bold text-sm truncate mb-3">{auction.product?.name}</h4>
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-[8px] font-bold text-purple-400 uppercase tracking-widest">Current Bid</p>
-                              <p className="text-lg font-black">R{auction.currentBid}</p>
+                              <p className="section-label mb-0.5">Current Bid</p>
+                              <p className="text-lg font-bold text-gray-900">R{auction.currentBid}</p>
                             </div>
                             <Link to="/auctions" className="btn-primary px-4 py-2 text-xs">View</Link>
                           </div>
@@ -353,51 +355,51 @@ export default function Collection() {
 
             {activeTab === 'profile' && (
               <motion.div key="profile" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-                <form onSubmit={handleUpdateProfile} className="bg-white rounded-3xl border border-purple-100 p-8 max-w-xl shadow-sm">
+                <form onSubmit={handleUpdateProfile} className="bg-white rounded-2xl border border-gray-100 p-6 max-w-xl shadow-sm">
                   {/* Avatar */}
-                  <div className="flex items-center gap-6 mb-8">
-                    <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 border-4 border-purple-100">
+                  <div className="flex items-center gap-5 mb-7 pb-6 border-b border-gray-100">
+                    <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 border border-gray-100 shadow-sm">
                       {commerceProfile?.photoUrl ? (
                         <img src={commerceProfile.photoUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
-                          <UserIcon className="w-8 h-8 text-white" />
+                        <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--gradient-primary)' }}>
+                          <UserIcon className="w-7 h-7 text-white" />
                         </div>
                       )}
                     </div>
                     <div>
-                      <h3 className="text-xl font-black">{commerceProfile?.displayName || 'Collector'}</h3>
-                      <p className="text-purple-400 text-xs font-semibold">{auth.currentUser?.email}</p>
-                      <Link to={`/profile/${auth.currentUser?.uid}`} className="text-[9px] font-bold text-purple-500 hover:underline mt-1 inline-block">
+                      <h3 className="text-lg font-bold text-gray-900">{commerceProfile?.displayName || 'Collector'}</h3>
+                      <p className="text-gray-400 text-xs font-medium mt-0.5">{auth.currentUser?.email}</p>
+                      <Link to={`/profile/${auth.currentUser?.uid}`} className="text-[10px] font-semibold text-quirky hover:underline mt-1 inline-block">
                         View Public Profile →
                       </Link>
                     </div>
                   </div>
 
-                  <div className="space-y-5">
+                  <div className="space-y-4">
                     {[
                       { label: 'Display Name', value: displayName, set: setDisplayName, type: 'text', placeholder: 'Your display name' },
                       { label: 'Location', value: location, set: setLocation, type: 'text', placeholder: 'e.g. Cape Town, SA' },
                     ].map(field => (
                       <div key={field.label}>
-                        <label className="text-[9px] font-bold text-purple-400 uppercase tracking-widest block mb-1.5">{field.label}</label>
+                        <label className="section-label block mb-1.5">{field.label}</label>
                         <input
                           type={field.type}
                           value={field.value}
                           onChange={e => field.set(e.target.value)}
                           placeholder={field.placeholder}
-                          className="w-full p-3 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-800 focus:outline-none focus:border-purple-400 transition-colors"
+                          className="input"
                         />
                       </div>
                     ))}
                     <div>
-                      <label className="text-[9px] font-bold text-purple-400 uppercase tracking-widest block mb-1.5">Bio</label>
+                      <label className="section-label block mb-1.5">Bio</label>
                       <textarea
                         value={bio}
                         onChange={e => setBio(e.target.value)}
                         rows={3}
                         placeholder="Tell the community about your collection..."
-                        className="w-full p-3 bg-purple-50 border-2 border-purple-100 rounded-2xl text-sm font-semibold text-purple-800 focus:outline-none focus:border-purple-400 transition-colors resize-none"
+                        className="input resize-none"
                       />
                     </div>
                   </div>
@@ -413,12 +415,10 @@ export default function Collection() {
                 </form>
 
                 {/* Seller signup */}
-                <div className="mt-6 p-5 rounded-3xl border-2 border-dashed border-purple-200 text-center">
-                  <p className="text-sm font-black text-purple-900 mb-1">Want to sell on Quirkify?</p>
-                  <p className="text-xs text-purple-400 font-semibold mb-4">Join our seller community and start listing your products.</p>
-                  <Link to="/seller/onboarding"
-                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-black text-white hover:opacity-90 transition-all"
-                    style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}>
+                <div className="mt-5 p-5 rounded-2xl border border-dashed border-gray-200 text-center bg-white">
+                  <p className="text-sm font-bold text-gray-900 mb-1">Want to sell on Quirkify?</p>
+                  <p className="text-xs text-gray-400 mb-4">Join our seller community and start listing your products.</p>
+                  <Link to="/seller/onboarding" className="btn-primary px-6 py-2.5 text-sm">
                     Become a Seller
                   </Link>
                 </div>

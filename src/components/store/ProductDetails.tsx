@@ -157,14 +157,14 @@ export default function ProductDetails() {
                 <>
                   <button
                     onClick={() => setActiveImage(prev => prev === 0 ? images.length - 1 : prev - 1)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md transition-all hover:bg-white md:opacity-0 md:group-hover:opacity-100"
                     aria-label="Previous image"
                   >
                     <ChevronLeft className="w-5 h-5 text-gray-700" />
                   </button>
                   <button
                     onClick={() => setActiveImage(prev => prev === images.length - 1 ? 0 : prev + 1)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md transition-all hover:bg-white md:opacity-0 md:group-hover:opacity-100"
                     aria-label="Next image"
                   >
                     <ChevronRight className="w-5 h-5 text-gray-700" />
@@ -183,15 +183,16 @@ export default function ProductDetails() {
 
               {/* Dot indicators */}
               {images.length > 1 && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 items-center">
                   {images.map((_, i) => (
                     <button
                       key={i}
                       onClick={() => setActiveImage(i)}
                       className={cn(
-                        'h-1.5 rounded-full transition-all duration-200',
-                        i === activeImage ? 'w-5 bg-purple-500' : 'w-1.5 bg-gray-300'
+                        'rounded-full transition-all duration-200',
+                        i === activeImage ? 'w-5 h-2 bg-purple-500' : 'w-2 h-2 bg-white/70'
                       )}
+                      aria-label={`View image ${i + 1}`}
                     />
                   ))}
                 </div>
