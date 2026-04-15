@@ -298,7 +298,7 @@ export default function Checkout() {
                         <button onClick={() => removeFromCart(item.id)} className="text-[10px] font-medium text-red-400 hover:text-red-600 transition-colors">Remove</button>
                       </div>
                     </div>
-                    <p className="font-bold text-sm text-gray-900 flex-shrink-0">R{item.priceRange.min * item.quantity}</p>
+                    <p className="font-bold text-sm text-gray-900 flex-shrink-0">R{(item.priceRange?.min ?? item.retailPrice ?? 0) * item.quantity}</p>
                   </div>
                 ))}
 
@@ -472,7 +472,7 @@ export default function Checkout() {
                     <span className="text-gray-700 font-medium truncate block">{item.name}</span>
                     <span className="text-gray-400">× {item.quantity}</span>
                   </div>
-                  <span className="font-semibold text-gray-900 flex-shrink-0">R{item.priceRange.min * item.quantity}</span>
+                  <span className="font-semibold text-gray-900 flex-shrink-0">R{(item.priceRange?.min ?? item.retailPrice ?? 0) * item.quantity}</span>
                 </div>
               ))}
             </div>

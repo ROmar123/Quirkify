@@ -78,7 +78,8 @@ export default function ProductDetails() {
   const isSoldOut = product.stock === 0;
   const isLowStock = product.stock > 0 && product.stock < 5;
   const maxQty = product.allocations?.store ?? product.stock;
-  const hasDiscount = product.discountPrice && product.discountPrice < product.priceRange.min;
+  const basePrice = product.priceRange?.min ?? product.retailPrice ?? 0;
+  const hasDiscount = product.discountPrice && product.discountPrice < basePrice;
   const rarity = RARITY_CONFIG[product.rarity || 'Common'];
 
   const handleAddToCart = () => {
@@ -274,14 +275,14 @@ export default function ProductDetails() {
               {hasDiscount ? (
                 <>
                   <span className="price text-3xl text-red-500">R{product.discountPrice}</span>
-                  <span className="price text-lg text-gray-300 line-through">R{product.priceRange.min}</span>
+                  <span className="price text-lg text-gray-300 line-through">R{basePrice}</span>
                   <span className="badge badge-danger text-[10px]">
                     <Tag className="w-3 h-3" />
-                    {Math.round((1 - product.discountPrice! / product.priceRange.min) * 100)}% off
+                    {Math.round((1 - product.discountPrice! / basePrice) * 100)}% off
                   </span>
                 </>
               ) : (
-                <span className="price text-3xl gradient-text">R{product.priceRange.min}</span>
+                <span className="price text-3xl gradient-text">R{basePrice}</span>
               )}
             </div>
 
@@ -360,7 +361,7 @@ export default function ProductDetails() {
                     className="btn-primary w-full py-3.5 text-sm justify-center"
                   >
                     <Zap className="w-4 h-4" />
-                    Buy Now — R{(hasDiscount ? product.discountPrice! : product.priceRange.min) * quantity}
+                    Buy Now — R{(hasDiscount ? product.discountPrice! : basePrice) * quantity}
                   </button>
                 </>
               ) : (

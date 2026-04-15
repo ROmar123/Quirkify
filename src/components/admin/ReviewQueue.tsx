@@ -154,7 +154,7 @@ export default function ReviewQueue() {
                     "text-[10px] font-bold uppercase tracking-widest truncate",
                     selectedProduct?.id === product.id ? "text-white/70" : "text-purple-400"
                   )}>
-                    {product.category} • R{product.discountPrice || product.priceRange.max}
+                    {product.category} • R{product.discountPrice || product.priceRange?.max || product.retailPrice}
                   </p>
                 </div>
                 <span className={cn(

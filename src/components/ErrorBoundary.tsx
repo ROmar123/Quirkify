@@ -1,4 +1,4 @@
-import { Component, ReactNode } from 'react';
+import { Component, ReactNode, useState, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react';
 
@@ -82,90 +82,66 @@ export class ErrorBoundary extends Component<Props, State> {
       const isDev = import.meta.env.DEV;
       
       return (
-        <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#FDF4FF' }}>
-          <motion.div 
+        <div className="min-h-[60vh] flex items-center justify-center px-4 bg-gray-50">
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="max-w-md w-full"
           >
-            <div className="bg-white rounded-[2rem] border border-purple-100 p-8 shadow-xl text-center">
-              {/* Error Icon */}
-              <motion.div 
+            <div className="bg-white rounded-2xl border border-gray-100 p-8 shadow-sm text-center">
+              <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.1, type: 'spring' }}
-                className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg, #FEE2E2, #FECACA)' }}
+                className="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center bg-red-50"
               >
-                <AlertTriangle className="w-10 h-10 text-red-500" />
+                <AlertTriangle className="w-8 h-8 text-red-500" />
               </motion.div>
-              
-              {/* Error Title */}
-              <h2 className="text-2xl font-black text-purple-900 mb-2">
-                Oops! Something went wrong
+
+              <h2 className="text-xl font-bold text-gray-900 mb-2">
+                Something went wrong
               </h2>
-              
-              {/* Error Message */}
-              <p className="text-purple-500 text-sm font-semibold mb-4">
-                {this.state.error.message || 'An unexpected error occurred'}
+              <p className="text-gray-500 text-sm mb-5 leading-relaxed">
+                {this.state.error.message || 'An unexpected error occurred. Try refreshing the page.'}
               </p>
-              
-              {/* Error ID */}
+
               {this.state.errorId && (
-                <div className="mb-6 p-3 bg-purple-50 rounded-xl">
-                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1">
-                    Error Reference
-                  </p>
-                  <code className="text-xs font-mono text-purple-700">
-                    {this.state.errorId}
+                <div className="mb-5 px-3 py-2 bg-gray-50 rounded-xl border border-gray-100 inline-block">
+                  <code className="text-[10px] font-mono text-gray-400">
+                    ref: {this.state.errorId}
                   </code>
                 </div>
               )}
-              
-              {/* Stack Trace (dev only) */}
+
               {isDev && this.state.errorInfo && (
-                <div className="mb-6 p-4 bg-gray-900 rounded-xl text-left overflow-hidden">
+                <div className="mb-5 p-4 bg-gray-900 rounded-xl text-left overflow-hidden">
                   <div className="flex items-center gap-2 mb-2">
-                    <Bug className="w-4 h-4 text-gray-400" />
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                      Debug Info
-                    </span>
+                    <Bug className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Debug</span>
                   </div>
-                  <pre className="text-xs text-gray-300 font-mono overflow-x-auto max-h-32">
-                    {this.state.error.stack}
-                    {'\n\n'}
-                    {this.state.errorInfo.componentStack}
+                  <pre className="text-xs text-gray-300 font-mono overflow-x-auto max-h-32 whitespace-pre-wrap">
+                    {this.state.error.stack?.split('\n').slice(0, 6).join('\n')}
                   </pre>
                 </div>
               )}
-              
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  onClick={this.reset}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
-                  style={{ background: 'linear-gradient(135deg, #F472B6, #A855F7)' }}
-                >
+
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                <button onClick={this.reset} className="btn-primary flex-1 flex items-center justify-center gap-2">
                   <RefreshCw className="w-4 h-4" />
                   Try Again
                 </button>
-                <button
-                  onClick={this.handleGoHome}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors"
-                >
+                <button onClick={this.handleGoHome} className="btn-secondary flex-1 flex items-center justify-center gap-2">
                   <Home className="w-4 h-4" />
                   Go Home
                 </button>
               </div>
             </div>
-            
-            {/* Support Link */}
-            <p className="text-center mt-6 text-xs text-purple-400">
-              If this keeps happening, please contact{' '}
-              <a href="mailto:support@quirkify.co.za" className="text-purple-600 hover:underline">
+
+            <p className="text-center mt-4 text-xs text-gray-400">
+              Persisting issue? Email{' '}
+              <a href="mailto:support@quirkify.co.za" className="text-quirky hover:underline">
                 support@quirkify.co.za
               </a>
-              {' '}with error reference: {this.state.errorId}
             </p>
           </motion.div>
         </div>

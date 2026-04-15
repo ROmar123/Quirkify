@@ -87,7 +87,7 @@ export default function ProductIntake({ onSuccess }: ProductIntakeProps) {
       setResult(analysis);
 
       // Initialize edited result with default 40% markdown + standardized category
-      const retailPrice = analysis.retailPrice || analysis.priceRange.max;
+      const retailPrice = analysis.retailPrice || analysis.priceRange?.max || 0;
       setEditedResult({
         ...analysis,
         category: mapToStandardCategory(analysis.category || ''),

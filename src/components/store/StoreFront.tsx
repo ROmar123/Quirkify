@@ -34,7 +34,8 @@ function ProductCard({ product, idx }: { product: Product; idx: number }) {
   const { addToCart } = useCart();
   const isSoldOut = product.stock === 0;
   const isLowStock = product.stock > 0 && product.stock < 5;
-  const hasDiscount = product.discountPrice && product.discountPrice < product.priceRange.min;
+  const basePrice = product.priceRange?.min ?? product.retailPrice ?? 0;
+  const hasDiscount = product.discountPrice && product.discountPrice < basePrice;
   const rarity = RARITY_CONFIG[product.rarity || 'Common'];
 
   return (
@@ -118,11 +119,11 @@ function ProductCard({ product, idx }: { product: Product; idx: number }) {
         <div className="flex items-center justify-between mt-auto">
           {hasDiscount ? (
             <div>
-              <p className="text-[10px] text-gray-300 line-through font-medium">R{product.priceRange.min}</p>
+              <p className="text-[10px] text-gray-300 line-through font-medium">R{basePrice}</p>
               <p className="price text-base text-red-500">R{product.discountPrice}</p>
             </div>
           ) : (
-            <p className="price text-base gradient-text">R{product.priceRange.min}</p>
+            <p className="price text-base gradient-text">R{basePrice}</p>
           )}
 
           {!isSoldOut ? (
@@ -193,7 +194,7 @@ export default function StoreFront() {
 
   const filtered = useMemo(() => {
     let list = products;
-    if (activeFilter === 'sale') list = list.filter(p => p.discountPrice && p.discountPrice < p.priceRange.min);
+    if (activeFilter === 'sale') list = list.filter(p => p.discountPrice && p.discountPrice < (p.priceRange?.min ?? p.retailPrice ?? 0));
     else if (activeFilter) list = list.filter(p => p.condition === activeFilter);
     if (activeCategory) list = list.filter(p => p.category === activeCategory);
     if (search.trim()) {
@@ -203,7 +204,7 @@ export default function StoreFront() {
     return list;
   }, [products, activeFilter, activeCategory, search]);
 
-  const saleCount = products.filter(p => p.discountPrice && p.discountPrice < p.priceRange.min).length;
+  const saleCount = products.filter(p => p.discountPrice && p.discountPrice < (p.priceRange?.min ?? p.retailPrice ?? 0)).length;
 
   return (
     <div className="hero-bg min-h-screen">
