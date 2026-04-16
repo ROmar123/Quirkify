@@ -42,7 +42,7 @@ export const supabase: SupabaseClient = isSupabaseConfigured
     })
   : new Proxy({} as SupabaseClient, {
       get() {
-        return () => createStub();
+        return createStub();
       },
     });
 
