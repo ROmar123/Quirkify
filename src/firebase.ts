@@ -54,7 +54,7 @@ function emitAuthState(user: AuthUser | null) {
 }
 
 void supabase.auth.getUser().then(({ data }) => {
-  emitAuthState(mapSupabaseUser(data.user ?? null));
+  emitAuthState(mapSupabaseUser(data?.user ?? null));
 });
 
 supabase.auth.onAuthStateChange((_event, session) => {

@@ -16,7 +16,10 @@ function createStub(): any {
 
   const stub: any = new Proxy(() => Promise.resolve(result), {
     get(_, prop) {
-      if (prop === 'then') return (resolve: (value: typeof result) => void) => resolve(result);
+      // Use real Promise.resolve so callbacks run in a microtask (not synchronously)
+      if (prop === 'then' || prop === 'catch' || prop === 'finally') {
+        return Promise.resolve(result)[prop as 'then'].bind(Promise.resolve(result));
+      }
       return () => stub;
     },
     apply() {
