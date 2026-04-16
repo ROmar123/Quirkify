@@ -169,11 +169,11 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 >
                   <div className="h-1 bg-gradient-to-r from-amber-400 to-orange-500" />
                   <div className="p-6">
-                    <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-                      <span className="text-xl">✍️</span>
+                    <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform border border-gray-100">
+                      <Upload className="w-5 h-5 text-amber-500" />
                     </div>
                     <h3 className="text-base font-bold text-gray-900 mb-1">Manual Entry</h3>
-                    <p className="text-gray-500 text-sm leading-relaxed">Enter all product details manually without AI analysis</p>
+                    <p className="text-gray-500 text-sm leading-relaxed">Enter product details, pricing and photos yourself</p>
                     <div className="mt-4 inline-flex items-center text-sm font-semibold text-amber-600">
                       Get started →
                     </div>
@@ -246,21 +246,21 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                       <label className="section-label block mb-1.5">RETAIL PRICE *</label>
                       <input type="number" value={productData.retailPrice || ''} onChange={e => {
                         const retail = parseFloat(e.target.value) || 0;
-                        const markdown = productData.markdownPercentage ?? 40;
+                        const markdown = productData.markdownPercentage ?? 0;
                         setProductData({ ...productData, retailPrice: retail, discountPrice: Math.round(retail * (1 - markdown / 100)) });
-                      }} className="input" />
+                      }} className="input" placeholder="0" min="0" />
                     </div>
                     <div>
                       <label className="section-label block mb-1.5">MARKDOWN %</label>
-                      <input type="number" value={productData.markdownPercentage ?? 40} onChange={e => {
-                        const markdown = parseFloat(e.target.value) || 0;
+                      <input type="number" value={productData.markdownPercentage ?? 0} onChange={e => {
+                        const markdown = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
                         const retail = productData.retailPrice || 0;
                         setProductData({ ...productData, markdownPercentage: markdown, discountPrice: Math.round(retail * (1 - markdown / 100)) });
-                      }} className="input" />
+                      }} className="input" placeholder="0" min="0" max="100" />
                     </div>
                     <div>
                       <label className="section-label block mb-1.5">SALE PRICE</label>
-                      <div className="input bg-green-50 border-green-200 font-bold text-green-700 flex items-center">
+                      <div className={`input font-bold flex items-center ${(productData.discountPrice || 0) > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'text-gray-400'}`}>
                         R{productData.discountPrice || 0}
                       </div>
                     </div>

@@ -1,4 +1,5 @@
 import { expireStalePendingOrders, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
+import { sendOrderStatusEmail } from '../_lib/orderNotifications.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method === 'GET') {
@@ -189,6 +190,15 @@ export default async function handler(req: any, res: any) {
         supabase.from('order_items').select('*').eq('order_id', orderId).order('created_at', { ascending: true }),
         supabase.from('order_events').select('*').eq('order_id', orderId).order('created_at', { ascending: false }),
       ]);
+
+      // Send customer notifications for key status transitions (non-blocking)
+      if (nextStatus && nextStatus !== previousStatus) {
+        if (nextStatus === 'shipped' || nextStatus === 'delivered') {
+          sendOrderStatusEmail(orderId, nextStatus as 'shipped' | 'delivered').catch((err) => {
+            console.warn(`[order-status] Failed to send ${nextStatus} email for ${orderId}:`, err?.message);
+          });
+        }
+      }
 
       return res.status(200).json({ order: updatedOrder, items: items || [], events: events || [] });
     } catch (error: any) {
