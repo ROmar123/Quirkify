@@ -1,61 +1,27 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+// Fallbacks mirror the published values in firebase.ts — anon key is intentionally public
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://mvoigokzsaybwiogjpvr.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_PzK-Rd37B8yJaF8c9Wz9og_uJ6Q_CLS';
+export const isSupabaseConfigured = true;
 
-if (!isSupabaseConfigured) {
-  console.warn('[Supabase] Missing env vars — Supabase features will be disabled');
-}
-
-function createStub(): any {
-  const result = {
-    data: null,
-    error: { message: 'Supabase not configured', code: 'NOT_CONFIGURED' },
-  };
-
-  const stub: any = new Proxy(() => Promise.resolve(result), {
-    get(_, prop) {
-      // Use real Promise.resolve so callbacks run in a microtask (not synchronously)
-      if (prop === 'then' || prop === 'catch' || prop === 'finally') {
-        return Promise.resolve(result)[prop as 'then'].bind(Promise.resolve(result));
-      }
-      return () => stub;
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
     },
-    apply() {
-      return stub;
-    },
-  });
+  },
+});
 
-  return stub;
-}
-
-export const supabase: SupabaseClient = isSupabaseConfigured
-  ? createClient(supabaseUrl!, supabaseAnonKey!, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: false,
-      },
-      realtime: {
-        params: {
-          eventsPerSecond: 10,
-        },
-      },
-    })
-  : new Proxy({} as SupabaseClient, {
-      get() {
-        return createStub();
-      },
-    });
-
-// Re-export the storage bucket ref helper
 export const getImageUrl = (path: string) => {
   if (!path) return '';
   if (path.startsWith('http')) return path;
-  
-  // Build public URL from storage
-  return `https://mvoigokzsaybwiogjpvr.supabase.co/storage/v1/object/public/product-images/${path}`;
+  return `${supabaseUrl}/storage/v1/object/public/product-images/${path}`;
 };
 
 export default supabase;
