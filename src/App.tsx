@@ -115,6 +115,7 @@ function AppInner() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAdmin, setIsAdmin } = useMode();
 
   useEffect(() => {
@@ -135,10 +136,10 @@ function AppInner() {
           setIsAdmin(admin);
           setLoading(false);
 
-          if (isFirstLoad && admin) {
-            navigate('/admin');
-          } else if (isFirstLoad) {
-            navigate('/');
+          // Only redirect on first load if on the auth page — never hijack deep links
+          const onAuthPage = location.pathname === '/auth';
+          if (isFirstLoad && onAuthPage) {
+            navigate(admin ? '/admin' : '/');
           }
         } catch (err) {
           console.error('Profile sync failed:', err);
