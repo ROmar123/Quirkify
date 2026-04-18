@@ -42,7 +42,7 @@ function ProductCard({ product, idx }: { product: Product; idx: number }) {
   const basePrice = product.priceRange?.min ?? product.retailPrice ?? 0;
   const hasDiscount = Boolean(product.discountPrice && product.discountPrice < basePrice);
   const discountPct = hasDiscount ? Math.round((1 - product.discountPrice! / basePrice) * 100) : 0;
-  const rarity = RARITY_CONFIG[product.rarity || 'Common'];
+  const rarity = RARITY_CONFIG[product.rarity || 'Common'] || RARITY_CONFIG['Common'];
 
   const handleAddToCart = (e?: React.MouseEvent) => {
     e?.preventDefault();
