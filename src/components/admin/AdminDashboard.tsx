@@ -27,7 +27,7 @@ export default function AdminDashboard() {
     const load = async () => {
       try {
         const [prods, ords] = await Promise.all([
-          fetchProducts(),
+          fetchProducts(undefined, { skipDemo: true }),
           fetchOrders({ excludeSourceRef: 'wallet_topup' }),
         ]);
         setProducts(prods);

@@ -20,7 +20,7 @@ export default function ProductsView({ onBack }: ProductsViewProps) {
     const unsub = subscribeToProducts('approved', (data) => {
       setProducts(data);
       setLoading(false);
-    });
+    }, { skipDemo: true });
     return unsub;
   }, []);
 

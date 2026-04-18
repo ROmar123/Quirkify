@@ -15,8 +15,8 @@ export default function MiniDashboardCards({ onSelectOnboarding, onSelectManagem
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubA = subscribeToProducts('approved', d => { setProducts(d); setLoading(false); });
-    const unsubP = subscribeToProducts('pending', d => { setPending(d); setLoading(false); });
+    const unsubA = subscribeToProducts('approved', d => { setProducts(d); setLoading(false); }, { skipDemo: true });
+    const unsubP = subscribeToProducts('pending', d => { setPending(d); setLoading(false); }, { skipDemo: true });
     return () => { unsubA(); unsubP(); };
   }, []);
 

@@ -14,7 +14,7 @@ export default function CampaignManager() {
   const [suggestError, setSuggestError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubProducts = subscribeToProducts('approved', setProducts);
+    const unsubProducts = subscribeToProducts('approved', setProducts, { skipDemo: true });
     const unsubCampaigns = subscribeToCampaigns(undefined, setCampaigns);
     return () => { unsubProducts(); unsubCampaigns(); };
   }, []);
