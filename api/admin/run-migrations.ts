@@ -1,6 +1,16 @@
+import { createClient } from '@supabase/supabase-js';
 import pg from 'pg';
 
 const { Client } = pg;
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const ADMIN_EMAILS = new Set(
+  (process.env.VITE_ADMIN_EMAILS || 'patengel85@gmail.com')
+    .split(',')
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean)
+);
 
 const DB_CONFIGS = [
   {
@@ -107,15 +117,44 @@ const MIGRATIONS = [
   { name: '008_campaigns', sql: MIGRATION_008 },
 ];
 
+async function verifyAdmin(token: string): Promise<{ ok: boolean; reason?: string }> {
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+    return { ok: false, reason: 'Server not configured (missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY)' };
+  }
+  const adminClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data: { user }, error } = await adminClient.auth.getUser(token);
+  if (error || !user) return { ok: false, reason: 'Invalid or expired token' };
+
+  const email = (user.email || '').toLowerCase();
+  if (ADMIN_EMAILS.has(email)) return { ok: true };
+
+  const { data: profile } = await adminClient
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (profile?.role === 'admin') return { ok: true };
+  return { ok: false, reason: 'Admin access required' };
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const auth = (req.headers['authorization'] as string) || '';
-  const expected = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!expected || auth !== `Bearer ${expected}`) {
-    return res.status(401).json({ error: 'Unauthorized — provide SUPABASE_SERVICE_ROLE_KEY as Bearer token' });
+  const authHeader = (req.headers['authorization'] as string) || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+  if (!token) {
+    return res.status(401).json({ error: 'Authorization header required (Bearer <supabase_access_token>)' });
+  }
+
+  const auth = await verifyAdmin(token);
+  if (!auth.ok) {
+    return res.status(auth.reason?.includes('token') ? 401 : 403).json({ error: auth.reason });
   }
 
   const logs: string[] = [];
@@ -153,5 +192,9 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  return res.status(500).json({ success: false, error: 'All database connections failed', logs });
+  return res.status(500).json({
+    success: false,
+    error: 'All database connections failed — Supabase may have network restrictions on this server. Apply migrations manually in the Supabase dashboard SQL editor.',
+    logs,
+  });
 }
