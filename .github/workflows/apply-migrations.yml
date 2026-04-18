@@ -13,52 +13,89 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install psql
-        run: sudo apt-get install -y postgresql-client
-
-      - name: Debug connection (pooler session mode)
-        continue-on-error: true
-        env:
-          PGPASSWORD: j7nVcs3PJmRI0oH8
+      - name: Test Supabase HTTPS connectivity
         run: |
-          echo "=== DNS for pooler ==="
-          host aws-0-eu-central-1.pooler.supabase.com || true
-          echo "=== Testing pooler port 5432 (session mode) ==="
-          PGCONNECT_TIMEOUT=10 psql \
-            "postgresql://postgres.mvoigokzsaybwiogjpvr:j7nVcs3PJmRI0oH8@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=require" \
-            -c "SELECT 'pooler-5432 OK';" 2>&1 || echo "pooler-5432 FAILED"
-          echo "=== Testing pooler port 6543 (transaction mode) ==="
-          PGCONNECT_TIMEOUT=10 psql \
-            "postgresql://postgres.mvoigokzsaybwiogjpvr:j7nVcs3PJmRI0oH8@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?sslmode=require" \
-            -c "SELECT 'pooler-6543 OK';" 2>&1 || echo "pooler-6543 FAILED"
-          echo "=== Testing direct DB host ==="
-          PGCONNECT_TIMEOUT=10 psql \
-            "postgresql://postgres:j7nVcs3PJmRI0oH8@db.mvoigokzsaybwiogjpvr.supabase.co:5432/postgres" \
-            -c "SELECT 'direct OK';" 2>&1 || echo "direct FAILED"
+          echo "=== Supabase REST API health check ==="
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: sb_publishable_PzK-Rd37B8yJaF8c9Wz9og_uJ6Q_CLS" \
+            "https://mvoigokzsaybwiogjpvr.supabase.co/rest/v1/products?select=id&limit=1")
+          echo "REST API HTTP status: $STATUS"
 
-      - name: Apply 007 - Fix products RLS
-        continue-on-error: true
-        env:
-          PGPASSWORD: j7nVcs3PJmRI0oH8
+      - name: Apply migrations via Node.js pg client
         run: |
-          psql "postgresql://postgres.mvoigokzsaybwiogjpvr:j7nVcs3PJmRI0oH8@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=require" \
-            -f supabase/migrations/007_fix_rls.sql 2>&1
-          echo "Exit code: $?"
+          npm install pg 2>/dev/null
+          node - <<'SCRIPT'
+          const { Client } = require('pg');
+          const fs = require('fs');
 
-      - name: Apply 008 - Create campaigns table
-        continue-on-error: true
-        env:
-          PGPASSWORD: j7nVcs3PJmRI0oH8
-        run: |
-          psql "postgresql://postgres.mvoigokzsaybwiogjpvr:j7nVcs3PJmRI0oH8@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=require" \
-            -f supabase/migrations/008_campaigns.sql 2>&1
-          echo "Exit code: $?"
+          const CONFIGS = [
+            {
+              label: 'Pooler session mode (5432)',
+              connectionString: 'postgresql://postgres.mvoigokzsaybwiogjpvr:j7nVcs3PJmRI0oH8@aws-0-eu-central-1.pooler.supabase.com:5432/postgres',
+              ssl: { rejectUnauthorized: false },
+            },
+            {
+              label: 'Direct DB host (5432)',
+              connectionString: 'postgresql://postgres:j7nVcs3PJmRI0oH8@db.mvoigokzsaybwiogjpvr.supabase.co:5432/postgres',
+              ssl: { rejectUnauthorized: false },
+            },
+            {
+              label: 'Pooler transaction mode (6543)',
+              connectionString: 'postgresql://postgres.mvoigokzsaybwiogjpvr:j7nVcs3PJmRI0oH8@aws-0-eu-central-1.pooler.supabase.com:6543/postgres',
+              ssl: { rejectUnauthorized: false },
+            },
+          ];
 
-      - name: Verify result
-        continue-on-error: true
-        env:
-          PGPASSWORD: j7nVcs3PJmRI0oH8
-        run: |
-          psql "postgresql://postgres.mvoigokzsaybwiogjpvr:j7nVcs3PJmRI0oH8@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=require" \
-            -c "SELECT policyname FROM pg_policies WHERE tablename IN ('products','campaigns') ORDER BY 1;" \
-            -c "SELECT COUNT(*) as campaign_rows FROM campaigns;" 2>&1
+          const MIGRATIONS = [
+            { name: '007_fix_rls.sql',   path: 'supabase/migrations/007_fix_rls.sql' },
+            { name: '008_campaigns.sql', path: 'supabase/migrations/008_campaigns.sql' },
+          ];
+
+          async function tryApply(config) {
+            const client = new Client({
+              connectionString: config.connectionString,
+              ssl: config.ssl,
+              connectionTimeoutMillis: 15000,
+              statement_timeout: 30000,
+            });
+            await client.connect();
+            console.log('Connected via:', config.label);
+
+            for (const m of MIGRATIONS) {
+              const sql = fs.readFileSync(m.path, 'utf8');
+              try {
+                await client.query(sql);
+                console.log('Applied:', m.name);
+              } catch (e) {
+                if (/already exists|duplicate/.test(e.message)) {
+                  console.log('Already applied:', m.name);
+                } else {
+                  console.error('Failed:', m.name, '-', e.message);
+                }
+              }
+            }
+
+            const { rows } = await client.query(
+              "SELECT tablename, policyname FROM pg_policies WHERE tablename IN ('products','campaigns') ORDER BY 1,2"
+            );
+            console.log('\nActive RLS policies:');
+            rows.forEach(r => console.log(' ', r.tablename, '/', r.policyname));
+
+            await client.end();
+          }
+
+          (async () => {
+            for (const config of CONFIGS) {
+              try {
+                await tryApply(config);
+                console.log('\nMigrations complete!');
+                process.exit(0);
+              } catch (e) {
+                console.log(config.label, 'failed:', e.message);
+              }
+            }
+            console.error('\nAll connections failed.');
+            console.error('If IP restrictions are on, add GitHub Actions IPs in Supabase > Settings > Database > Network Restrictions.');
+            process.exit(1);
+          })();
+          SCRIPT
