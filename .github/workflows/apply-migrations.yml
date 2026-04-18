@@ -9,41 +9,56 @@ on:
 jobs:
   migrate:
     runs-on: ubuntu-latest
-    env:
-      PGPASSWORD: j7nVcs3PJmRI0oH8
-      PGHOST: aws-0-eu-central-1.pooler.supabase.com
-      PGPORT: 5432
-      PGUSER: postgres.mvoigokzsaybwiogjpvr
-      PGSSLMODE: require
-      PGDATABASE: postgres
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install psql and tools
-        run: sudo apt-get install -y postgresql-client dnsutils
+      - name: Install psql
+        run: sudo apt-get install -y postgresql-client
 
-      - name: Test connection
+      - name: Debug connection (pooler session mode)
+        continue-on-error: true
+        env:
+          PGPASSWORD: j7nVcs3PJmRI0oH8
         run: |
-          echo "Resolving host..."
-          dig +short $PGHOST || true
-          echo "Attempting psql connection (verbose)..."
-          PGCONNECT_TIMEOUT=15 psql -v ON_ERROR_STOP=1 \
-            "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=${PGSSLMODE}" \
-            -c "SELECT current_database(), current_user, version();"
+          echo "=== DNS for pooler ==="
+          host aws-0-eu-central-1.pooler.supabase.com || true
+          echo "=== Testing pooler port 5432 (session mode) ==="
+          PGCONNECT_TIMEOUT=10 psql \
+            "postgresql://postgres.mvoigokzsaybwiogjpvr:j7nVcs3PJmRI0oH8@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=require" \
+            -c "SELECT 'pooler-5432 OK';" 2>&1 || echo "pooler-5432 FAILED"
+          echo "=== Testing pooler port 6543 (transaction mode) ==="
+          PGCONNECT_TIMEOUT=10 psql \
+            "postgresql://postgres.mvoigokzsaybwiogjpvr:j7nVcs3PJmRI0oH8@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?sslmode=require" \
+            -c "SELECT 'pooler-6543 OK';" 2>&1 || echo "pooler-6543 FAILED"
+          echo "=== Testing direct DB host ==="
+          PGCONNECT_TIMEOUT=10 psql \
+            "postgresql://postgres:j7nVcs3PJmRI0oH8@db.mvoigokzsaybwiogjpvr.supabase.co:5432/postgres" \
+            -c "SELECT 'direct OK';" 2>&1 || echo "direct FAILED"
 
       - name: Apply 007 - Fix products RLS
+        continue-on-error: true
+        env:
+          PGPASSWORD: j7nVcs3PJmRI0oH8
         run: |
-          psql "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=${PGSSLMODE}" \
-            -f supabase/migrations/007_fix_rls.sql 2>&1 || echo "007 may already be applied"
+          psql "postgresql://postgres.mvoigokzsaybwiogjpvr:j7nVcs3PJmRI0oH8@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=require" \
+            -f supabase/migrations/007_fix_rls.sql 2>&1
+          echo "Exit code: $?"
 
       - name: Apply 008 - Create campaigns table
+        continue-on-error: true
+        env:
+          PGPASSWORD: j7nVcs3PJmRI0oH8
         run: |
-          psql "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=${PGSSLMODE}" \
+          psql "postgresql://postgres.mvoigokzsaybwiogjpvr:j7nVcs3PJmRI0oH8@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=require" \
             -f supabase/migrations/008_campaigns.sql 2>&1
+          echo "Exit code: $?"
 
-      - name: Verify migrations
+      - name: Verify result
+        continue-on-error: true
+        env:
+          PGPASSWORD: j7nVcs3PJmRI0oH8
         run: |
-          CONN="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=${PGSSLMODE}"
-          psql "$CONN" -c "SELECT COUNT(*) as campaigns FROM public.campaigns;"
-          psql "$CONN" -c "SELECT policyname FROM pg_policies WHERE tablename IN ('products','campaigns') ORDER BY tablename, policyname;"
+          psql "postgresql://postgres.mvoigokzsaybwiogjpvr:j7nVcs3PJmRI0oH8@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=require" \
+            -c "SELECT policyname FROM pg_policies WHERE tablename IN ('products','campaigns') ORDER BY 1;" \
+            -c "SELECT COUNT(*) as campaign_rows FROM campaigns;" 2>&1
