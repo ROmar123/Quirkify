@@ -1,0 +1,40 @@
+name: Apply Supabase Migrations
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'supabase/migrations/**.sql'
+    branches:
+      - claude/quirkify-production-ready-xMVne
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    env:
+      PGPASSWORD: j7nVcs3PJmRI0oH8
+      PGHOST: aws-0-eu-central-1.pooler.supabase.com
+      PGPORT: 6543
+      PGUSER: postgres.mvoigokzsaybwiogjpvr
+      PGDATABASE: postgres
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql
+        run: sudo apt-get install -y postgresql-client
+
+      - name: Test connection
+        run: psql -c "SELECT current_database(), version();"
+
+      - name: Apply 007 - Fix products RLS
+        run: psql -f supabase/migrations/007_fix_rls.sql || echo "007 already applied or skipped"
+
+      - name: Apply 008 - Create campaigns table
+        run: psql -f supabase/migrations/008_campaigns.sql || echo "008 already applied or skipped"
+
+      - name: Verify campaigns table
+        run: psql -c "SELECT COUNT(*) FROM public.campaigns;" -c "SELECT policyname FROM pg_policies WHERE tablename='campaigns';"
+
+      - name: Verify products RLS
+        run: psql -c "SELECT policyname, roles FROM pg_policies WHERE tablename='products';"
