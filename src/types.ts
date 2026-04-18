@@ -171,9 +171,13 @@ export interface Campaign {
   id: string;
   title: string;
   description: string;
+  strategy?: string;
   suggestedProducts: string[];
-  status: 'draft' | 'active' | 'completed';
-  type: 'sale' | 'auction' | 'social';
+  status: 'draft' | 'active' | 'completed' | 'archived';
+  type: 'sale' | 'auction' | 'social' | 'flash';
+  discountPercentage?: number;
+  startsAt?: string;
+  endsAt?: string;
   createdAt: string;
 }
 

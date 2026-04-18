@@ -17,7 +17,14 @@ export async function suggestCampaign(topSellers: any[]) {
     body: JSON.stringify({ topSellers }),
   });
   if (!res.ok) throw new Error('Campaign generation failed');
-  return res.json();
+  const data = await res.json();
+  // API returns { campaigns: [{title, description, expectedImpact}] } or a single object
+  const first = data.campaigns?.[0] ?? data;
+  return {
+    title: first.title ?? '',
+    description: first.description ?? '',
+    strategy: first.strategy ?? first.expectedImpact ?? '',
+  };
 }
 
 export async function getHostTalkingPoints(productName: string, category: string) {

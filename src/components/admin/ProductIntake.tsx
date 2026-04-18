@@ -2,8 +2,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { identifyProduct } from '../../services/gemini';
 import { uploadProductImage } from '../../services/storageService';
-import { db, auth, handleFirestoreError, OperationType } from '../../firebase';
-import { collection, doc, setDoc } from 'firebase/firestore';
+import { auth } from '../../firebase';
+import { createProduct } from '../../services/productService';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Camera, Upload, Loader2, CheckCircle2, AlertCircle, Sparkles, X, PlusCircle, Edit3, Trash2, Save } from 'lucide-react';
@@ -145,64 +145,30 @@ export default function ProductIntake({ onSuccess }: ProductIntakeProps) {
     setLoading(true);
     setError(null);
     try {
-      console.log(`Starting product save sequence with status: ${status}...`, { editedResult, filesCount: files.length });
-      
       const authorUid = auth.currentUser?.uid;
-      if (!authorUid) {
-        throw new Error('Authentication required. Please sign in again.');
-      }
+      if (!authorUid) throw new Error('Authentication required. Please sign in again.');
 
-      // 1. Get a fresh doc ref
-      const productDocRef = doc(collection(db, 'products'));
-      const productId = productDocRef.id;
-      console.log('Generated Product ID:', productId);
+      // Use a temp UUID for the storage path; Supabase generates the real product ID
+      const tempId = crypto.randomUUID();
+      const uploadedUrls = await Promise.all(files.map(f => uploadProductImage(tempId, f)));
+      if (uploadedUrls.length === 0) throw new Error('Failed to upload images. Please try again.');
 
-      // 2. Upload images
-      console.log('Uploading images to storage...');
-      const uploadedUrls = await Promise.all(
-        files.map((file, index) => {
-          console.log(`Uploading file ${index + 1}/${files.length}: ${file.name}`);
-          return uploadProductImage(productId, file);
-        })
-      );
-
-      if (uploadedUrls.length === 0) {
-        throw new Error('Failed to upload images. Please try again.');
-      }
-
-      console.log('Images successfully uploaded:', uploadedUrls);
-
-      // 3. Prepare final data
-      const productData = {
-        id: productId,
+      await createProduct({
         ...editedResult,
         totalStock: editedResult.stock,
         imageUrl: uploadedUrls[0],
         imageUrls: uploadedUrls,
         status,
-        createdAt: new Date().toISOString(),
-        authorUid
-      };
+        authorUid,
+      });
 
-      console.log('Final product data for Firestore:', productData);
-
-      // 4. Save to Firestore
-      await setDoc(productDocRef, productData);
-      console.log('Firestore document created successfully.');
-      
-      // 5. Clear state and show success
       setResult(null);
       setEditedResult(null);
       setFiles([]);
       setPreviews([]);
       setSuccess(true);
-    } catch (err) {
-      console.error('CRITICAL SAVE ERROR:', err);
-      try {
-        handleFirestoreError(err, OperationType.CREATE, 'products');
-      } catch (firestoreErr: any) {
-        setError(`Submission failed: ${firestoreErr.message || 'Unknown error'}`);
-      }
+    } catch (err: any) {
+      setError(err?.message || 'Submission failed. Please try again.');
     } finally {
       setLoading(false);
     }

@@ -1,13 +1,16 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Product, LiveSession } from '../../types';
+import { Product, LiveSession, Campaign } from '../../types';
 import { fetchProducts } from '../../services/productService';
+import { fetchActiveCampaigns } from '../../services/campaignService';
+import { getPersonalizedRecommendations } from '../../services/aiClient';
+import { auth, onAuthStateChanged } from '../../firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ShoppingBag, Play, Users, Search, X, Shield, Truck,
   Sparkles, SlidersHorizontal, Zap, Tag, ChevronRight,
-  ArrowUpRight, TrendingUp, Package
+  ArrowUpRight, TrendingUp, Package, Megaphone
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
@@ -153,6 +156,8 @@ export default function StoreFront() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [recommendations, setRecommendations] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
@@ -160,6 +165,8 @@ export default function StoreFront() {
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+  const viewedIdsRef = useRef<string[]>([]);
+  const hasRecommendedRef = useRef(false);
 
   const handleSearchChange = useCallback((value: string) => {
     const sanitized = sanitizeInput(value);
@@ -191,8 +198,31 @@ export default function StoreFront() {
     const unsubLive = onSnapshot(qLive, (snap) => {
       setLiveSessions(snap.docs.map(d => ({ id: d.id, ...d.data() } as LiveSession)));
     }, () => {});
+    fetchActiveCampaigns().then(setCampaigns).catch(() => {});
     return () => { unsubLive(); };
   }, []);
+
+  // AI recommendations — fetch once after user has viewed 3+ products
+  const trackView = useCallback((productId: string) => {
+    if (hasRecommendedRef.current) return;
+    if (!viewedIdsRef.current.includes(productId)) {
+      viewedIdsRef.current = [...viewedIdsRef.current, productId].slice(-10);
+    }
+    if (viewedIdsRef.current.length >= 3 && auth.currentUser) {
+      hasRecommendedRef.current = true;
+      const viewed = products.filter(p => viewedIdsRef.current.includes(p.id));
+      getPersonalizedRecommendations(viewed, [activeCategory].filter(Boolean) as string[])
+        .then((res) => {
+          const names: string[] = Array.isArray(res?.recommendations) ? res.recommendations : [];
+          const matched = products
+            .filter(p => names.some(n => p.name.toLowerCase().includes(n.toLowerCase())))
+            .filter(p => !viewedIdsRef.current.includes(p.id))
+            .slice(0, 4);
+          if (matched.length > 0) setRecommendations(matched);
+        })
+        .catch(() => {});
+    }
+  }, [products, activeCategory]);
 
   const filtered = useMemo(() => {
     let list = products;
@@ -369,6 +399,53 @@ export default function StoreFront() {
           )}
         </AnimatePresence>
 
+        {/* ── Campaign Banner ── */}
+        <AnimatePresence>
+          {campaigns.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="mb-6"
+            >
+              <div
+                className="rounded-2xl p-5 relative overflow-hidden noise cursor-pointer"
+                style={{ background: 'var(--gradient-warm)' }}
+                onClick={() => {
+                  setActiveFilter(null);
+                  setActiveCategory(null);
+                  setSearch('');
+                  document.getElementById('product-grid')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+              >
+                <div className="absolute -right-6 -top-6 opacity-10">
+                  <Megaphone className="w-28 h-28 text-white" />
+                </div>
+                <div className="flex items-start justify-between gap-4 relative z-10">
+                  <div>
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-white/70 mb-1 block">
+                      Active Campaign
+                    </span>
+                    <h3 className="text-base font-black text-white leading-tight">{campaigns[0].title}</h3>
+                    <p className="text-xs text-white/80 mt-1 leading-relaxed max-w-xs">{campaigns[0].description}</p>
+                  </div>
+                  {campaigns[0].discountPercentage && (
+                    <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-white/20 border border-white/30 flex flex-col items-center justify-center">
+                      <span className="text-[10px] font-bold text-white/70">UP TO</span>
+                      <span className="text-lg font-black text-white leading-none">{campaigns[0].discountPercentage}%</span>
+                      <span className="text-[9px] font-bold text-white/70">OFF</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 mt-3 relative z-10">
+                  <span className="text-xs font-bold text-white">Shop Now</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-white" />
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* ── Search + Filters ── */}
         <div className="mb-8 space-y-4">
           {/* Search bar */}
@@ -534,13 +611,36 @@ export default function StoreFront() {
               )}
             </motion.div>
           ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+            <div id="product-grid" className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
               {filtered.map((product, idx) => (
-                <ProductCard key={product.id} product={product} idx={idx} />
+                <div key={product.id} onClick={() => trackView(product.id)}>
+                  <ProductCard product={product} idx={idx} />
+                </div>
               ))}
             </div>
           )}
         </section>
+
+        {/* ── AI Recommendations ── */}
+        <AnimatePresence>
+          {recommendations.length > 0 && (
+            <motion.section
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-10"
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <Sparkles className="w-4 h-4 text-purple-500" />
+                <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Picked for You</h2>
+              </div>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                {recommendations.map((product, idx) => (
+                  <ProductCard key={product.id} product={product} idx={idx} />
+                ))}
+              </div>
+            </motion.section>
+          )}
+        </AnimatePresence>
 
         {/* ── Trust strip ── */}
         <motion.section

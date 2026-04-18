@@ -192,7 +192,7 @@ export async function fetchOrder(id: string): Promise<Order | null> {
   return rowToOrder(order, items || []);
 }
 
-/** Fetch orders with filters */
+/** Fetch orders with filters — queries Supabase directly using the user's JWT */
 export async function fetchOrders(filters?: {
   profileId?: string;
   status?: OrderStatus;
@@ -200,26 +200,34 @@ export async function fetchOrders(filters?: {
   limit?: number;
   excludeSourceRef?: string;
 }): Promise<Order[]> {
-  const params = new URLSearchParams();
-  if (filters?.profileId) params.set('profileId', filters.profileId);
-  if (filters?.status) params.set('status', filters.status);
-  if (filters?.channel) params.set('channel', filters.channel);
-  if (filters?.limit) params.set('limit', String(filters.limit));
-  if (filters?.excludeSourceRef) params.set('excludeSourceRef', filters.excludeSourceRef);
+  let query = supabase
+    .from('orders')
+    .select('*')
+    .order('created_at', { ascending: false });
 
-  const response = await fetch(`/api/commerce/order-status?${params.toString()}`, {
-    headers: {
-      Accept: 'application/json',
-    },
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error || 'Failed to load orders');
+  if (filters?.profileId) query = query.eq('profile_id', filters.profileId);
+  if (filters?.status)    query = query.eq('status', filters.status);
+  if (filters?.channel)   query = query.eq('channel', filters.channel);
+  if (filters?.limit)     query = query.limit(filters.limit);
+  if (filters?.excludeSourceRef) {
+    query = query.or(`source_ref.is.null,source_ref.neq.${filters.excludeSourceRef}`);
   }
 
-  const itemsByOrder = data.itemsByOrder || {};
-  return (data.orders || []).map((order: any) => rowToOrder(order, itemsByOrder[order.id] || []));
+  const { data: orders, error } = await query;
+  if (error) throw new Error(error.message);
+  if (!orders || orders.length === 0) return [];
+
+  const { data: allItems } = await supabase
+    .from('order_items')
+    .select('*')
+    .in('order_id', orders.map(o => o.id));
+
+  const itemsByOrder = (allItems || []).reduce<Record<string, any[]>>((acc, item) => {
+    (acc[item.order_id] = acc[item.order_id] || []).push(item);
+    return acc;
+  }, {});
+
+  return orders.map(order => rowToOrder(order, itemsByOrder[order.id] || []));
 }
 
 function rowToEvent(row: any): OrderEvent {
@@ -236,21 +244,23 @@ function rowToEvent(row: any): OrderEvent {
 }
 
 export async function fetchOrderDetail(orderId: string): Promise<OrderDetail | null> {
-  const response = await fetch(`/api/commerce/order-status?orderId=${encodeURIComponent(orderId)}&includeEvents=1`, {
-    headers: {
-      Accept: 'application/json',
-    },
-  });
+  const { data: order, error } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('id', orderId)
+    .maybeSingle();
 
-  const data = await response.json();
-  if (!response.ok) {
-    if (response.status === 404) return null;
-    throw new Error(data.error || 'Failed to load order detail');
-  }
+  if (error) throw new Error(error.message);
+  if (!order) return null;
+
+  const [{ data: items }, { data: events }] = await Promise.all([
+    supabase.from('order_items').select('*').eq('order_id', orderId).order('created_at', { ascending: true }),
+    supabase.from('order_events').select('*').eq('order_id', orderId).order('created_at', { ascending: false }),
+  ]);
 
   return {
-    ...rowToOrder(data.order, data.items || []),
-    events: (data.events || []).map(rowToEvent),
+    ...rowToOrder(order, items || []),
+    events: (events || []).map(rowToEvent),
   };
 }
 

@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, addDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
 import { Product, Campaign } from '../../types';
 import { subscribeToProducts } from '../../services/productService';
+import { subscribeToCampaigns, createCampaign } from '../../services/campaignService';
 import { suggestCampaign } from '../../services/gemini';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Loader, CheckCircle2, TrendingUp, Megaphone } from 'lucide-react';
+import { Sparkles, Loader2, CheckCircle2, TrendingUp, Megaphone } from 'lucide-react';
 
 export default function CampaignManager() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -15,27 +14,9 @@ export default function CampaignManager() {
   const [suggestError, setSuggestError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Products now live in Supabase — use productService
-    const unsubProducts = subscribeToProducts('approved', (data) => {
-      setProducts(data);
-    });
-
-    // Campaigns still in Firestore
-    let unsubCampaigns: (() => void) | undefined;
-    try {
-      unsubCampaigns = onSnapshot(collection(db, 'campaigns'), (snapshot) => {
-        setCampaigns(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Campaign)));
-      }, (err) => {
-        console.warn('CampaignManager: Firestore campaigns unavailable', err);
-      });
-    } catch (err) {
-      console.warn('CampaignManager: Could not subscribe to campaigns', err);
-    }
-
-    return () => {
-      unsubProducts();
-      unsubCampaigns?.();
-    };
+    const unsubProducts = subscribeToProducts('approved', setProducts);
+    const unsubCampaigns = subscribeToCampaigns(undefined, setCampaigns);
+    return () => { unsubProducts(); unsubCampaigns(); };
   }, []);
 
   const handleSuggest = async () => {
@@ -56,17 +37,17 @@ export default function CampaignManager() {
     if (!suggestion) return;
     setLoading(true);
     try {
-      await addDoc(collection(db, 'campaigns'), {
+      await createCampaign({
         title: suggestion.title,
         description: suggestion.description,
-        suggestedProducts: suggestion.featuredProductIds,
+        strategy: suggestion.strategy,
+        suggestedProducts: suggestion.featuredProductIds ?? [],
         type: 'sale',
         status: 'active',
-        createdAt: new Date().toISOString()
       });
       setSuggestion(null);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      setSuggestError(err?.message || 'Failed to launch campaign');
     } finally {
       setLoading(false);
     }
@@ -84,7 +65,7 @@ export default function CampaignManager() {
           disabled={loading || products.length === 0}
           className="btn-primary disabled:opacity-50"
         >
-          {loading ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
           Generate Suggestion
         </button>
       </div>
@@ -123,7 +104,8 @@ export default function CampaignManager() {
 
                 <div className="flex gap-3">
                   <button onClick={handleLaunch} disabled={loading} className="btn-primary flex-1 justify-center py-3">
-                    Launch Campaign
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    {loading ? 'Launching…' : 'Launch Campaign'}
                   </button>
                   <button onClick={() => setSuggestion(null)} className="btn-secondary px-6 py-3 justify-center">
                     Discard
