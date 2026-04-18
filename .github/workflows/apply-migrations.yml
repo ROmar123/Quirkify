@@ -20,22 +20,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install psql
-        run: sudo apt-get install -y postgresql-client
+      - name: Install psql and tools
+        run: sudo apt-get install -y postgresql-client dnsutils
 
       - name: Test connection
-        run: psql -c "SELECT current_database(), version();"
+        run: |
+          echo "Resolving host..."
+          dig +short $PGHOST || true
+          echo "Attempting psql connection (verbose)..."
+          PGCONNECT_TIMEOUT=15 psql -v ON_ERROR_STOP=1 \
+            "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=${PGSSLMODE}" \
+            -c "SELECT current_database(), current_user, version();"
 
       - name: Apply 007 - Fix products RLS
         run: |
-          psql -f supabase/migrations/007_fix_rls.sql 2>&1 || \
-          psql -c "SELECT policyname FROM pg_policies WHERE tablename='products' AND policyname LIKE '%Authenticated%';"
+          psql "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=${PGSSLMODE}" \
+            -f supabase/migrations/007_fix_rls.sql 2>&1 || echo "007 may already be applied"
 
       - name: Apply 008 - Create campaigns table
-        run: psql -f supabase/migrations/008_campaigns.sql 2>&1
+        run: |
+          psql "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=${PGSSLMODE}" \
+            -f supabase/migrations/008_campaigns.sql 2>&1
 
-      - name: Verify campaigns table
-        run: psql -c "SELECT COUNT(*) FROM public.campaigns;" -c "SELECT policyname FROM pg_policies WHERE tablename='campaigns';"
-
-      - name: Verify products RLS
-        run: psql -c "SELECT policyname, roles FROM pg_policies WHERE tablename='products';"
+      - name: Verify migrations
+        run: |
+          CONN="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=${PGSSLMODE}"
+          psql "$CONN" -c "SELECT COUNT(*) as campaigns FROM public.campaigns;"
+          psql "$CONN" -c "SELECT policyname FROM pg_policies WHERE tablename IN ('products','campaigns') ORDER BY tablename, policyname;"
