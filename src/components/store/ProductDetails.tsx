@@ -80,7 +80,7 @@ export default function ProductDetails() {
   const maxQty = product.allocations?.store ?? product.stock;
   const basePrice = product.priceRange?.min ?? product.retailPrice ?? 0;
   const hasDiscount = product.discountPrice && product.discountPrice < basePrice;
-  const rarity = RARITY_CONFIG[product.rarity || 'Common'];
+  const rarity = RARITY_CONFIG[product.rarity || 'Common'] || RARITY_CONFIG['Common'];
 
   const handleAddToCart = () => {
     addToCart(product, quantity);
