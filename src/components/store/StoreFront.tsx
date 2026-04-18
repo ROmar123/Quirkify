@@ -9,8 +9,8 @@ import { auth, onAuthStateChanged } from '../../firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ShoppingBag, Play, Users, Search, X, Shield, Truck,
-  Sparkles, SlidersHorizontal, Zap, Tag, ChevronRight,
-  ArrowUpRight, TrendingUp, Package, Megaphone
+  Sparkles, SlidersHorizontal, Zap, ChevronRight,
+  ArrowUpRight, TrendingUp, Package, Megaphone, Heart
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
@@ -35,11 +35,22 @@ const RARITY_CONFIG: Record<string, { gradient: string; text: string }> = {
 
 function ProductCard({ product, idx }: { product: Product; idx: number }) {
   const { addToCart } = useCart();
+  const [wishlisted, setWishlisted] = useState(false);
+  const [added, setAdded] = useState(false);
   const isSoldOut = product.stock === 0;
   const isLowStock = product.stock > 0 && product.stock < 5;
   const basePrice = product.priceRange?.min ?? product.retailPrice ?? 0;
-  const hasDiscount = product.discountPrice && product.discountPrice < basePrice;
+  const hasDiscount = Boolean(product.discountPrice && product.discountPrice < basePrice);
+  const discountPct = hasDiscount ? Math.round((1 - product.discountPrice! / basePrice) * 100) : 0;
   const rarity = RARITY_CONFIG[product.rarity || 'Common'];
+
+  const handleAddToCart = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    addToCart(product);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1200);
+  };
 
   return (
     <motion.div
@@ -59,8 +70,17 @@ function ProductCard({ product, idx }: { product: Product; idx: number }) {
           referrerPolicy="no-referrer"
           onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder-product.png'; }}
         />
-        {/* Overlay on hover */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/8 transition-colors duration-300" />
+
+        {/* Wishlist heart */}
+        <motion.button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setWishlisted(v => !v); }}
+          whileTap={{ scale: 0.85 }}
+          className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center bg-white/80 backdrop-blur-sm shadow-sm opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+          aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+        >
+          <Heart className={cn('w-4 h-4 transition-colors', wishlisted ? 'fill-red-500 text-red-500' : 'text-gray-400')} />
+        </motion.button>
 
         {/* Badges */}
         <div className="absolute top-3 left-3 flex flex-col gap-1.5">
@@ -73,8 +93,8 @@ function ProductCard({ product, idx }: { product: Product; idx: number }) {
             </span>
           )}
           {hasDiscount && (
-            <span className="text-[9px] font-bold px-2.5 py-1 rounded-full bg-red-500 text-white flex items-center gap-0.5 shadow-sm">
-              <Tag className="w-2.5 h-2.5" /> Sale
+            <span className="text-[9px] font-black px-2.5 py-1 rounded-full bg-red-500 text-white shadow-sm tracking-tight">
+              -{discountPct}%
             </span>
           )}
           {isLowStock && (
@@ -93,16 +113,38 @@ function ProductCard({ product, idx }: { product: Product; idx: number }) {
           </div>
         )}
 
+        {/* Added ✓ overlay */}
+        <AnimatePresence>
+          {added && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px] z-20"
+            >
+              <motion.div
+                initial={{ scale: 0.7 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.7 }}
+                className="bg-white rounded-full px-4 py-2 shadow-lg"
+              >
+                <span className="text-xs font-bold text-gray-900">Added ✓</span>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Quick add button */}
-        {!isSoldOut && (
-          <button
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); addToCart(product); }}
-            className="absolute bottom-3 right-3 w-9 h-9 rounded-full flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0"
+        {!isSoldOut && !added && (
+          <motion.button
+            onClick={handleAddToCart}
+            whileTap={{ scale: 0.93 }}
+            className="absolute bottom-3 right-3 w-9 h-9 rounded-full flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0 z-10"
             style={{ background: 'var(--gradient-primary)' }}
             title="Add to cart"
           >
             <ShoppingBag className="w-4 h-4" />
-          </button>
+          </motion.button>
         )}
       </Link>
 
@@ -130,14 +172,15 @@ function ProductCard({ product, idx }: { product: Product; idx: number }) {
           )}
 
           {!isSoldOut ? (
-            <button
-              onClick={() => addToCart(product)}
-              className="flex items-center justify-center w-9 h-9 rounded-full text-white shadow-sm transition-all active:scale-95 lg:hidden flex-shrink-0"
+            <motion.button
+              onClick={() => handleAddToCart()}
+              whileTap={{ scale: 0.93 }}
+              className="flex items-center justify-center w-9 h-9 rounded-full text-white shadow-sm lg:hidden flex-shrink-0"
               style={{ background: 'var(--gradient-primary)' }}
               aria-label="Add to cart"
             >
               <ShoppingBag className="w-4 h-4" />
-            </button>
+            </motion.button>
           ) : (
             <Link
               to={`/product/${product.id}`}
@@ -600,14 +643,44 @@ export default function StoreFront() {
                 <Package className="w-6 h-6 text-gray-300" />
               </div>
               <p className="text-gray-500 font-semibold text-sm">No products found</p>
-              <p className="text-gray-400 text-xs mt-1">Try adjusting your filters or search</p>
-              {(search || activeFilter || activeCategory) && (
-                <button
-                  onClick={() => { setSearch(''); setActiveFilter(null); setActiveCategory(null); }}
-                  className="mt-4 text-sm font-semibold text-purple-600 hover:text-purple-700 underline transition-colors"
-                >
-                  Clear all filters
-                </button>
+              {(search || activeFilter || activeCategory) ? (
+                <>
+                  <p className="text-gray-400 text-xs mt-1 mb-3">These filters returned no results:</p>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {search && (
+                      <button
+                        onClick={() => setSearch('')}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full text-xs font-semibold hover:bg-purple-100 transition-colors"
+                      >
+                        "{search}" <X className="w-3 h-3" />
+                      </button>
+                    )}
+                    {activeFilter && (
+                      <button
+                        onClick={() => setActiveFilter(null)}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full text-xs font-semibold hover:bg-purple-100 transition-colors"
+                      >
+                        {activeFilter} <X className="w-3 h-3" />
+                      </button>
+                    )}
+                    {activeCategory && (
+                      <button
+                        onClick={() => setActiveCategory(null)}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full text-xs font-semibold hover:bg-purple-100 transition-colors"
+                      >
+                        {activeCategory} <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => { setSearch(''); setActiveFilter(null); setActiveCategory(null); }}
+                    className="mt-4 text-xs font-semibold text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    Clear all
+                  </button>
+                </>
+              ) : (
+                <p className="text-gray-400 text-xs mt-1">No products have been listed yet</p>
               )}
             </motion.div>
           ) : (
