@@ -7,7 +7,8 @@ import { cn } from '../../lib/utils';
 import { PRODUCT_CATEGORIES } from '../../lib/categories';
 import { uploadProductImage } from '../../services/storageService';
 import { identifyProduct } from '../../services/gemini';
-import { subscribeToProducts, createProduct, updateProduct, deleteProduct } from '../../services/productService';
+import { subscribeToProductsAdmin } from '../../services/adminProductService';
+import { createProduct, updateProduct, deleteProduct } from '../../services/productService';
 
 type StatusFilter = 'all' | 'approved' | 'pending' | 'rejected';
 
@@ -45,10 +46,10 @@ export default function ListingManager() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    return subscribeToProducts(undefined, (data) => {
+    return subscribeToProductsAdmin(undefined, (data) => {
       setProducts(data);
       setLoading(false);
-    }, { skipDemo: true });
+    });
   }, []);
 
   const filtered = products.filter(p => {

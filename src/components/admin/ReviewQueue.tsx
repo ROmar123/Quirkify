@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { subscribeToProducts, updateProduct } from '../../services/productService';
+import { subscribeToProductsAdmin } from '../../services/adminProductService';
+import { updateProduct } from '../../services/productService';
 import { Product, ProductCondition, AllocationSnapshot } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Check, Eye, Clock, Edit3, Save, ShoppingBag, Gavel, LayoutGrid, Trash2, ArrowLeft, AlertCircle } from 'lucide-react';
@@ -16,11 +17,10 @@ export default function ReviewQueue() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const unsub = subscribeToProducts('pending', (data) => {
+    return subscribeToProductsAdmin('pending', (data) => {
       setProducts(data);
       setLoading(false);
-    }, { skipDemo: true });
-    return unsub;
+    });
   }, []);
 
   useEffect(() => {

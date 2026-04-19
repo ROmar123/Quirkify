@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Product, Campaign } from '../../types';
-import { subscribeToProducts } from '../../services/productService';
+import { subscribeToProductsAdmin } from '../../services/adminProductService';
 import { subscribeToCampaigns, createCampaign } from '../../services/campaignService';
 import { suggestCampaign } from '../../services/gemini';
 import { motion, AnimatePresence } from 'motion/react';
@@ -14,7 +14,7 @@ export default function CampaignManager() {
   const [suggestError, setSuggestError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubProducts = subscribeToProducts('approved', setProducts, { skipDemo: true });
+    const unsubProducts = subscribeToProductsAdmin('approved', setProducts);
     const unsubCampaigns = subscribeToCampaigns(undefined, setCampaigns);
     return () => { unsubProducts(); unsubCampaigns(); };
   }, []);

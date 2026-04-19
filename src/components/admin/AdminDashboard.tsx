@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { auth } from '../../firebase';
 import { supabase } from '../../supabase';
-import { fetchProducts } from '../../services/productService';
+import { fetchAllProductsAdmin } from '../../services/adminProductService';
 import { fetchOrders, Order } from '../../services/orderService';
 import { Product } from '../../types';
 import {
@@ -13,6 +13,37 @@ import { Link } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
+const MIGRATION_SQL = `-- Run this in your Supabase SQL Editor:
+-- https://supabase.com/dashboard/project/mvoigokzsaybwiogjpvr/sql/new
+
+-- Migration 007: Let admins see all products (not just approved)
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='products' AND policyname='Authenticated users can view all products') THEN
+    CREATE POLICY "Authenticated users can view all products" ON products FOR SELECT TO authenticated USING (true);
+  END IF;
+END $$;
+
+-- Migration 008: Create campaigns table
+CREATE TABLE IF NOT EXISTS public.campaigns (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL, description TEXT NOT NULL, strategy TEXT,
+  type TEXT NOT NULL DEFAULT 'sale' CHECK (type IN ('sale','auction','social','flash')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('draft','active','completed','archived')),
+  suggested_product_ids UUID[] DEFAULT '{}',
+  discount_percentage INTEGER CHECK (discount_percentage IS NULL OR (discount_percentage >= 0 AND discount_percentage <= 100)),
+  starts_at TIMESTAMPTZ, ends_at TIMESTAMPTZ, created_by TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE public.campaigns ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='campaigns' AND policyname='Public can view active campaigns') THEN
+    CREATE POLICY "Public can view active campaigns" ON public.campaigns FOR SELECT USING (status = 'active');
+    CREATE POLICY "Authenticated users can view all campaigns" ON public.campaigns FOR SELECT TO authenticated USING (true);
+    CREATE POLICY "Authenticated users can create campaigns" ON public.campaigns FOR INSERT TO authenticated WITH CHECK (true);
+    CREATE POLICY "Authenticated users can update campaigns" ON public.campaigns FOR UPDATE TO authenticated USING (true);
+  END IF;
+END $$;`;
+
 type MigrationStatus = 'checking' | 'needed' | 'applying' | 'ok' | 'error';
 
 export default function AdminDashboard() {
@@ -22,12 +53,14 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [migrationStatus, setMigrationStatus] = useState<MigrationStatus>('checking');
   const [migrationMsg, setMigrationMsg] = useState('');
+  const [showSql, setShowSql] = useState(false);
+  const [sqlCopied, setSqlCopied] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       try {
         const [prods, ords] = await Promise.all([
-          fetchProducts(undefined, { skipDemo: true }),
+          fetchAllProductsAdmin(),
           fetchOrders({ excludeSourceRef: 'wallet_topup' }),
         ]);
         setProducts(prods);
@@ -215,26 +248,80 @@ export default function AdminDashboard() {
 
       {/* Migration Banner */}
       <AnimatePresence>
-        {migrationStatus === 'needed' && (
+        {(migrationStatus === 'needed' || migrationStatus === 'error') && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="mb-5 flex items-start gap-3 p-4 rounded-2xl border border-blue-100 bg-blue-50"
+            className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 overflow-hidden"
           >
-            <Database className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-blue-800">Database migrations needed</p>
-              <p className="text-xs text-blue-600 mt-0.5">
-                Apply pending migrations to enable Campaigns and full Inventory visibility.
-              </p>
+            <div className="flex items-start gap-3 p-4">
+              <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-amber-800">Campaigns table missing — apply SQL migrations</p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  {migrationStatus === 'error'
+                    ? `API attempt failed: ${migrationMsg} — use manual steps below.`
+                    : 'Growth/Campaigns page requires 2 SQL migrations to be run once in your Supabase project.'}
+                </p>
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <button
+                  onClick={handleApplyMigrations}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white text-xs font-bold rounded-lg hover:bg-amber-700 transition-colors"
+                >
+                  Try API
+                </button>
+                <button
+                  onClick={() => setShowSql(v => !v)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-300 text-amber-800 text-xs font-bold rounded-lg hover:bg-amber-50 transition-colors"
+                >
+                  {showSql ? 'Hide SQL' : 'Show SQL'}
+                </button>
+              </div>
             </div>
-            <button
-              onClick={handleApplyMigrations}
-              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-colors"
-            >
-              Apply Now
-            </button>
+
+            <AnimatePresence>
+              {showSql && (
+                <motion.div
+                  initial={{ height: 0 }}
+                  animate={{ height: 'auto' }}
+                  exit={{ height: 0 }}
+                  className="overflow-hidden border-t border-amber-200"
+                >
+                  <div className="p-4 bg-amber-50/60">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-semibold text-amber-800">
+                        Paste this in{' '}
+                        <a
+                          href="https://supabase.com/dashboard/project/mvoigokzsaybwiogjpvr/sql/new"
+                          target="_blank" rel="noreferrer"
+                          className="underline text-blue-700 hover:text-blue-900"
+                        >
+                          Supabase SQL Editor ↗
+                        </a>
+                      </p>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(MIGRATION_SQL);
+                          setSqlCopied(true);
+                          setTimeout(() => setSqlCopied(false), 2000);
+                        }}
+                        className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border transition-colors"
+                        style={sqlCopied
+                          ? { background: '#dcfce7', borderColor: '#86efac', color: '#166534' }
+                          : { background: 'white', borderColor: '#d1d5db', color: '#374151' }}
+                      >
+                        {sqlCopied ? <><CheckCircle2 className="w-3.5 h-3.5" /> Copied!</> : 'Copy SQL'}
+                      </button>
+                    </div>
+                    <pre className="text-[10px] leading-relaxed text-amber-900 bg-white border border-amber-100 rounded-xl p-3 overflow-x-auto whitespace-pre-wrap font-mono max-h-48">
+                      {MIGRATION_SQL}
+                    </pre>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
         {migrationStatus === 'applying' && (
@@ -244,33 +331,7 @@ export default function AdminDashboard() {
             className="mb-5 flex items-center gap-3 p-4 rounded-2xl border border-blue-100 bg-blue-50"
           >
             <Loader2 className="w-5 h-5 text-blue-500 animate-spin flex-shrink-0" />
-            <p className="text-sm font-semibold text-blue-800">Applying migrations…</p>
-          </motion.div>
-        )}
-        {migrationStatus === 'error' && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="mb-5 p-4 rounded-2xl border border-amber-100 bg-amber-50"
-          >
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-amber-800">Migration via API failed</p>
-                <p className="text-xs text-amber-700 mt-0.5">{migrationMsg}</p>
-                <p className="text-xs text-amber-600 mt-2">
-                  <strong>Manual fix:</strong> Go to{' '}
-                  <a href="https://supabase.com/dashboard/project/mvoigokzsaybwiogjpvr/sql/new" target="_blank" rel="noreferrer" className="underline font-semibold">
-                    Supabase SQL editor
-                  </a>{' '}
-                  and paste the contents of{' '}
-                  <code className="bg-amber-100 px-1 rounded text-[10px]">supabase/migrations/007_fix_rls.sql</code>{' '}
-                  and{' '}
-                  <code className="bg-amber-100 px-1 rounded text-[10px]">008_campaigns.sql</code>.
-                </p>
-              </div>
-            </div>
+            <p className="text-sm font-semibold text-blue-800">Trying to apply migrations via API…</p>
           </motion.div>
         )}
         {migrationStatus === 'ok' && migrationMsg && (
