@@ -17,14 +17,15 @@ function rowToCampaign(row: any): Campaign {
   };
 }
 
-/** Fetch campaigns visible on the storefront (status = 'active') */
+/** Fetch campaigns visible on the storefront (status = 'active').
+ *  Returns [] if the campaigns table doesn't exist yet. */
 export async function fetchActiveCampaigns(): Promise<Campaign[]> {
   const { data, error } = await supabase
     .from('campaigns')
     .select('*')
     .eq('status', 'active')
     .order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
+  if (error) return []; // table may not exist yet — storefront degrades gracefully
   return (data || []).map(rowToCampaign);
 }
 

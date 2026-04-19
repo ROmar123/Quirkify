@@ -1,21 +1,49 @@
 import { useState, useEffect } from 'react';
-import { Product, Campaign } from '../../types';
+import { Product } from '../../types';
+import type { Campaign } from '../../types';
 import { subscribeToProductsAdmin } from '../../services/adminProductService';
-import { subscribeToCampaigns, createCampaign } from '../../services/campaignService';
+import { subscribeToCampaignsAdmin, createCampaignAdmin } from '../../services/adminCampaignService';
 import { suggestCampaign } from '../../services/gemini';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Loader2, CheckCircle2, TrendingUp, Megaphone } from 'lucide-react';
+import { Sparkles, Loader2, CheckCircle2, TrendingUp, Megaphone, Database, ExternalLink } from 'lucide-react';
+
+const SUPABASE_SQL_URL = 'https://supabase.com/dashboard/project/mvoigokzsaybwiogjpvr/sql/new';
+
+const CAMPAIGNS_SQL = `CREATE TABLE IF NOT EXISTS public.campaigns (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL, description TEXT NOT NULL, strategy TEXT,
+  type TEXT NOT NULL DEFAULT 'sale' CHECK (type IN ('sale','auction','social','flash')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('draft','active','completed','archived')),
+  suggested_product_ids UUID[] DEFAULT '{}',
+  discount_percentage INTEGER CHECK (discount_percentage IS NULL OR (discount_percentage >= 0 AND discount_percentage <= 100)),
+  starts_at TIMESTAMPTZ, ends_at TIMESTAMPTZ, created_by TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE public.campaigns ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='campaigns' AND policyname='Public can view active campaigns') THEN
+    CREATE POLICY "Public can view active campaigns" ON public.campaigns FOR SELECT USING (status = 'active');
+    CREATE POLICY "Authenticated users can view all campaigns" ON public.campaigns FOR SELECT TO authenticated USING (true);
+    CREATE POLICY "Authenticated users can create campaigns" ON public.campaigns FOR INSERT TO authenticated WITH CHECK (true);
+    CREATE POLICY "Authenticated users can update campaigns" ON public.campaigns FOR UPDATE TO authenticated USING (true);
+  END IF;
+END $$;`;
 
 export default function CampaignManager() {
   const [products, setProducts] = useState<Product[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [tableExists, setTableExists] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
-  const [suggestion, setSuggestion] = useState<any>(null);
+  const [suggestion, setSuggestion] = useState<{ title: string; description: string; strategy: string } | null>(null);
   const [suggestError, setSuggestError] = useState<string | null>(null);
+  const [sqlCopied, setSqlCopied] = useState(false);
 
   useEffect(() => {
     const unsubProducts = subscribeToProductsAdmin('approved', setProducts);
-    const unsubCampaigns = subscribeToCampaigns(undefined, setCampaigns);
+    const unsubCampaigns = subscribeToCampaignsAdmin(undefined, (c, exists) => {
+      setCampaigns(c);
+      setTableExists(exists);
+    });
     return () => { unsubProducts(); unsubCampaigns(); };
   }, []);
 
@@ -36,21 +64,33 @@ export default function CampaignManager() {
   const handleLaunch = async () => {
     if (!suggestion) return;
     setLoading(true);
+    setSuggestError(null);
     try {
-      await createCampaign({
+      const result = await createCampaignAdmin({
         title: suggestion.title,
         description: suggestion.description,
         strategy: suggestion.strategy,
-        suggestedProducts: suggestion.featuredProductIds ?? [],
         type: 'sale',
         status: 'active',
       });
-      setSuggestion(null);
-    } catch (err: any) {
-      setSuggestError(err?.message || 'Failed to launch campaign');
+      if (result.setupRequired) {
+        setSuggestError('Campaigns database not set up. See the setup panel below.');
+        setTableExists(false);
+      } else if (result.error) {
+        setSuggestError(result.error);
+      } else {
+        setSuggestion(null);
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(CAMPAIGNS_SQL).then(() => {
+      setSqlCopied(true);
+      setTimeout(() => setSqlCopied(false), 2000);
+    });
   };
 
   return (
@@ -70,20 +110,56 @@ export default function CampaignManager() {
         </button>
       </div>
 
+      {/* DB setup banner — only shows when table is confirmed missing */}
+      {tableExists === false && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+          className="mb-6 bg-amber-50 border border-amber-200 rounded-2xl p-5"
+        >
+          <div className="flex items-start gap-3">
+            <Database className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-900">Campaigns database not set up</p>
+              <p className="text-xs text-amber-700 mt-1">
+                Copy the SQL below and run it once in your Supabase SQL editor to enable campaigns.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={handleCopySql}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-amber-700 text-white rounded-lg hover:bg-amber-800 transition-colors"
+                >
+                  {sqlCopied ? <><CheckCircle2 className="w-3.5 h-3.5" /> Copied!</> : 'Copy SQL'}
+                </button>
+                <a
+                  href={SUPABASE_SQL_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white border border-amber-300 text-amber-800 rounded-lg hover:bg-amber-50 transition-colors"
+                >
+                  Open SQL Editor <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+              <pre className="mt-3 text-[10px] text-amber-800 bg-amber-100 rounded-xl p-3 overflow-x-auto whitespace-pre-wrap font-mono leading-relaxed">
+                {CAMPAIGNS_SQL}
+              </pre>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           {suggestError && (
-            <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700 mb-4">
+            <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700">
               {suggestError}
             </div>
           )}
+
           <AnimatePresence mode="wait">
             {suggestion ? (
               <motion.div
                 key="suggestion"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
+                initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
                 className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm"
               >
                 <div className="flex items-center gap-2.5 mb-5">
@@ -97,13 +173,19 @@ export default function CampaignManager() {
                 <h2 className="text-xl font-bold text-gray-900 mb-2">{suggestion.title}</h2>
                 <p className="text-gray-500 text-sm mb-5 leading-relaxed">{suggestion.description}</p>
 
-                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-5">
-                  <p className="section-label mb-2">Strategy</p>
-                  <p className="text-gray-700 text-sm leading-relaxed">"{suggestion.strategy}"</p>
-                </div>
+                {suggestion.strategy && (
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-5">
+                    <p className="section-label mb-2">Strategy</p>
+                    <p className="text-gray-700 text-sm leading-relaxed">"{suggestion.strategy}"</p>
+                  </div>
+                )}
 
                 <div className="flex gap-3">
-                  <button onClick={handleLaunch} disabled={loading} className="btn-primary flex-1 justify-center py-3">
+                  <button
+                    onClick={handleLaunch}
+                    disabled={loading}
+                    className="btn-primary flex-1 justify-center py-3 disabled:opacity-50"
+                  >
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                     {loading ? 'Launching…' : 'Launch Campaign'}
                   </button>
@@ -115,21 +197,25 @@ export default function CampaignManager() {
             ) : (
               <motion.div
                 key="empty"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                 className="py-20 text-center bg-white rounded-2xl border border-dashed border-gray-200"
               >
                 <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-3">
                   <TrendingUp className="w-6 h-6 text-gray-300" />
                 </div>
                 <p className="section-label">No active suggestions</p>
+                {products.length === 0 && tableExists !== false && (
+                  <p className="text-xs text-gray-400 mt-1">Add approved products to generate a suggestion</p>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
 
           <div>
             <p className="section-label mb-3">Active Campaigns</p>
-            {campaigns.length === 0 ? (
+            {tableExists === false ? (
+              <p className="text-gray-400 text-sm">Database setup required — see banner above.</p>
+            ) : campaigns.length === 0 ? (
               <p className="text-gray-400 text-sm">No campaigns active.</p>
             ) : (
               <div className="space-y-2">
@@ -177,8 +263,7 @@ export default function CampaignManager() {
             </p>
             <div className="h-1 bg-white/20 rounded-full overflow-hidden relative z-10">
               <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: '65%' }}
+                initial={{ width: 0 }} animate={{ width: '65%' }}
                 transition={{ duration: 1.5, ease: 'easeOut' }}
                 className="h-full bg-white rounded-full"
               />
