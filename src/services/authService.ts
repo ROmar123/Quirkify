@@ -71,7 +71,7 @@ function mapUser(user: any): QuirkifyUser {
     email: user.email || null,
     displayName: user.user_metadata?.display_name || user.email?.split('@')[0] || null,
     photoURL: user.user_metadata?.avatar_url || null,
-    provider: user.app_provider || user.aapp_provider || null,
+    provider: user.app_metadata?.provider || null,
   };
 }
 

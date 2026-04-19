@@ -43,8 +43,7 @@ export async function addXP(uid: string, amount: number) {
     });
     
     if (newLevel > data.level) {
-      // Level up logic (e.g., unlock badge)
-      console.log(`Level up! New level: ${newLevel}`);
+      // Level up — badge unlocking handled client-side on next profile load
     }
   }
 }

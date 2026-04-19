@@ -15,5 +15,17 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
+            'vendor-supabase': ['@supabase/supabase-js'],
+            'vendor-ui': ['motion', 'lucide-react'],
+          },
+        },
+      },
+    },
   };
 });

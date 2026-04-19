@@ -14,7 +14,7 @@ export async function identifyProduct(base64Image: string) {
   );
 
   const analyzePromise = ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-1.5-flash",
     contents: [
       {
         parts: [
@@ -70,7 +70,7 @@ export async function identifyProduct(base64Image: string) {
 
 export async function suggestCampaign(topSellers: any[]) {
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-1.5-flash",
     contents: `Analyze these top selling products and suggest a marketing campaign strategy for Aura Commerce. Include a title, description, and which products to feature.
     Products: ${JSON.stringify(topSellers)}`,
     config: {
@@ -96,7 +96,7 @@ export async function suggestCampaign(topSellers: any[]) {
 
 export async function getHostTalkingPoints(product: Product) {
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-1.5-flash",
     contents: `You are an AI assistant for a live stream host on Quirkify. Generate 3 engaging talking points for this product to help the host sell it.
     Product: ${JSON.stringify(product)}`,
     config: {
@@ -120,7 +120,7 @@ export async function getHostTalkingPoints(product: Product) {
 
 export async function getPersonalizedRecommendations(products: Product[], userInterests: string[]) {
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-1.5-flash",
     contents: `Based on the user's interests: ${userInterests.join(", ")}, select the top 3 most relevant products from this list for Quirkify.
     Products: ${JSON.stringify(products.map((p) => ({
       id: p.id,

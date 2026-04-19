@@ -127,9 +127,6 @@ export const initiateYocoCheckout = async (amount: number, itemName: string, mPa
     // Redirect to Yoco's hosted checkout page
     window.location.href = data.redirectUrl;
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Payment error occurred';
-    console.error('Yoco checkout error:', message);
-    alert(`Payment Error: ${message}`);
-    throw error;
+    throw error instanceof Error ? error : new Error('Payment error occurred');
   }
 };

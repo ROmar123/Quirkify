@@ -2,7 +2,6 @@ import {
   addDoc,
   collection,
   doc,
-  getDoc,
   onSnapshot,
   query,
   runTransaction,
@@ -13,6 +12,7 @@ import {
   type QuerySnapshot,
 } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
+import { supabase } from '../supabase';
 import type { Auction, Bid, Product } from '../types';
 
 type AuctionDraft = Pick<Auction, 'productId' | 'sellerId' | 'startPrice' | 'startTime' | 'endTime'>;
@@ -33,14 +33,36 @@ async function attachProducts(snapshot: QuerySnapshot<DocumentData>): Promise<Au
   const productIds = [...new Set(auctions.map((auction) => auction.productId).filter(Boolean))];
 
   const products = new Map<string, Product>();
-  await Promise.all(
-    productIds.map(async (productId) => {
-      const productSnap = await getDoc(doc(db, 'products', productId));
-      if (productSnap.exists()) {
-        products.set(productId, { id: productSnap.id, ...productSnap.data() } as Product);
-      }
-    })
-  );
+  if (productIds.length > 0) {
+    const { data } = await supabase
+      .from('products')
+      .select('*')
+      .in('id', productIds);
+    (data ?? []).forEach((row: any) => {
+      products.set(row.id, {
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        category: row.category,
+        condition: row.condition,
+        status: row.status,
+        listingType: row.listing_type,
+        retailPrice: Number(row.retail_price),
+        discountPrice: Number(row.discount_price),
+        markdownPercentage: row.markdown_percentage,
+        stock: row.stock,
+        totalStock: row.stock,
+        allocations: { store: row.alloc_store, auction: row.alloc_auction, packs: row.alloc_packs },
+        imageUrl: row.image_url,
+        imageUrls: row.image_urls || [],
+        rarity: row.rarity,
+        stats: row.stats,
+        confidenceScore: Number(row.confidence_score) || 0,
+        priceRange: row.price_range,
+        tags: row.tags || [],
+      } as Product);
+    });
+  }
 
   return auctions
     .map((auction) => {
@@ -106,12 +128,38 @@ export function subscribeToBids(
 }
 
 export async function createAuction(input: AuctionDraft): Promise<string> {
-  const productSnap = await getDoc(doc(db, 'products', input.productId));
-  if (!productSnap.exists()) {
+  const { data: productRow, error: productError } = await supabase
+    .from('products')
+    .select('*')
+    .eq('id', input.productId)
+    .single();
+
+  if (productError || !productRow) {
     throw new Error('Selected product no longer exists');
   }
 
-  const product = { id: productSnap.id, ...productSnap.data() } as Product;
+  const product: Product = {
+    id: productRow.id,
+    name: productRow.name,
+    description: productRow.description,
+    category: productRow.category,
+    condition: productRow.condition,
+    status: productRow.status,
+    listingType: productRow.listing_type,
+    retailPrice: Number(productRow.retail_price),
+    discountPrice: Number(productRow.discount_price),
+    markdownPercentage: productRow.markdown_percentage,
+    stock: productRow.stock,
+    totalStock: productRow.stock,
+    allocations: { store: productRow.alloc_store, auction: productRow.alloc_auction, packs: productRow.alloc_packs },
+    imageUrl: productRow.image_url,
+    imageUrls: productRow.image_urls || [],
+    rarity: productRow.rarity,
+    stats: productRow.stats,
+    confidenceScore: Number(productRow.confidence_score) || 0,
+    priceRange: productRow.price_range,
+    tags: productRow.tags || [],
+  };
   const startsAt = new Date(input.startTime);
   const endsAt = new Date(input.endTime);
 
