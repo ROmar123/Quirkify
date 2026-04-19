@@ -75,11 +75,24 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const checkMigrations = async () => {
-      const { error } = await supabase.from('campaigns').select('id').limit(0);
-      if (error && (error.message.includes('does not exist') || error.message.includes('relation') || (error as any).code === '42P01')) {
-        setMigrationStatus('needed');
-      } else {
-        setMigrationStatus('ok');
+      try {
+        // Use admin API (service role) for a definitive check
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          const res = await fetch('/api/admin/campaigns', {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          if (res.ok) {
+            const json = await res.json();
+            setMigrationStatus(json.tableExists === false ? 'needed' : 'ok');
+            return;
+          }
+        }
+        // Fallback: anon key check
+        const { error } = await supabase.from('campaigns').select('id').limit(0);
+        setMigrationStatus(error ? 'needed' : 'ok');
+      } catch {
+        setMigrationStatus('needed'); // assume needed if check fails
       }
     };
     checkMigrations();
@@ -220,7 +233,7 @@ export default function AdminDashboard() {
 
       {/* Migration Banner */}
       <AnimatePresence>
-        {migrationStatus === 'needed' && (
+        {(migrationStatus === 'needed' || migrationStatus === 'checking') && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
