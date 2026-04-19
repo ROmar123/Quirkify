@@ -455,9 +455,13 @@ export default function StoreFront() {
                 className="rounded-2xl p-5 relative overflow-hidden noise cursor-pointer"
                 style={{ background: 'var(--gradient-warm)' }}
                 onClick={() => {
-                  setActiveFilter(null);
-                  setActiveCategory(null);
                   setSearch('');
+                  setActiveCategory(null);
+                  if (campaigns[0].discountPercentage) {
+                    setActiveFilter('sale');
+                  } else {
+                    setActiveFilter(null);
+                  }
                   document.getElementById('product-grid')?.scrollIntoView({ behavior: 'smooth' });
                 }}
               >

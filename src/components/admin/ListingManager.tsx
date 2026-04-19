@@ -48,7 +48,7 @@ export default function ListingManager() {
     return subscribeToProducts(undefined, (data) => {
       setProducts(data);
       setLoading(false);
-    });
+    }, { skipDemo: true });
   }, []);
 
   const filtered = products.filter(p => {

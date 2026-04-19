@@ -19,7 +19,7 @@ export default function ReviewQueue() {
     const unsub = subscribeToProducts('pending', (data) => {
       setProducts(data);
       setLoading(false);
-    });
+    }, { skipDemo: true });
     return unsub;
   }, []);
 
