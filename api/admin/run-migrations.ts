@@ -140,6 +140,41 @@ async function verifyAdmin(token: string): Promise<{ ok: boolean; reason?: strin
   return { ok: false, reason: 'Admin access required' };
 }
 
+const PROJECT_REF = 'mvoigokzsaybwiogjpvr';
+
+async function applyViaManagementApi(logs: string[]): Promise<{ success: boolean; results?: any[] }> {
+  const pat = process.env.SUPABASE_ACCESS_TOKEN;
+  if (!pat) {
+    logs.push('SUPABASE_ACCESS_TOKEN not set — skipping Management API');
+    return { success: false };
+  }
+  logs.push('Trying Supabase Management API…');
+  const results: { name: string; status: string; error?: string }[] = [];
+  for (const m of MIGRATIONS) {
+    try {
+      const r = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${pat}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: m.sql }),
+      });
+      if (!r.ok) {
+        const body = await r.text();
+        throw new Error(`HTTP ${r.status}: ${body}`);
+      }
+      logs.push(`Applied via Management API: ${m.name}`);
+      results.push({ name: m.name, status: 'applied' });
+    } catch (e: any) {
+      logs.push(`Management API error ${m.name}: ${e.message}`);
+      results.push({ name: m.name, status: 'error', error: e.message });
+    }
+  }
+  const allOk = results.every(r => r.status === 'applied');
+  return { success: allOk, results };
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -159,6 +194,13 @@ export default async function handler(req: any, res: any) {
 
   const logs: string[] = [];
 
+  // 1. Try Supabase Management API first (most reliable from Vercel)
+  const mgmtResult = await applyViaManagementApi(logs);
+  if (mgmtResult.success) {
+    return res.status(200).json({ success: true, connection: 'Supabase Management API', results: mgmtResult.results, logs });
+  }
+
+  // 2. Fall back to direct pg connections
   for (const config of DB_CONFIGS) {
     logs.push(`\nTrying: ${config.label}`);
     let client: InstanceType<typeof Client> | null = null;
@@ -194,7 +236,7 @@ export default async function handler(req: any, res: any) {
 
   return res.status(500).json({
     success: false,
-    error: 'All database connections failed — Supabase may have network restrictions on this server. Apply migrations manually in the Supabase dashboard SQL editor.',
+    error: 'All migration methods failed. Add SUPABASE_ACCESS_TOKEN to Vercel env vars and try again, or apply SQL manually in the Supabase dashboard.',
     logs,
   });
 }
