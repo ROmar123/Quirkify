@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { auth } from '../../firebase';
 import { supabase } from '../../supabase';
 import { fetchAllProductsAdmin } from '../../services/adminProductService';
@@ -7,7 +7,7 @@ import { Product } from '../../types';
 import {
   TrendingUp, ShoppingBag, Zap, ClipboardList, ArrowUpRight,
   Package, DollarSign, Activity, AlertTriangle, CheckCircle2,
-  Clock, Truck, BarChart3, Database, Loader2
+  Clock, Truck, BarChart3, Database
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../../lib/utils';
@@ -44,7 +44,7 @@ DO $$ BEGIN
   END IF;
 END $$;`;
 
-type MigrationStatus = 'checking' | 'needed' | 'applying' | 'ok' | 'error';
+type MigrationStatus = 'checking' | 'needed' | 'ok';
 
 export default function AdminDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -52,7 +52,6 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [migrationStatus, setMigrationStatus] = useState<MigrationStatus>('checking');
-  const [migrationMsg, setMigrationMsg] = useState('');
   const [showSql, setShowSql] = useState(false);
   const [sqlCopied, setSqlCopied] = useState(false);
 
@@ -86,33 +85,6 @@ export default function AdminDashboard() {
     checkMigrations();
   }, []);
 
-  const handleApplyMigrations = useCallback(async () => {
-    setMigrationStatus('applying');
-    setMigrationMsg('');
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        setMigrationStatus('error');
-        setMigrationMsg('Not authenticated — please refresh and try again.');
-        return;
-      }
-      const res = await fetch('/api/admin/run-migrations', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      const json = await res.json();
-      if (json.success) {
-        setMigrationStatus('ok');
-        setMigrationMsg('Migrations applied! Refresh to see updated data.');
-      } else {
-        setMigrationStatus('error');
-        setMigrationMsg(json.error || 'Migration failed. Apply manually via Supabase SQL editor.');
-      }
-    } catch (e: any) {
-      setMigrationStatus('error');
-      setMigrationMsg(e.message || 'Network error. Apply migrations manually in Supabase dashboard.');
-    }
-  }, []);
 
   const metrics = useMemo(() => {
     const approved = products.filter(p => p.status === 'approved');
@@ -248,7 +220,7 @@ export default function AdminDashboard() {
 
       {/* Migration Banner */}
       <AnimatePresence>
-        {(migrationStatus === 'needed' || migrationStatus === 'error') && (
+        {migrationStatus === 'needed' && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -260,25 +232,15 @@ export default function AdminDashboard() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-amber-800">Campaigns table missing — apply SQL migrations</p>
                 <p className="text-xs text-amber-700 mt-0.5">
-                  {migrationStatus === 'error'
-                    ? `API attempt failed: ${migrationMsg} — use manual steps below.`
-                    : 'Growth/Campaigns page requires 2 SQL migrations to be run once in your Supabase project.'}
+                  Run the SQL below once in your Supabase project to enable the Growth/Campaigns page.
                 </p>
               </div>
-              <div className="flex gap-2 flex-shrink-0">
-                <button
-                  onClick={handleApplyMigrations}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white text-xs font-bold rounded-lg hover:bg-amber-700 transition-colors"
-                >
-                  Try API
-                </button>
-                <button
-                  onClick={() => setShowSql(v => !v)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-300 text-amber-800 text-xs font-bold rounded-lg hover:bg-amber-50 transition-colors"
-                >
-                  {showSql ? 'Hide SQL' : 'Show SQL'}
-                </button>
-              </div>
+              <button
+                onClick={() => setShowSql(v => !v)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-300 text-amber-800 text-xs font-bold rounded-lg hover:bg-amber-50 transition-colors flex-shrink-0"
+              >
+                {showSql ? 'Hide SQL' : 'Show SQL'}
+              </button>
             </div>
 
             <AnimatePresence>
@@ -322,27 +284,6 @@ export default function AdminDashboard() {
                 </motion.div>
               )}
             </AnimatePresence>
-          </motion.div>
-        )}
-        {migrationStatus === 'applying' && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-5 flex items-center gap-3 p-4 rounded-2xl border border-blue-100 bg-blue-50"
-          >
-            <Loader2 className="w-5 h-5 text-blue-500 animate-spin flex-shrink-0" />
-            <p className="text-sm font-semibold text-blue-800">Trying to apply migrations via API…</p>
-          </motion.div>
-        )}
-        {migrationStatus === 'ok' && migrationMsg && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="mb-5 flex items-center gap-3 p-4 rounded-2xl border border-green-100 bg-green-50"
-          >
-            <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
-            <p className="text-sm font-semibold text-green-800">{migrationMsg}</p>
           </motion.div>
         )}
       </AnimatePresence>
