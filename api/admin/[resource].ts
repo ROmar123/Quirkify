@@ -113,7 +113,7 @@ export default async function handler(req: any, res: any) {
 
   // ── Campaigns ───────────────────────────────────────────────────────────────
   if (resource === 'campaigns') {
-    // GET — list
+    // GET — list (auto-create table if missing)
     if (req.method === 'GET') {
       const status = typeof req.query.status === 'string' ? req.query.status : null;
       let q = db.from('campaigns').select('*').order('created_at', { ascending: false });
@@ -121,6 +121,14 @@ export default async function handler(req: any, res: any) {
       const { data, error } = await q;
       if (error) {
         if (isTableMissing(error)) {
+          const created = await tryCreateCampaignsTable();
+          if (created) {
+            // Table just created — retry query
+            let q2 = db.from('campaigns').select('*').order('created_at', { ascending: false });
+            if (status) q2 = q2.eq('status', status);
+            const { data: d2 } = await q2;
+            return res.status(200).json({ campaigns: d2 ?? [], tableExists: true });
+          }
           return res.status(200).json({ campaigns: [], tableExists: false, setupSql: SETUP_SQL });
         }
         return res.status(400).json({ error: error.message });

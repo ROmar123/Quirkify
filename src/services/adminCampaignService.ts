@@ -51,7 +51,16 @@ export async function fetchCampaignsAdmin(status?: Campaign['status']): Promise<
       setupSql: json.setupSql,
     };
   } catch {
-    return { campaigns: [], tableExists: false };
+    // API unavailable — fall back to direct Supabase query
+    try {
+      let q = supabase.from('campaigns').select('*').order('created_at', { ascending: false });
+      if (status) q = q.eq('status', status);
+      const { data, error } = await q;
+      if (error) return { campaigns: [], tableExists: false };
+      return { campaigns: (data ?? []).map(rowToCampaign), tableExists: true };
+    } catch {
+      return { campaigns: [], tableExists: true };
+    }
   }
 }
 

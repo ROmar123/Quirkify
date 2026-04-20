@@ -172,7 +172,7 @@ export default function CampaignManager() {
 
           <div>
             <p className="section-label mb-3">Active Campaigns</p>
-            {tableExists === false ? (
+            {tableExists === false && setupSql ? (
               <p className="text-gray-400 text-sm">Complete setup above to enable campaigns.</p>
             ) : campaigns.length === 0 ? (
               <p className="text-gray-400 text-sm">No campaigns active.</p>

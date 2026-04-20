@@ -24,7 +24,7 @@ export default function AdminDashboard() {
       try {
         const [prods, ords] = await Promise.all([
           fetchAllProductsAdmin(),
-          fetchOrders({ excludeSourceRef: 'wallet_topup' }),
+          fetchOrders({ excludeSourceRef: 'wallet_topup' }).catch(() => [] as Order[]),
         ]);
         setProducts(prods);
         setOrders(ords);
