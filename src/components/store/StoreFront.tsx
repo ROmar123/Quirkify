@@ -39,10 +39,11 @@ function ProductCard({ product, idx }: { product: Product; idx: number }) {
   const [added, setAdded] = useState(false);
   const isSoldOut = product.stock === 0;
   const isLowStock = product.stock > 0 && product.stock < 5;
-  const basePrice = product.priceRange?.min ?? product.retailPrice ?? 0;
-  const hasDiscount = Boolean(product.discountPrice && product.discountPrice < basePrice);
-  const discountPct = hasDiscount ? Math.round((1 - product.discountPrice! / basePrice) * 100) : 0;
-  const rarity = RARITY_CONFIG[product.rarity || 'Common'] || RARITY_CONFIG['Common'];
+  const basePrice = product.retailPrice ?? product.priceRange?.max ?? 0;
+  const displayPrice = product.discountPrice ?? product.priceRange?.min ?? basePrice;
+  const hasDiscount = Boolean(basePrice > 0 && displayPrice < basePrice);
+  const discountPct = hasDiscount ? Math.round((1 - displayPrice / basePrice) * 100) : 0;
+  const rarity = RARITY_CONFIG[product.rarity || 'Common'];
 
   const handleAddToCart = (e?: React.MouseEvent) => {
     e?.preventDefault();
@@ -165,10 +166,10 @@ function ProductCard({ product, idx }: { product: Product; idx: number }) {
           {hasDiscount ? (
             <div>
               <p className="text-[10px] text-gray-300 line-through font-medium">R{basePrice}</p>
-              <p className="price text-base text-red-500">R{product.discountPrice}</p>
+              <p className="price text-base text-red-500">R{displayPrice}</p>
             </div>
           ) : (
-            <p className="price text-base gradient-text">R{basePrice}</p>
+            <p className="price text-base gradient-text">R{displayPrice}</p>
           )}
 
           {!isSoldOut ? (
@@ -267,9 +268,15 @@ export default function StoreFront() {
     }
   }, [products, activeCategory]);
 
+  const isOnSale = (p: typeof products[0]) => {
+    const base = p.retailPrice ?? p.priceRange?.max ?? 0;
+    const sale = p.discountPrice ?? p.priceRange?.min ?? base;
+    return base > 0 && sale < base;
+  };
+
   const filtered = useMemo(() => {
     let list = products;
-    if (activeFilter === 'sale') list = list.filter(p => p.discountPrice && p.discountPrice < (p.priceRange?.min ?? p.retailPrice ?? 0));
+    if (activeFilter === 'sale') list = list.filter(isOnSale);
     else if (activeFilter) list = list.filter(p => p.condition === activeFilter);
     if (activeCategory) list = list.filter(p => p.category === activeCategory);
     if (search.trim()) {
@@ -279,7 +286,7 @@ export default function StoreFront() {
     return list;
   }, [products, activeFilter, activeCategory, search]);
 
-  const saleCount = products.filter(p => p.discountPrice && p.discountPrice < (p.priceRange?.min ?? p.retailPrice ?? 0)).length;
+  const saleCount = products.filter(isOnSale).length;
 
   return (
     <div className="hero-bg min-h-screen">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Product } from '../../../types';
-import { subscribeToProducts } from '../../../services/productService';
+import { subscribeToProductsAdmin } from '../../../services/adminProductService';
 import { motion } from 'motion/react';
 import { Package, Search, X } from 'lucide-react';
 import { cn } from '../../../lib/utils';
@@ -17,11 +17,10 @@ export default function ProductsView({ onBack }: ProductsViewProps) {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    const unsub = subscribeToProducts('approved', (data) => {
+    return subscribeToProductsAdmin('approved', (data) => {
       setProducts(data);
       setLoading(false);
-    }, { skipDemo: true });
-    return unsub;
+    });
   }, []);
 
   if (selectedProductId) {

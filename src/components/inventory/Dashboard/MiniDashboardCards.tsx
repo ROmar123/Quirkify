@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Product } from '../../../types';
-import { subscribeToProducts } from '../../../services/productService';
+import { subscribeToProductsAdmin } from '../../../services/adminProductService';
 import { motion } from 'motion/react';
 import { Plus, Package, AlertTriangle, ArrowRight, Clock, TrendingUp } from 'lucide-react';
 
@@ -15,8 +15,8 @@ export default function MiniDashboardCards({ onSelectOnboarding, onSelectManagem
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubA = subscribeToProducts('approved', d => { setProducts(d); setLoading(false); }, { skipDemo: true });
-    const unsubP = subscribeToProducts('pending', d => { setPending(d); setLoading(false); }, { skipDemo: true });
+    const unsubA = subscribeToProductsAdmin('approved', d => { setProducts(d); setLoading(false); });
+    const unsubP = subscribeToProductsAdmin('pending', d => { setPending(d); setLoading(false); });
     return () => { unsubA(); unsubP(); };
   }, []);
 

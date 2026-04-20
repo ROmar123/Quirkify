@@ -1,38 +1,34 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { auth } from '../../firebase';
-import { supabase } from '../../supabase';
-import { fetchProducts } from '../../services/productService';
+import { fetchAllProductsAdmin } from '../../services/adminProductService';
 import { fetchOrders, Order } from '../../services/orderService';
 import { Product } from '../../types';
 import {
   TrendingUp, ShoppingBag, Zap, ClipboardList, ArrowUpRight,
   Package, DollarSign, Activity, AlertTriangle, CheckCircle2,
-  Clock, Truck, BarChart3, Database, Loader2
+  Clock, Truck, BarChart3
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../../lib/utils';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 
-type MigrationStatus = 'checking' | 'needed' | 'applying' | 'ok' | 'error';
 
 export default function AdminDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [migrationStatus, setMigrationStatus] = useState<MigrationStatus>('checking');
-  const [migrationMsg, setMigrationMsg] = useState('');
 
   useEffect(() => {
     const load = async () => {
       try {
         const [prods, ords] = await Promise.all([
-          fetchProducts(undefined, { skipDemo: true }),
-          fetchOrders({ excludeSourceRef: 'wallet_topup' }),
+          fetchAllProductsAdmin(),
+          fetchOrders({ excludeSourceRef: 'wallet_topup' }).catch(() => [] as Order[]),
         ]);
         setProducts(prods);
         setOrders(ords);
-      } catch (err) {
+      } catch {
         setError('Failed to load dashboard data');
       } finally {
         setLoading(false);
@@ -41,45 +37,6 @@ export default function AdminDashboard() {
     load();
   }, []);
 
-  useEffect(() => {
-    const checkMigrations = async () => {
-      const { error } = await supabase.from('campaigns').select('id').limit(0);
-      if (error && (error.message.includes('does not exist') || error.message.includes('relation') || (error as any).code === '42P01')) {
-        setMigrationStatus('needed');
-      } else {
-        setMigrationStatus('ok');
-      }
-    };
-    checkMigrations();
-  }, []);
-
-  const handleApplyMigrations = useCallback(async () => {
-    setMigrationStatus('applying');
-    setMigrationMsg('');
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        setMigrationStatus('error');
-        setMigrationMsg('Not authenticated — please refresh and try again.');
-        return;
-      }
-      const res = await fetch('/api/admin/run-migrations', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      const json = await res.json();
-      if (json.success) {
-        setMigrationStatus('ok');
-        setMigrationMsg('Migrations applied! Refresh to see updated data.');
-      } else {
-        setMigrationStatus('error');
-        setMigrationMsg(json.error || 'Migration failed. Apply manually via Supabase SQL editor.');
-      }
-    } catch (e: any) {
-      setMigrationStatus('error');
-      setMigrationMsg(e.message || 'Network error. Apply migrations manually in Supabase dashboard.');
-    }
-  }, []);
 
   const metrics = useMemo(() => {
     const approved = products.filter(p => p.status === 'approved');
@@ -212,79 +169,6 @@ export default function AdminDashboard() {
           <span className="text-xs font-medium text-gray-600">{metrics.totalOrders} total orders</span>
         </div>
       </motion.div>
-
-      {/* Migration Banner */}
-      <AnimatePresence>
-        {migrationStatus === 'needed' && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="mb-5 flex items-start gap-3 p-4 rounded-2xl border border-blue-100 bg-blue-50"
-          >
-            <Database className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-blue-800">Database migrations needed</p>
-              <p className="text-xs text-blue-600 mt-0.5">
-                Apply pending migrations to enable Campaigns and full Inventory visibility.
-              </p>
-            </div>
-            <button
-              onClick={handleApplyMigrations}
-              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-colors"
-            >
-              Apply Now
-            </button>
-          </motion.div>
-        )}
-        {migrationStatus === 'applying' && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-5 flex items-center gap-3 p-4 rounded-2xl border border-blue-100 bg-blue-50"
-          >
-            <Loader2 className="w-5 h-5 text-blue-500 animate-spin flex-shrink-0" />
-            <p className="text-sm font-semibold text-blue-800">Applying migrations…</p>
-          </motion.div>
-        )}
-        {migrationStatus === 'error' && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="mb-5 p-4 rounded-2xl border border-amber-100 bg-amber-50"
-          >
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-amber-800">Migration via API failed</p>
-                <p className="text-xs text-amber-700 mt-0.5">{migrationMsg}</p>
-                <p className="text-xs text-amber-600 mt-2">
-                  <strong>Manual fix:</strong> Go to{' '}
-                  <a href="https://supabase.com/dashboard/project/mvoigokzsaybwiogjpvr/sql/new" target="_blank" rel="noreferrer" className="underline font-semibold">
-                    Supabase SQL editor
-                  </a>{' '}
-                  and paste the contents of{' '}
-                  <code className="bg-amber-100 px-1 rounded text-[10px]">supabase/migrations/007_fix_rls.sql</code>{' '}
-                  and{' '}
-                  <code className="bg-amber-100 px-1 rounded text-[10px]">008_campaigns.sql</code>.
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-        {migrationStatus === 'ok' && migrationMsg && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="mb-5 flex items-center gap-3 p-4 rounded-2xl border border-green-100 bg-green-50"
-          >
-            <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
-            <p className="text-sm font-semibold text-green-800">{migrationMsg}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Key Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
