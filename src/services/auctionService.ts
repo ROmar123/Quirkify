@@ -2,6 +2,7 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   onSnapshot,
   query,
   runTransaction,
@@ -60,6 +61,8 @@ async function attachProducts(snapshot: QuerySnapshot<DocumentData>): Promise<Au
         confidenceScore: Number(row.confidence_score) || 0,
         priceRange: row.price_range,
         tags: row.tags || [],
+        createdAt: row.created_at ?? '',
+        authorUid: row.author_uid ?? '',
       } as Product);
     });
   }
@@ -159,6 +162,8 @@ export async function createAuction(input: AuctionDraft): Promise<string> {
     confidenceScore: Number(productRow.confidence_score) || 0,
     priceRange: productRow.price_range,
     tags: productRow.tags || [],
+    createdAt: productRow.created_at ?? '',
+    authorUid: productRow.author_uid ?? '',
   };
   const startsAt = new Date(input.startTime);
   const endsAt = new Date(input.endTime);

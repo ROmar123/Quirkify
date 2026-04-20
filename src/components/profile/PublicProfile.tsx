@@ -1,12 +1,28 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
+import { collection, getDocs, orderBy, query, limit } from 'firebase/firestore';
+import { db } from '../../firebase';
+import { supabase } from '../../supabase';
 import { getProfileByUid, type Profile } from '../../services/profileService';
 import { Star, MapPin, Twitter, Instagram, Package, Sparkles, ArrowLeft, AlertCircle } from 'lucide-react';
+
+interface CollectionItem {
+  id: string;
+  productId: string;
+  acquiredAt: string;
+  purchasePrice: number;
+  productName?: string;
+  productImage?: string;
+  productCategory?: string;
+  productRarity?: string;
+}
 
 export default function PublicProfile() {
   const { uid } = useParams<{ uid: string }>();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [collectionItems, setCollectionItems] = useState<CollectionItem[]>([]);
+  const [collectionLoading, setCollectionLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,6 +41,48 @@ export default function PublicProfile() {
       }
     };
     loadProfile();
+  }, [uid]);
+
+  useEffect(() => {
+    if (!uid) return;
+    const loadCollection = async () => {
+      setCollectionLoading(true);
+      try {
+        const colRef = collection(db, 'users', uid, 'collection');
+        const snap = await getDocs(query(colRef, orderBy('acquiredAt', 'desc'), limit(24)));
+        const items: CollectionItem[] = snap.docs.map(d => ({
+          id: d.id,
+          productId: d.data().productId,
+          acquiredAt: d.data().acquiredAt?.toDate?.()?.toISOString?.() ?? '',
+          purchasePrice: d.data().purchasePrice ?? 0,
+        }));
+
+        if (items.length > 0) {
+          const productIds = [...new Set(items.map(i => i.productId))];
+          const { data: products } = await supabase
+            .from('products')
+            .select('id, name, image_url, category, rarity')
+            .in('id', productIds);
+
+          const productMap = new Map((products ?? []).map((p: { id: string; name: string; image_url: string; category: string; rarity: string }) => [p.id, p]));
+          items.forEach(item => {
+            const p = productMap.get(item.productId);
+            if (p) {
+              item.productName = p.name;
+              item.productImage = p.image_url;
+              item.productCategory = p.category;
+              item.productRarity = p.rarity;
+            }
+          });
+        }
+        setCollectionItems(items);
+      } catch {
+        setCollectionItems([]);
+      } finally {
+        setCollectionLoading(false);
+      }
+    };
+    loadCollection();
   }, [uid]);
 
   if (loading) {
@@ -212,11 +270,45 @@ export default function PublicProfile() {
                 <span className="section-label">{profile.itemsCollected || 0} items</span>
               </div>
 
-              {profile.itemsCollected > 0 ? (
-                <div className="py-16 text-center rounded-xl bg-gray-50 border border-gray-100">
-                  <Package className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-                  <p className="text-sm font-semibold text-gray-700">{profile.itemsCollected} items collected</p>
-                  <p className="text-xs text-gray-400 mt-1">Public collection view coming soon</p>
+              {collectionLoading ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {[1,2,3,4,5,6].map(i => (
+                    <div key={i} className="skeleton h-36 rounded-xl" />
+                  ))}
+                </div>
+              ) : collectionItems.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {collectionItems.map(item => (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="group relative rounded-xl border border-gray-100 bg-gray-50 overflow-hidden hover:border-purple-200 hover:shadow-sm transition-all"
+                    >
+                      <div className="aspect-square bg-white flex items-center justify-center overflow-hidden">
+                        {item.productImage ? (
+                          <img
+                            src={item.productImage}
+                            alt={item.productName ?? 'Item'}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <Package className="w-10 h-10 text-gray-200" />
+                        )}
+                      </div>
+                      <div className="p-2">
+                        <p className="text-xs font-semibold text-gray-800 truncate">
+                          {item.productName ?? 'Unknown Item'}
+                        </p>
+                        {item.productRarity && (
+                          <span className="text-[10px] font-medium text-purple-500">{item.productRarity}</span>
+                        )}
+                        {item.productCategory && (
+                          <p className="text-[10px] text-gray-400 truncate">{item.productCategory}</p>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
                 </div>
               ) : (
                 <div className="py-16 text-center rounded-xl border-2 border-dashed border-gray-100">

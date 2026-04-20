@@ -222,6 +222,11 @@ export default function LiveStreamRoom() {
 
   return (
     <div className="fixed inset-0 bg-black z-[60] flex flex-col md:flex-row overflow-hidden font-sans">
+      {/* Preview banner — overlay on top */}
+      <div className="absolute top-0 left-0 right-0 z-[80] flex items-center gap-2 bg-amber-500/90 backdrop-blur-sm px-4 py-2 pointer-events-none">
+        <Sparkles className="w-3.5 h-3.5 text-white flex-shrink-0" />
+        <p className="text-[11px] text-white font-semibold">Preview mode — live WebRTC broadcasting not yet implemented</p>
+      </div>
       {isHost && !isReady && (
         <HostSetup onReady={(stream) => {
           setHostStream(stream);

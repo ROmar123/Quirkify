@@ -9,6 +9,12 @@ export default function LiveStreamManager() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="mb-6 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+        <Sparkles className="w-4 h-4 text-amber-500 flex-shrink-0" />
+        <p className="text-xs text-amber-800 font-medium">
+          <span className="font-bold">Coming Soon —</span> Live streaming requires a WebRTC backend. This is a UI preview — no real broadcast is transmitted.
+        </p>
+      </div>
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Live Stream Studio</h1>

@@ -59,6 +59,9 @@ export interface Product {
   // User
   authorUid: string;
 
+  // Tags
+  tags?: string[];
+
   // Versioning
   version?: number;
   previousVersionIds?: string[]; // Store IDs of previous versions
