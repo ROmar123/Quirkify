@@ -7,7 +7,7 @@ function rowToCampaign(row: any): Campaign {
     title: row.title,
     description: row.description,
     strategy: row.strategy ?? undefined,
-    suggestedProducts: row.suggested_product_ids || [],
+    suggestedProducts: row.suggested_product_ids ?? [],
     type: row.type,
     status: row.status,
     discountPercentage: row.discount_percentage ?? undefined,
@@ -17,50 +17,52 @@ function rowToCampaign(row: any): Campaign {
   };
 }
 
-async function getAdminToken(): Promise<string | null> {
+async function getToken(): Promise<string | null> {
   const { data: { session } } = await supabase.auth.getSession();
   return session?.access_token ?? null;
 }
 
-export interface CampaignAdminResult {
-  campaigns: Campaign[];
-  tableExists: boolean;
+async function adminFetch(path: string, init?: RequestInit) {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  return fetch(path, {
+    ...init,
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+  });
 }
 
-export async function fetchCampaignsAdmin(status?: Campaign['status']): Promise<CampaignAdminResult> {
-  const token = await getAdminToken();
-  if (!token) return { campaigns: [], tableExists: false };
+export interface CampaignsResult {
+  campaigns: Campaign[];
+  tableExists: boolean;
+  setupSql?: string;
+}
 
-  const url = status
-    ? `/api/admin/campaigns?status=${encodeURIComponent(status)}`
-    : '/api/admin/campaigns';
-
+export async function fetchCampaignsAdmin(status?: Campaign['status']): Promise<CampaignsResult> {
   try {
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) throw new Error(`API ${res.status}`);
+    const url = status
+      ? `/api/admin/campaigns?status=${encodeURIComponent(status)}`
+      : '/api/admin/campaigns';
+    const res = await adminFetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     return {
-      campaigns: (json.campaigns || []).map(rowToCampaign),
+      campaigns: (json.campaigns ?? []).map(rowToCampaign),
       tableExists: json.tableExists !== false,
+      setupSql: json.setupSql,
     };
   } catch {
-    // Fallback: direct Supabase (works if table exists + RLS allows)
-    const { data, error } = await supabase
-      .from('campaigns')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) return { campaigns: [], tableExists: false };
-    return { campaigns: (data || []).map(rowToCampaign), tableExists: true };
+    return { campaigns: [], tableExists: false };
   }
 }
 
 export interface CreateCampaignResult {
   campaign?: Campaign;
   setupRequired?: boolean;
+  setupSql?: string;
   error?: string;
 }
 
-export async function createCampaignAdmin(campaign: {
+export async function createCampaignAdmin(payload: {
   title: string;
   description: string;
   strategy?: string;
@@ -69,59 +71,38 @@ export async function createCampaignAdmin(campaign: {
   suggestedProducts?: string[];
   discountPercentage?: number;
 }): Promise<CreateCampaignResult> {
-  const token = await getAdminToken();
-  if (!token) return { error: 'Not authenticated' };
-
   try {
-    const res = await fetch('/api/admin/campaigns', {
+    const res = await adminFetch('/api/admin/campaigns', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(campaign),
+      body: JSON.stringify(payload),
     });
     const json = await res.json();
     if (!res.ok) {
-      if (json.setupRequired) return { setupRequired: true, error: json.error };
-      return { error: json.error || `API ${res.status}` };
+      return { setupRequired: !!json.setupRequired, setupSql: json.setupSql, error: json.error };
     }
     return { campaign: rowToCampaign(json.campaign) };
   } catch (e: any) {
-    return { error: e.message || 'Network error' };
+    return { error: e.message };
   }
 }
 
-export async function updateCampaignStatusAdmin(id: string, status: Campaign['status']): Promise<void> {
-  const token = await getAdminToken();
-  if (!token) throw new Error('Not authenticated');
-
-  const res = await fetch(`/api/admin/campaigns?id=${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status }),
-  });
-  if (!res.ok) {
-    const json = await res.json().catch(() => ({}));
-    throw new Error(json.error || `API ${res.status}`);
-  }
-}
-
-/** Real-time-ish subscription: polls every 30s + Supabase realtime as trigger. */
 export function subscribeToCampaignsAdmin(
   statusFilter: Campaign['status'] | undefined,
-  callback: (campaigns: Campaign[], tableExists: boolean) => void
+  callback: (campaigns: Campaign[], tableExists: boolean, setupSql?: string) => void
 ): () => void {
   let disposed = false;
 
   const refresh = async () => {
     if (disposed) return;
-    const { campaigns, tableExists } = await fetchCampaignsAdmin(statusFilter);
-    if (!disposed) callback(campaigns, tableExists);
+    const result = await fetchCampaignsAdmin(statusFilter);
+    if (!disposed) callback(result.campaigns, result.tableExists, result.setupSql);
   };
 
   void refresh();
-  const interval = setInterval(() => void refresh(), 30000);
+  const interval = setInterval(() => void refresh(), 30_000);
 
   const channel = supabase
-    .channel(`admin-campaigns:${statusFilter ?? 'all'}`)
+    .channel('admin-campaigns')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'campaigns' }, () => void refresh())
     .subscribe();
 

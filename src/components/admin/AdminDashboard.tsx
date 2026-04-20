@@ -1,59 +1,23 @@
 import { useState, useEffect, useMemo } from 'react';
 import { auth } from '../../firebase';
-import { supabase } from '../../supabase';
 import { fetchAllProductsAdmin } from '../../services/adminProductService';
 import { fetchOrders, Order } from '../../services/orderService';
 import { Product } from '../../types';
 import {
   TrendingUp, ShoppingBag, Zap, ClipboardList, ArrowUpRight,
   Package, DollarSign, Activity, AlertTriangle, CheckCircle2,
-  Clock, Truck, BarChart3, Database
+  Clock, Truck, BarChart3
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../../lib/utils';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 
-const MIGRATION_SQL = `-- Run this in your Supabase SQL Editor:
--- https://supabase.com/dashboard/project/mvoigokzsaybwiogjpvr/sql/new
-
--- Migration 007: Let admins see all products (not just approved)
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='products' AND policyname='Authenticated users can view all products') THEN
-    CREATE POLICY "Authenticated users can view all products" ON products FOR SELECT TO authenticated USING (true);
-  END IF;
-END $$;
-
--- Migration 008: Create campaigns table
-CREATE TABLE IF NOT EXISTS public.campaigns (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  title TEXT NOT NULL, description TEXT NOT NULL, strategy TEXT,
-  type TEXT NOT NULL DEFAULT 'sale' CHECK (type IN ('sale','auction','social','flash')),
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('draft','active','completed','archived')),
-  suggested_product_ids UUID[] DEFAULT '{}',
-  discount_percentage INTEGER CHECK (discount_percentage IS NULL OR (discount_percentage >= 0 AND discount_percentage <= 100)),
-  starts_at TIMESTAMPTZ, ends_at TIMESTAMPTZ, created_by TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-ALTER TABLE public.campaigns ENABLE ROW LEVEL SECURITY;
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='campaigns' AND policyname='Public can view active campaigns') THEN
-    CREATE POLICY "Public can view active campaigns" ON public.campaigns FOR SELECT USING (status = 'active');
-    CREATE POLICY "Authenticated users can view all campaigns" ON public.campaigns FOR SELECT TO authenticated USING (true);
-    CREATE POLICY "Authenticated users can create campaigns" ON public.campaigns FOR INSERT TO authenticated WITH CHECK (true);
-    CREATE POLICY "Authenticated users can update campaigns" ON public.campaigns FOR UPDATE TO authenticated USING (true);
-  END IF;
-END $$;`;
-
-type MigrationStatus = 'checking' | 'needed' | 'ok';
 
 export default function AdminDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [migrationStatus, setMigrationStatus] = useState<MigrationStatus>('checking');
-  const [showSql, setShowSql] = useState(false);
-  const [sqlCopied, setSqlCopied] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -64,38 +28,13 @@ export default function AdminDashboard() {
         ]);
         setProducts(prods);
         setOrders(ords);
-      } catch (err) {
+      } catch {
         setError('Failed to load dashboard data');
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, []);
-
-  useEffect(() => {
-    const checkMigrations = async () => {
-      try {
-        // Use admin API (service role) for a definitive check
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.access_token) {
-          const res = await fetch('/api/admin/campaigns', {
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          });
-          if (res.ok) {
-            const json = await res.json();
-            setMigrationStatus(json.tableExists === false ? 'needed' : 'ok');
-            return;
-          }
-        }
-        // Fallback: anon key check
-        const { error } = await supabase.from('campaigns').select('id').limit(0);
-        setMigrationStatus(error ? 'needed' : 'ok');
-      } catch {
-        setMigrationStatus('needed'); // assume needed if check fails
-      }
-    };
-    checkMigrations();
   }, []);
 
 
@@ -230,76 +169,6 @@ export default function AdminDashboard() {
           <span className="text-xs font-medium text-gray-600">{metrics.totalOrders} total orders</span>
         </div>
       </motion.div>
-
-      {/* Migration Banner */}
-      <AnimatePresence>
-        {(migrationStatus === 'needed' || migrationStatus === 'checking') && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 overflow-hidden"
-          >
-            <div className="flex items-start gap-3 p-4">
-              <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-amber-800">Campaigns table missing — apply SQL migrations</p>
-                <p className="text-xs text-amber-700 mt-0.5">
-                  Run the SQL below once in your Supabase project to enable the Growth/Campaigns page.
-                </p>
-              </div>
-              <button
-                onClick={() => setShowSql(v => !v)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-300 text-amber-800 text-xs font-bold rounded-lg hover:bg-amber-50 transition-colors flex-shrink-0"
-              >
-                {showSql ? 'Hide SQL' : 'Show SQL'}
-              </button>
-            </div>
-
-            <AnimatePresence>
-              {showSql && (
-                <motion.div
-                  initial={{ height: 0 }}
-                  animate={{ height: 'auto' }}
-                  exit={{ height: 0 }}
-                  className="overflow-hidden border-t border-amber-200"
-                >
-                  <div className="p-4 bg-amber-50/60">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-semibold text-amber-800">
-                        Paste this in{' '}
-                        <a
-                          href="https://supabase.com/dashboard/project/mvoigokzsaybwiogjpvr/sql/new"
-                          target="_blank" rel="noreferrer"
-                          className="underline text-blue-700 hover:text-blue-900"
-                        >
-                          Supabase SQL Editor ↗
-                        </a>
-                      </p>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(MIGRATION_SQL);
-                          setSqlCopied(true);
-                          setTimeout(() => setSqlCopied(false), 2000);
-                        }}
-                        className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border transition-colors"
-                        style={sqlCopied
-                          ? { background: '#dcfce7', borderColor: '#86efac', color: '#166534' }
-                          : { background: 'white', borderColor: '#d1d5db', color: '#374151' }}
-                      >
-                        {sqlCopied ? <><CheckCircle2 className="w-3.5 h-3.5" /> Copied!</> : 'Copy SQL'}
-                      </button>
-                    </div>
-                    <pre className="text-[10px] leading-relaxed text-amber-900 bg-white border border-amber-100 rounded-xl p-3 overflow-x-auto whitespace-pre-wrap font-mono max-h-48">
-                      {MIGRATION_SQL}
-                    </pre>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Key Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
