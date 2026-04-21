@@ -34,11 +34,14 @@ jobs:
               --data-binary "$(jq -n --arg q "$sql" '{"query":$q}')")
 
             echo "HTTP status: $HTTP_STATUS"
-            cat /tmp/response.json
+            BODY=$(cat /tmp/response.json)
+            echo "$BODY"
             echo ""
 
             if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; then
               echo "✓ $name applied"
+            elif echo "$BODY" | grep -qi "already exists\|duplicate"; then
+              echo "✓ $name already applied (skipping)"
             else
               echo "✗ $name failed — check response above"
               return 1
