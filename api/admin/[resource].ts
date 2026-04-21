@@ -1,6 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 
+// @supabase/realtime-js checks for WebSocket in the RealtimeClient constructor.
+// Polyfill before any createClient() call so the function never crashes on cold-start.
+if (typeof (globalThis as any).WebSocket === 'undefined') {
+  (globalThis as any).WebSocket = class {};
+}
+
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://mvoigokzsaybwiogjpvr.supabase.co';
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const ADMIN_EMAILS = new Set(

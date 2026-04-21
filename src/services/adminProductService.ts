@@ -102,14 +102,19 @@ export function subscribeToProductsAdmin(
 
   const interval = setInterval(() => void refresh(), 30000);
 
-  const channel = supabase
-    .channel(`admin-products:${status ?? 'all'}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => void refresh())
-    .subscribe();
+  let channel: ReturnType<typeof supabase.channel> | null = null;
+  try {
+    channel = supabase
+      .channel(`admin-products:${status ?? 'all'}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => void refresh())
+      .subscribe();
+  } catch {
+    // Realtime unavailable — polling still active via the interval above
+  }
 
   return () => {
     disposed = true;
     clearInterval(interval);
-    void supabase.removeChannel(channel);
+    if (channel) void supabase.removeChannel(channel);
   };
 }

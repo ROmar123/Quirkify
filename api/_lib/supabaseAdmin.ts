@@ -1,5 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
+// @supabase/realtime-js calls getWebSocketConstructor() in RealtimeClient constructor,
+// which throws on any Node.js build that lacks a globalThis.WebSocket. Polyfill it
+// before the first createClient() so cold-starts never crash on this check.
+if (typeof (globalThis as any).WebSocket === 'undefined') {
+  (globalThis as any).WebSocket = class {};
+}
+
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://mvoigokzsaybwiogjpvr.supabase.co';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 

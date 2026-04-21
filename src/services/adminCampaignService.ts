@@ -129,14 +129,19 @@ export function subscribeToCampaignsAdmin(
   void refresh();
   const interval = setInterval(() => void refresh(), 30_000);
 
-  const channel = supabase
-    .channel('admin-campaigns')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'campaigns' }, () => void refresh())
-    .subscribe();
+  let channel: ReturnType<typeof supabase.channel> | null = null;
+  try {
+    channel = supabase
+      .channel('admin-campaigns')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'campaigns' }, () => void refresh())
+      .subscribe();
+  } catch {
+    // Realtime unavailable — polling still active via the interval above
+  }
 
   return () => {
     disposed = true;
     clearInterval(interval);
-    void supabase.removeChannel(channel);
+    if (channel) void supabase.removeChannel(channel);
   };
 }

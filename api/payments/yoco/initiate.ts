@@ -1,6 +1,11 @@
 import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
 
+// Polyfill WebSocket before createClient() — realtime-js checks it in constructor
+if (typeof (globalThis as any).WebSocket === 'undefined') {
+  (globalThis as any).WebSocket = class {};
+}
+
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://mvoigokzsaybwiogjpvr.supabase.co';
 const supabaseKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
