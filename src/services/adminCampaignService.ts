@@ -24,13 +24,14 @@ async function getToken(): Promise<string | null> {
   return session?.access_token ?? null;
 }
 
-async function adminFetch(path: string, init?: RequestInit) {
-  const token = await getToken();
-  if (!token) throw new Error('Not authenticated');
-  return fetch(path, {
-    ...init,
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
-  });
+async function fetchWithTimeout(url: string, options: RequestInit, ms = 8000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export interface CampaignsResult {
@@ -40,11 +41,19 @@ export interface CampaignsResult {
 }
 
 export async function fetchCampaignsAdmin(status?: Campaign['status']): Promise<CampaignsResult> {
+  // Try admin API first (service-role, bypasses RLS)
   try {
+    const token = await getToken();
+    if (!token) throw new Error('Not authenticated');
+
     const url = status
       ? `/api/admin/campaigns?status=${encodeURIComponent(status)}`
       : '/api/admin/campaigns';
-    const res = await adminFetch(url);
+
+    const res = await fetchWithTimeout(url, {
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    });
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     return {
@@ -53,7 +62,7 @@ export async function fetchCampaignsAdmin(status?: Campaign['status']): Promise<
       setupSql: json.setupSql,
     };
   } catch {
-    // API unavailable — fall back to direct Supabase query
+    // Fall back to direct Supabase query with user JWT
     try {
       let q = supabase.from('campaigns').select('*').order('created_at', { ascending: false });
       if (status) q = q.eq('status', status);
@@ -83,8 +92,12 @@ export async function createCampaignAdmin(payload: {
   discountPercentage?: number;
 }): Promise<CreateCampaignResult> {
   try {
-    const res = await adminFetch('/api/admin/campaigns', {
+    const token = await getToken();
+    if (!token) return { error: 'Not authenticated' };
+
+    const res = await fetchWithTimeout('/api/admin/campaigns', {
       method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     const json = await res.json();
@@ -105,8 +118,12 @@ export function subscribeToCampaignsAdmin(
 
   const refresh = async () => {
     if (disposed) return;
-    const result = await fetchCampaignsAdmin(statusFilter);
-    if (!disposed) callback(result.campaigns, result.tableExists, result.setupSql);
+    try {
+      const result = await fetchCampaignsAdmin(statusFilter);
+      if (!disposed) callback(result.campaigns, result.tableExists, result.setupSql);
+    } catch {
+      if (!disposed) callback([], true);
+    }
   };
 
   void refresh();

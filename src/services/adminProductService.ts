@@ -1,6 +1,5 @@
 import { supabase } from '../supabase';
 import { Product } from '../types';
-import { subscribeToProducts } from './productService';
 
 type DbRow = Record<string, unknown>;
 
@@ -43,33 +42,46 @@ async function getAdminToken(): Promise<string | null> {
   return session?.access_token ?? null;
 }
 
-/** Fetch all products (bypasses RLS) via Vercel admin API.
- *  Falls back to direct Supabase query if API unavailable. */
-export async function fetchAllProductsAdmin(status?: string): Promise<Product[]> {
+async function fetchWithTimeout(url: string, options: RequestInit, ms = 8000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
   try {
-    const token = await getAdminToken();
-    if (!token) throw new Error('Not authenticated');
-
-    const url = status ? `/api/admin/products?status=${encodeURIComponent(status)}` : '/api/admin/products';
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) throw new Error(`API ${res.status}`);
-    const json = await res.json();
-    return (json.products || []).map(rowToProduct);
-  } catch {
-    // Fallback to direct Supabase (works after migration 007 is applied)
-    return subscribeToProductsAdmin_directFetch(status as any);
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-async function subscribeToProductsAdmin_directFetch(status?: Product['status']): Promise<Product[]> {
-  const { supabase: sb } = await import('../supabase');
-  let q = sb.from('products').select('*').order('created_at', { ascending: false });
-  if (status) q = q.eq('status', status);
-  const { data } = await q;
-  return (data || []).map(rowToProduct);
+async function directFetch(status?: Product['status']): Promise<Product[]> {
+  try {
+    let q = supabase.from('products').select('*').order('created_at', { ascending: false });
+    if (status) q = q.eq('status', status);
+    const { data } = await q;
+    return (data || []).map(rowToProduct);
+  } catch {
+    return [];
+  }
 }
 
-/** Subscribe to admin product changes with polling (30s interval). */
+export async function fetchAllProductsAdmin(status?: string): Promise<Product[]> {
+  try {
+    const token = await getAdminToken();
+    if (!token) return directFetch(status as Product['status']);
+
+    const url = status
+      ? `/api/admin/products?status=${encodeURIComponent(status)}`
+      : '/api/admin/products';
+
+    const res = await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return directFetch(status as Product['status']);
+
+    const json = await res.json();
+    return (json.products || []).map(rowToProduct);
+  } catch {
+    return directFetch(status as Product['status']);
+  }
+}
+
 export function subscribeToProductsAdmin(
   status: Product['status'] | undefined,
   callback: (products: Product[]) => void
@@ -81,14 +93,15 @@ export function subscribeToProductsAdmin(
     try {
       const products = await fetchAllProductsAdmin(status);
       if (!disposed) callback(products);
-    } catch { /* silent */ }
+    } catch {
+      if (!disposed) callback([]);
+    }
   };
 
   void refresh();
 
   const interval = setInterval(() => void refresh(), 30000);
 
-  // Also subscribe to Supabase realtime as an update trigger
   const channel = supabase
     .channel(`admin-products:${status ?? 'all'}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => void refresh())
