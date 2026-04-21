@@ -13,89 +13,54 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Test Supabase HTTPS connectivity
+      - name: Apply migrations via Supabase Management API
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          echo "=== Supabase REST API health check ==="
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "apikey: sb_publishable_PzK-Rd37B8yJaF8c9Wz9og_uJ6Q_CLS" \
-            "https://mvoigokzsaybwiogjpvr.supabase.co/rest/v1/products?select=id&limit=1")
-          echo "REST API HTTP status: $STATUS"
+          PROJECT_REF="mvoigokzsaybwiogjpvr"
+          API="https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query"
 
-      - name: Apply migrations via Node.js pg client
-        run: |
-          npm install pg 2>/dev/null
-          node - <<'SCRIPT'
-          const { Client } = require('pg');
-          const fs = require('fs');
+          apply_migration() {
+            local name="$1"
+            local file="$2"
+            local sql
+            sql=$(cat "$file")
 
-          const CONFIGS = [
-            {
-              label: 'Pooler session mode (5432)',
-              connectionString: 'postgresql://postgres.mvoigokzsaybwiogjpvr:j7nVcs3PJmRI0oH8@aws-0-eu-central-1.pooler.supabase.com:5432/postgres',
-              ssl: { rejectUnauthorized: false },
-            },
-            {
-              label: 'Direct DB host (5432)',
-              connectionString: 'postgresql://postgres:j7nVcs3PJmRI0oH8@db.mvoigokzsaybwiogjpvr.supabase.co:5432/postgres',
-              ssl: { rejectUnauthorized: false },
-            },
-            {
-              label: 'Pooler transaction mode (6543)',
-              connectionString: 'postgresql://postgres.mvoigokzsaybwiogjpvr:j7nVcs3PJmRI0oH8@aws-0-eu-central-1.pooler.supabase.com:6543/postgres',
-              ssl: { rejectUnauthorized: false },
-            },
-          ];
+            echo "=== Applying: $name ==="
+            HTTP_STATUS=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+              -X POST "$API" \
+              -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+              -H "Content-Type: application/json" \
+              --data-binary "$(jq -n --arg q "$sql" '{"query":$q}')")
 
-          const MIGRATIONS = [
-            { name: '007_fix_rls.sql',   path: 'supabase/migrations/007_fix_rls.sql' },
-            { name: '008_campaigns.sql', path: 'supabase/migrations/008_campaigns.sql' },
-          ];
+            echo "HTTP status: $HTTP_STATUS"
+            cat /tmp/response.json
+            echo ""
 
-          async function tryApply(config) {
-            const client = new Client({
-              connectionString: config.connectionString,
-              ssl: config.ssl,
-              connectionTimeoutMillis: 15000,
-              statement_timeout: 30000,
-            });
-            await client.connect();
-            console.log('Connected via:', config.label);
-
-            for (const m of MIGRATIONS) {
-              const sql = fs.readFileSync(m.path, 'utf8');
-              try {
-                await client.query(sql);
-                console.log('Applied:', m.name);
-              } catch (e) {
-                if (/already exists|duplicate/.test(e.message)) {
-                  console.log('Already applied:', m.name);
-                } else {
-                  console.error('Failed:', m.name, '-', e.message);
-                }
-              }
-            }
-
-            const { rows } = await client.query(
-              "SELECT tablename, policyname FROM pg_policies WHERE tablename IN ('products','campaigns') ORDER BY 1,2"
-            );
-            console.log('\nActive RLS policies:');
-            rows.forEach(r => console.log(' ', r.tablename, '/', r.policyname));
-
-            await client.end();
+            if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; then
+              echo "✓ $name applied"
+            else
+              echo "✗ $name failed — check response above"
+              return 1
+            fi
           }
 
-          (async () => {
-            for (const config of CONFIGS) {
-              try {
-                await tryApply(config);
-                console.log('\nMigrations complete!');
-                process.exit(0);
-              } catch (e) {
-                console.log(config.label, 'failed:', e.message);
-              }
-            }
-            console.error('\nAll connections failed.');
-            console.error('If IP restrictions are on, add GitHub Actions IPs in Supabase > Settings > Database > Network Restrictions.');
-            process.exit(1);
-          })();
-          SCRIPT
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "SUPABASE_ACCESS_TOKEN secret not set — skipping migrations."
+            echo "Add it in GitHub repo Settings → Secrets → Actions."
+            exit 0
+          fi
+
+          apply_migration "007_fix_rls.sql"   "supabase/migrations/007_fix_rls.sql"
+          apply_migration "008_campaigns.sql" "supabase/migrations/008_campaigns.sql"
+
+          echo ""
+          echo "Verifying active RLS policies..."
+          VERIFY_SQL="SELECT tablename, policyname FROM pg_policies WHERE tablename IN ('products','campaigns') ORDER BY 1,2;"
+          curl -s -X POST "$API" \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data-binary "$(jq -n --arg q "$VERIFY_SQL" '{"query":$q}')" | jq .
+
+          echo ""
+          echo "Migrations complete!"
