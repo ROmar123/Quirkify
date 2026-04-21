@@ -8,7 +8,7 @@ export interface Notification {
   message: string;
   type: 'outbid' | 'auction_won' | 'order_update' | 'system';
   read: boolean;
-  createdAt: any;
+  createdAt: import('firebase/firestore').Timestamp | string | null;
   link?: string;
 }
 

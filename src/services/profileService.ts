@@ -32,7 +32,9 @@ export interface Profile {
   lastActiveAt: string | null;
 }
 
-function rowToProfile(row: any): Profile {
+type DbRow = Record<string, unknown>;
+
+function rowToProfile(row: DbRow): Profile {
   return {
     id: row.id,
     firebaseUid: row.firebase_uid,

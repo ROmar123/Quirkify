@@ -1,34 +1,36 @@
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, lazy, Suspense, type ReactNode } from 'react';
 import { auth, onAuthStateChanged, type AuthUser } from './firebase';
 import { syncProfile } from './services/profileService';
 import { motion } from 'motion/react';
 
 import StoreFront from './components/store/StoreFront';
-import AdminDashboard from './components/admin/AdminDashboard';
-import ProductsPage from './components/admin/ProductsPage';
-import CommercePage from './components/admin/CommercePage';
-import GrowthPage from './components/admin/GrowthPage';
-import ResourceMonitor from './components/admin/ResourceMonitor';
-import Inventory from './components/inventory/Inventory';
 import AuctionList from './components/store/AuctionList';
-import LiveStreamRoom from './components/live/LiveStreamRoom';
-import Collection from './components/profile/Collection';
-import PublicProfile from './components/profile/PublicProfile';
-import Orders from './components/profile/Orders';
-import SellerOnboarding from './components/profile/SellerOnboarding';
 import Checkout from './components/store/Checkout';
 import PaymentResult from './components/store/PaymentResult';
 import ProductDetails from './components/store/ProductDetails';
 import MobileNav from './components/layout/MobileNav';
 import PageHeader from './components/layout/PageHeader';
 import AuthPage from './components/auth/AuthPage';
-import TermsOfService from './components/legal/TermsOfService';
-import PrivacyPolicy from './components/legal/PrivacyPolicy';
-import ReturnsPolicy from './components/legal/ReturnsPolicy';
 import Footer from './components/layout/Footer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Announcer, SkipLink } from './components/ui/Announcer';
+
+// Lazy-load admin, profile, legal, and heavy feature routes
+const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard'));
+const ProductsPage = lazy(() => import('./components/admin/ProductsPage'));
+const CommercePage = lazy(() => import('./components/admin/CommercePage'));
+const GrowthPage = lazy(() => import('./components/admin/GrowthPage'));
+const ResourceMonitor = lazy(() => import('./components/admin/ResourceMonitor'));
+const Inventory = lazy(() => import('./components/inventory/Inventory'));
+const LiveStreamRoom = lazy(() => import('./components/live/LiveStreamRoom'));
+const Collection = lazy(() => import('./components/profile/Collection'));
+const PublicProfile = lazy(() => import('./components/profile/PublicProfile'));
+const Orders = lazy(() => import('./components/profile/Orders'));
+const SellerOnboarding = lazy(() => import('./components/profile/SellerOnboarding'));
+const TermsOfService = lazy(() => import('./components/legal/TermsOfService'));
+const PrivacyPolicy = lazy(() => import('./components/legal/PrivacyPolicy'));
+const ReturnsPolicy = lazy(() => import('./components/legal/ReturnsPolicy'));
 
 import { CartProvider } from './context/CartContext';
 import { ModeProvider, useMode } from './context/ModeContext';
@@ -71,6 +73,17 @@ function RequireAdmin({
   return <>{children}</>;
 }
 
+const PageFallback = () => (
+  <div className="flex items-center justify-center min-h-[50vh]">
+    <motion.div
+      animate={{ rotate: 360 }}
+      transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+      className="w-7 h-7 rounded-full"
+      style={{ border: '2.5px solid #e9d5ff', borderTopColor: '#a855f7' }}
+    />
+  </div>
+);
+
 function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: AuthUser | null }) {
   const location = useLocation();
 
@@ -81,32 +94,34 @@ function AnimatedRoutes({ isAdmin, user }: { isAdmin: boolean; user: AuthUser | 
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
     >
-      <Routes location={location}>
-        <Route path="/" element={<StoreFront />} />
-        <Route path="/auth" element={<AuthPage />} />
-        <Route path="/auctions" element={<ErrorBoundary><AuctionList /></ErrorBoundary>} />
-        <Route path="/checkout" element={<RequireAuth user={user}><Checkout /></RequireAuth>} />
-        <Route path="/product/:id" element={<ProductDetails />} />
-        <Route path="/payment/success" element={<PaymentResult type="success" />} />
-        <Route path="/payment/cancel" element={<PaymentResult type="cancel" />} />
-        <Route path="/live/:sessionId" element={<LiveStreamRoom />} />
-        <Route path="/collection" element={<RequireAuth user={user}><ErrorBoundary><Collection /></ErrorBoundary></RequireAuth>} />
-        <Route path="/profile/:uid" element={<PublicProfile />} />
-        <Route path="/orders" element={<RequireAuth user={user}><ErrorBoundary><Orders /></ErrorBoundary></RequireAuth>} />
-        <Route path="/seller/onboarding" element={<RequireAuth user={user}><SellerOnboarding /></RequireAuth>} />
-        <Route path="/admin" element={<RequireAdmin user={user} isAdmin={isAdmin}><AdminDashboard /></RequireAdmin>} />
-        <Route path="/admin/inventory" element={<RequireAdmin user={user} isAdmin={isAdmin}><ErrorBoundary><Inventory /></ErrorBoundary></RequireAdmin>} />
-        <Route path="/admin/reviews"  element={<RequireAdmin user={user} isAdmin={isAdmin}><ProductsPage /></RequireAdmin>} />
-        <Route path="/admin/orders"   element={<RequireAdmin user={user} isAdmin={isAdmin}><ErrorBoundary><CommercePage /></ErrorBoundary></RequireAdmin>} />
-        <Route path="/admin/campaigns" element={<RequireAdmin user={user} isAdmin={isAdmin}><ErrorBoundary><GrowthPage /></ErrorBoundary></RequireAdmin>} />
-        <Route path="/admin/social"   element={<RequireAdmin user={user} isAdmin={isAdmin}><ErrorBoundary><GrowthPage /></ErrorBoundary></RequireAdmin>} />
-        <Route path="/admin/streams"  element={<RequireAdmin user={user} isAdmin={isAdmin}><ErrorBoundary><GrowthPage /></ErrorBoundary></RequireAdmin>} />
-        <Route path="/admin/resources" element={<RequireAdmin user={user} isAdmin={isAdmin}><ResourceMonitor /></RequireAdmin>} />
-        <Route path="/terms" element={<TermsOfService />} />
-        <Route path="/privacy" element={<PrivacyPolicy />} />
-        <Route path="/returns" element={<ReturnsPolicy />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={<PageFallback />}>
+        <Routes location={location}>
+          <Route path="/" element={<StoreFront />} />
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/auctions" element={<ErrorBoundary><AuctionList /></ErrorBoundary>} />
+          <Route path="/checkout" element={<RequireAuth user={user}><Checkout /></RequireAuth>} />
+          <Route path="/product/:id" element={<ProductDetails />} />
+          <Route path="/payment/success" element={<PaymentResult type="success" />} />
+          <Route path="/payment/cancel" element={<PaymentResult type="cancel" />} />
+          <Route path="/live/:sessionId" element={<LiveStreamRoom />} />
+          <Route path="/collection" element={<RequireAuth user={user}><ErrorBoundary><Collection /></ErrorBoundary></RequireAuth>} />
+          <Route path="/profile/:uid" element={<PublicProfile />} />
+          <Route path="/orders" element={<RequireAuth user={user}><ErrorBoundary><Orders /></ErrorBoundary></RequireAuth>} />
+          <Route path="/seller/onboarding" element={<RequireAuth user={user}><SellerOnboarding /></RequireAuth>} />
+          <Route path="/admin" element={<RequireAdmin user={user} isAdmin={isAdmin}><AdminDashboard /></RequireAdmin>} />
+          <Route path="/admin/inventory" element={<RequireAdmin user={user} isAdmin={isAdmin}><ErrorBoundary><Inventory /></ErrorBoundary></RequireAdmin>} />
+          <Route path="/admin/reviews"  element={<RequireAdmin user={user} isAdmin={isAdmin}><ProductsPage /></RequireAdmin>} />
+          <Route path="/admin/orders"   element={<RequireAdmin user={user} isAdmin={isAdmin}><ErrorBoundary><CommercePage /></ErrorBoundary></RequireAdmin>} />
+          <Route path="/admin/campaigns" element={<RequireAdmin user={user} isAdmin={isAdmin}><ErrorBoundary><GrowthPage /></ErrorBoundary></RequireAdmin>} />
+          <Route path="/admin/social"   element={<RequireAdmin user={user} isAdmin={isAdmin}><ErrorBoundary><GrowthPage /></ErrorBoundary></RequireAdmin>} />
+          <Route path="/admin/streams"  element={<RequireAdmin user={user} isAdmin={isAdmin}><ErrorBoundary><GrowthPage /></ErrorBoundary></RequireAdmin>} />
+          <Route path="/admin/resources" element={<RequireAdmin user={user} isAdmin={isAdmin}><ResourceMonitor /></RequireAdmin>} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/returns" element={<ReturnsPolicy />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </motion.div>
   );
 }

@@ -12,7 +12,7 @@ export interface OrderItem {
   unitPrice: number;
   quantity: number;
   lineTotal: number;
-  packContents?: any;
+  packContents?: Record<string, unknown>;
 }
 
 export interface Order {
@@ -64,7 +64,9 @@ export interface OrderDetail extends Order {
   events: OrderEvent[];
 }
 
-function rowToOrder(row: any, items: any[] = []): Order {
+type DbRow = Record<string, unknown>;
+
+function rowToOrder(row: DbRow, items: DbRow[] = []): Order {
   return {
     id: row.id,
     orderNumber: row.order_number,
@@ -222,15 +224,16 @@ export async function fetchOrders(filters?: {
     .select('*')
     .in('order_id', orders.map(o => o.id));
 
-  const itemsByOrder = (allItems || []).reduce<Record<string, any[]>>((acc, item) => {
-    (acc[item.order_id] = acc[item.order_id] || []).push(item);
+  const itemsByOrder = (allItems || []).reduce<Record<string, DbRow[]>>((acc, item) => {
+    const orderId = item.order_id as string;
+    (acc[orderId] = acc[orderId] || []).push(item as DbRow);
     return acc;
   }, {});
 
   return orders.map(order => rowToOrder(order, itemsByOrder[order.id] || []));
 }
 
-function rowToEvent(row: any): OrderEvent {
+function rowToEvent(row: DbRow): OrderEvent {
   return {
     id: row.id,
     orderId: row.order_id,

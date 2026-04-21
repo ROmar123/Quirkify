@@ -7,7 +7,7 @@ interface CartItem extends Product {
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (product: Product, quantity?: number) => void;
+  addToCart: (product: Product, quantity?: number) => { ok: boolean; message?: string };
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -17,6 +17,12 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 const CART_STORAGE_KEY = 'quirkify_cart';
+const MAX_QUANTITY_PER_ITEM = 20;
+const MAX_CART_ITEMS = 50;
+
+function getAvailableStock(product: Product): number {
+  return product.allocations?.store ?? product.stock ?? 99;
+}
 
 function loadCart(): CartItem[] {
   try {
@@ -38,16 +44,46 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [items]);
 
-  const addToCart = (product: Product, quantity: number = 1) => {
+  const addToCart = (product: Product, quantity: number = 1): { ok: boolean; message?: string } => {
+    const available = getAvailableStock(product);
+
+    if (available <= 0) {
+      return { ok: false, message: `${product.name} is out of stock` };
+    }
+
+    let message: string | undefined;
+
     setItems(prev => {
+      if (prev.length >= MAX_CART_ITEMS && !prev.find(i => i.id === product.id)) {
+        return prev;
+      }
+
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
+        const newQty = Math.min(
+          existing.quantity + quantity,
+          available,
+          MAX_QUANTITY_PER_ITEM
+        );
+        if (newQty === existing.quantity) {
+          message = `Max available quantity (${available}) already in cart`;
+        } else if (existing.quantity + quantity > available) {
+          message = `Only ${available} available — quantity capped`;
+        }
         return prev.map(item =>
-          item.id === product.id ? { ...item, quantity: item.quantity + quantity } : item
+          item.id === product.id ? { ...item, quantity: newQty } : item
         );
       }
-      return [...prev, { ...product, quantity }];
+
+      const capped = Math.min(quantity, available, MAX_QUANTITY_PER_ITEM);
+      return [...prev, { ...product, quantity: capped }];
     });
+
+    if (items.length >= MAX_CART_ITEMS && !items.find(i => i.id === product.id)) {
+      return { ok: false, message: 'Cart is full (50 item limit)' };
+    }
+
+    return { ok: true, message };
   };
 
   const removeFromCart = (productId: string) => {
@@ -55,9 +91,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateQuantity = (productId: string, quantity: number) => {
-    setItems(prev => prev.map(item =>
-      item.id === productId ? { ...item, quantity: Math.max(0, quantity) } : item
-    ).filter(item => item.quantity > 0));
+    setItems(prev => prev.map(item => {
+      if (item.id !== productId) return item;
+      const available = getAvailableStock(item);
+      const capped = Math.min(Math.max(0, quantity), available, MAX_QUANTITY_PER_ITEM);
+      return { ...item, quantity: capped };
+    }).filter(item => item.quantity > 0));
   };
 
   const clearCart = () => setItems([]);

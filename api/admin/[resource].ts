@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -78,12 +79,114 @@ function isTableMissing(err: any): boolean {
   return msg.includes('does not exist') || msg.includes('42P01');
 }
 
+async function sendAuctionWinnerEmail(params: {
+  winnerEmail: string;
+  winnerName: string;
+  productName: string;
+  winningBid: number;
+}): Promise<void> {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.QUIRKIFY_FROM_EMAIL;
+  if (!resendApiKey || !fromEmail) return;
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827;max-width:560px;margin:0 auto">
+      <div style="background:linear-gradient(135deg,#ec4899,#a855f7);padding:24px 28px;border-radius:12px 12px 0 0">
+        <h1 style="color:#fff;margin:0;font-size:20px;font-weight:800">Quirkify</h1>
+      </div>
+      <div style="background:#fff;padding:28px;border:1px solid #f3f4f6;border-top:none;border-radius:0 0 12px 12px">
+        <h2 style="margin:0 0 8px;font-size:22px;color:#111827">🏆 You won the auction!</h2>
+        <p>Hi ${params.winnerName || 'there'},</p>
+        <p>Congratulations! You placed the winning bid for <strong>${params.productName}</strong>.</p>
+        <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:16px 0">
+          <p style="margin:0 0 4px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">Winning bid</p>
+          <p style="margin:0;font-size:24px;font-weight:800;color:#a855f7">R${params.winningBid.toFixed(2)}</p>
+        </div>
+        <p>Our team will be in touch shortly to arrange payment and delivery.</p>
+        <a href="https://quirkify.co.za/orders" style="display:inline-block;background:linear-gradient(135deg,#ec4899,#a855f7);color:#fff;padding:12px 24px;border-radius:24px;text-decoration:none;font-weight:700;font-size:14px;margin-top:8px">View Your Orders</a>
+      </div>
+      <p style="text-align:center;color:#9ca3af;font-size:11px;margin-top:16px">Questions? Visit quirkify.co.za</p>
+    </div>
+  `;
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: fromEmail,
+      to: [params.winnerEmail],
+      subject: `🏆 You won! — ${params.productName}`,
+      html,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Resend failed: ${response.status} ${text}`);
+  }
+}
+
 export default async function handler(req: any, res: any) {
   res.setHeader('Cache-Control', 'no-store');
 
   const resource = req.query.resource as string;
-  if (!['products', 'campaigns'].includes(resource)) {
+  if (!['products', 'campaigns', 'auction-winner-notify'].includes(resource)) {
     return res.status(404).json({ error: 'Unknown resource' });
+  }
+
+  // auction-winner-notify: lightweight auth via HMAC nonce (no admin token needed)
+  if (resource === 'auction-winner-notify') {
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+    const { winnerId, winnerEmail, productName, winningBid, nonce, signature } = req.body ?? {};
+    if (!winnerId) return res.status(200).json({ notified: false, reason: 'no_winner' });
+
+    // Verify HMAC if a shared secret is configured
+    const secret = process.env.INTERNAL_API_SECRET;
+    if (secret) {
+      const expected = crypto.createHmac('sha256', secret).update(String(nonce ?? '')).digest('hex');
+      if (signature !== expected) return res.status(401).json({ error: 'Invalid signature' });
+    }
+
+    if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+      return res.status(503).json({ error: 'Server not configured' });
+    }
+
+    try {
+      const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+
+      let resolvedEmail = winnerEmail ?? null;
+      let resolvedName = '';
+
+      if (!resolvedEmail) {
+        const { data: profile } = await db
+          .from('profiles')
+          .select('id, email, display_name')
+          .eq('firebase_uid', winnerId)
+          .maybeSingle();
+        resolvedEmail = profile?.email ?? null;
+        resolvedName = profile?.display_name ?? '';
+      }
+
+      if (!resolvedEmail) {
+        return res.status(200).json({ notified: false, reason: 'winner_email_not_found' });
+      }
+
+      await sendAuctionWinnerEmail({
+        winnerEmail: resolvedEmail,
+        winnerName: resolvedName,
+        productName: productName || 'your item',
+        winningBid: Number(winningBid ?? 0),
+      });
+
+      return res.status(200).json({ notified: true });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[auction-winner-notify] Error:', message);
+      return res.status(500).json({ error: message });
+    }
   }
 
   const token = ((req.headers.authorization as string) || '').replace(/^Bearer\s+/i, '').trim();

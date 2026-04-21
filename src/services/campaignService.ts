@@ -1,7 +1,9 @@
 import { supabase } from '../supabase';
 import type { Campaign } from '../types';
 
-function rowToCampaign(row: any): Campaign {
+type DbRow = Record<string, unknown>;
+
+function rowToCampaign(row: DbRow): Campaign {
   return {
     id: row.id,
     title: row.title,

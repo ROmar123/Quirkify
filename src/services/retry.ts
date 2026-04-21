@@ -8,7 +8,7 @@ export interface RetryOptions {
   initialDelayMs?: number;
   maxDelayMs?: number;
   backoffMultiplier?: number;
-  shouldRetry?: (error: any) => boolean;
+  shouldRetry?: (error: unknown) => boolean;
 }
 
 const DEFAULT_OPTIONS: Required<RetryOptions> = {
@@ -38,7 +38,7 @@ export async function retryAsync<T>(
   options?: RetryOptions
 ): Promise<T> {
   const opts = { ...DEFAULT_OPTIONS, ...options };
-  let lastError: any;
+  let lastError: unknown;
   let delayMs = opts.initialDelayMs;
 
   for (let attempt = 1; attempt <= opts.maxAttempts; attempt++) {
@@ -63,7 +63,7 @@ export async function retryAsync<T>(
 
   // All retries failed
   const error = new Error(`Operation failed after ${opts.maxAttempts} attempts`);
-  (error as any).cause = lastError;
+  (error as Error & { cause?: unknown }).cause = lastError;
   throw error;
 }
 
@@ -86,9 +86,9 @@ export async function retryFirestoreOperation<T>(
       }
     });
   } catch (error) {
-    const cause = (error as any)?.cause;
-    const message = cause?.message || (error as any).message;
-    const code = cause?.code || (error as any).code;
+    const cause = (error as { cause?: { message?: string; code?: string } })?.cause;
+    const message = cause?.message || (error instanceof Error ? error.message : String(error));
+    const code = cause?.code ?? '';
 
     throw new Error(`${operationName} failed: ${code ? `[${code}] ` : ''}${message}`);
   }

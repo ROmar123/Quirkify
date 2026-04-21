@@ -28,6 +28,7 @@ export default function ProductDetails() {
   const [quantity, setQuantity] = useState(1);
   const [isLiked, setIsLiked] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [cartMessage, setCartMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -83,13 +84,27 @@ export default function ProductDetails() {
   const rarity = RARITY_CONFIG[product.rarity || 'Common'] || RARITY_CONFIG['Common'];
 
   const handleAddToCart = () => {
-    addToCart(product, quantity);
+    const result = addToCart(product, quantity);
+    if (!result.ok) {
+      setCartMessage(result.message ?? 'Could not add to cart');
+      setTimeout(() => setCartMessage(null), 3000);
+      return;
+    }
     setAddedToCart(true);
+    if (result.message) {
+      setCartMessage(result.message);
+      setTimeout(() => setCartMessage(null), 3000);
+    }
     setTimeout(() => setAddedToCart(false), 2000);
   };
 
   const handleBuyNow = () => {
-    addToCart(product, quantity);
+    const result = addToCart(product, quantity);
+    if (!result.ok) {
+      setCartMessage(result.message ?? 'Could not add to cart');
+      setTimeout(() => setCartMessage(null), 3000);
+      return;
+    }
     navigate('/checkout');
   };
 
@@ -319,6 +334,18 @@ export default function ProductDetails() {
                     <span className="text-xs font-bold text-gray-700">{value}/100</span>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Cart message */}
+            {cartMessage && (
+              <div className={cn(
+                'rounded-xl px-4 py-2.5 text-sm font-semibold',
+                cartMessage.includes('capped') || cartMessage.includes('Max')
+                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                  : 'bg-red-50 text-red-600 border border-red-200'
+              )}>
+                {cartMessage}
               </div>
             )}
 

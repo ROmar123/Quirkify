@@ -5,8 +5,10 @@ import { DEMO_PRODUCTS, isDemoProductId } from '../constants/demoProducts';
 const PRODUCT_POLL_INTERVAL_MS = 30000;
 let productSubscriptionSequence = 0;
 
+type DbRow = Record<string, unknown>;
+
 // Maps Supabase row → frontend Product type
-function rowToProduct(row: any): Product {
+function rowToProduct(row: DbRow): Product {
   return {
     id: row.id,
     name: row.name,
@@ -49,7 +51,7 @@ function rowToProduct(row: any): Product {
 
 // Maps frontend Product → Supabase insert/update
 function productToRow(product: Partial<Product>) {
-  const row: Record<string, any> = {};
+  const row: Record<string, unknown> = {};
 
   if (product.name !== undefined) row.name = product.name.trim();
   if (product.description !== undefined) row.description = product.description.trim();

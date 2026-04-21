@@ -2,7 +2,9 @@ import { supabase } from '../supabase';
 import { Product } from '../types';
 import { subscribeToProducts } from './productService';
 
-function rowToProduct(row: any): Product {
+type DbRow = Record<string, unknown>;
+
+function rowToProduct(row: DbRow): Product {
   return {
     id: row.id,
     name: row.name,

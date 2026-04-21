@@ -278,12 +278,28 @@ export async function concludeAuction(
     }
 
     const auction = { id: auctionSnap.id, ...auctionSnap.data() } as Auction;
+    const resolvedWinnerId = winnerId ?? auction.highestBidderId ?? null;
+    const resolvedPrice = finalPrice ?? auction.currentBid;
+
     await updateDoc(auctionRef, {
       status: 'ended',
-      winnerId: winnerId ?? auction.highestBidderId ?? null,
-      currentBid: finalPrice ?? auction.currentBid,
+      winnerId: resolvedWinnerId,
+      currentBid: resolvedPrice,
       updatedAt: serverTimestamp(),
     });
+
+    // Notify winner asynchronously — don't block or throw on failure
+    if (resolvedWinnerId) {
+      fetch('/api/admin/auction-winner-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          winnerId: resolvedWinnerId,
+          productName: auction.product?.name ?? undefined,
+          winningBid: resolvedPrice,
+        }),
+      }).catch((e) => console.error('[concludeAuction] winner notification failed:', e));
+    }
 
     return { error: null };
   } catch (error) {

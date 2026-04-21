@@ -41,7 +41,7 @@ export const createOrUpdateProfile = async (uid: string, data: Partial<UserProfi
 
 export const updateProfileStats = async (uid: string, stats: Partial<UserProfile['stats']>) => {
   const userRef = doc(db, 'users', uid);
-  const updateData: any = {};
+  const updateData: Record<string, number> = {};
   if (stats.itemsCollected !== undefined) updateData['stats.itemsCollected'] = stats.itemsCollected;
   if (stats.auctionsWon !== undefined) updateData['stats.auctionsWon'] = stats.auctionsWon;
   if (stats.totalBids !== undefined) updateData['stats.totalBids'] = stats.totalBids;

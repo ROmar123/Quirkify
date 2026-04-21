@@ -10,7 +10,7 @@ export async function identifyProduct(base64Image: string) {
   return res.json();
 }
 
-export async function suggestCampaign(topSellers: any[]) {
+export async function suggestCampaign(topSellers: { id: string; name: string; category?: string }[]) {
   const res = await fetch(`${API_BASE}/campaign`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -37,7 +37,7 @@ export async function getHostTalkingPoints(productName: string, category: string
   return res.json();
 }
 
-export async function getPersonalizedRecommendations(products: any[], userInterests: string[] = []) {
+export async function getPersonalizedRecommendations(products: { id: string; name: string; category?: string; retailPrice?: number }[], userInterests: string[] = []) {
   const res = await fetch(`${API_BASE}/personalize`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
