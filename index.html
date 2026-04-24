@@ -13,14 +13,8 @@
     <meta http-equiv="X-Frame-Options" content="DENY" />
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
 
-    <!-- PWA -->
     <title>Quirkify | Gamified Social Commerce</title>
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Quirkify" />
     <meta name="theme-color" content="#A855F7" />
-    <link rel="apple-touch-icon" href="/icon-192x192.png" />
 
     <!-- Preconnect to external domains -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -43,6 +37,29 @@
       }
       @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
     </style>
+    <script>
+      (function () {
+        const FLAG = 'quirkify_boot_recovery_v2';
+        if (!('serviceWorker' in navigator) || sessionStorage.getItem(FLAG) === 'done') return;
+
+        sessionStorage.setItem(FLAG, 'running');
+
+        window.addEventListener('load', function () {
+          Promise.resolve()
+            .then(() => navigator.serviceWorker.getRegistrations())
+            .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+            .then(() => ('caches' in window ? caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key)))) : Promise.resolve()))
+            .then(() => {
+              try { localStorage.removeItem('quirkify-cart'); } catch (_) {}
+              try { sessionStorage.setItem(FLAG, 'done'); } catch (_) {}
+              window.location.replace(window.location.pathname + window.location.search + window.location.hash);
+            })
+            .catch(() => {
+              try { sessionStorage.setItem(FLAG, 'done'); } catch (_) {}
+            });
+        }, { once: true });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
