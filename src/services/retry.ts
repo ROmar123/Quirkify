@@ -18,8 +18,9 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
   backoffMultiplier: 2,
   shouldRetry: (error) => {
     // Don't retry auth errors, validation errors, or permission errors
-    const message = error?.message?.toLowerCase() || '';
-    const code = error?.code?.toLowerCase() || '';
+    const e = error as Record<string, any>;
+    const message = e?.message?.toLowerCase?.() || '';
+    const code = e?.code?.toLowerCase?.() || '';
 
     const noRetryErrors = [
       'permission-denied',
@@ -80,7 +81,7 @@ export async function retryFirestoreOperation<T>(
       initialDelayMs: 500,
       shouldRetry: (error) => {
         // Retry on network errors, timeouts, unavailable
-        const code = error?.code?.toLowerCase() || '';
+        const code = (error as Record<string, any>)?.code?.toLowerCase?.() || '';
         const retryableCodes = ['unavailable', 'deadline-exceeded', 'internal', 'unknown'];
         return retryableCodes.some(c => code.includes(c));
       }

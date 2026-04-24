@@ -64,7 +64,7 @@ export interface OrderDetail extends Order {
   events: OrderEvent[];
 }
 
-type DbRow = Record<string, unknown>;
+type DbRow = Record<string, any>;
 
 function rowToOrder(row: DbRow, items: DbRow[] = []): Order {
   return {

@@ -1,7 +1,7 @@
 import { supabase } from '../supabase';
 import type { Campaign } from '../types';
 
-type DbRow = Record<string, unknown>;
+type DbRow = Record<string, any>;
 
 function rowToCampaign(row: DbRow): Campaign {
   return {

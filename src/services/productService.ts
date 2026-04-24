@@ -5,7 +5,7 @@ import { DEMO_PRODUCTS, isDemoProductId } from '../constants/demoProducts';
 const PRODUCT_POLL_INTERVAL_MS = 30000;
 let productSubscriptionSequence = 0;
 
-type DbRow = Record<string, unknown>;
+type DbRow = Record<string, any>;
 
 // Maps Supabase row → frontend Product type
 function rowToProduct(row: DbRow): Product {

@@ -1,7 +1,7 @@
 import { supabase } from '../supabase';
 import { Product } from '../types';
 
-type DbRow = Record<string, unknown>;
+type DbRow = Record<string, any>;
 
 function rowToProduct(row: DbRow): Product {
   return {

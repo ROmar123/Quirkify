@@ -2,7 +2,10 @@ import { supabase } from '../supabase';
 import type { AuthUser } from '../firebase';
 
 export type UserRole = 'customer' | 'seller' | 'admin';
-const ADMIN_EMAILS = new Set(['patengel85@gmail.com']);
+const ADMIN_EMAILS = new Set([
+  'patengel85@gmail.com',
+  ...((import.meta.env.VITE_ADMIN_EMAILS || '').split(',').map((e: string) => e.trim().toLowerCase()).filter(Boolean)),
+]);
 
 export interface Profile {
   id: string;
@@ -32,7 +35,7 @@ export interface Profile {
   lastActiveAt: string | null;
 }
 
-type DbRow = Record<string, unknown>;
+type DbRow = Record<string, any>;
 
 function rowToProfile(row: DbRow): Profile {
   return {
