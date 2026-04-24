@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from './supabaseAdmin';
+import { getSupabaseAdmin } from './supabaseAdmin.js';
 
 type NotificationStatus = 'paid' | 'payment_failed' | 'cancelled' | 'shipped' | 'delivered';
 
