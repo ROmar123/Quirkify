@@ -64,10 +64,9 @@ export default function ProductIntake({ onSuccess }: ProductIntakeProps) {
     setError(null);
 
     try {
-      console.log('Starting AI analysis...');
       const file = files[0];
       const reader = new FileReader();
-      
+
       const analysisPromise = new Promise((resolve, reject) => {
         reader.onload = async () => {
           try {
@@ -83,7 +82,6 @@ export default function ProductIntake({ onSuccess }: ProductIntakeProps) {
       });
 
       const analysis: any = await analysisPromise;
-      console.log('Analysis complete:', analysis);
       setResult(analysis);
 
       // Initialize edited result with default 40% markdown + standardized category
@@ -153,9 +151,19 @@ export default function ProductIntake({ onSuccess }: ProductIntakeProps) {
       const uploadedUrls = await Promise.all(files.map(f => uploadProductImage(tempId, f)));
       if (uploadedUrls.length === 0) throw new Error('Failed to upload images. Please try again.');
 
+      const stock = editedResult.stock || 1;
+      const listingType = editedResult.listingType || 'store';
+      const allocations = listingType === 'auction'
+        ? { store: 0, auction: stock, packs: 0 }
+        : listingType === 'both'
+          ? { store: Math.ceil(stock / 2), auction: Math.floor(stock / 2), packs: 0 }
+          : { store: stock, auction: 0, packs: 0 };
+
       await createProduct({
         ...editedResult,
-        totalStock: editedResult.stock,
+        stock,
+        totalStock: stock,
+        allocations,
         imageUrl: uploadedUrls[0],
         imageUrls: uploadedUrls,
         status,

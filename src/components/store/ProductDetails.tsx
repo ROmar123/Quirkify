@@ -15,6 +15,7 @@ const RARITY_CONFIG: Record<string, { gradient: string; text: string; bg: string
   'Unique':     { gradient: 'linear-gradient(135deg,#f59e0b,#ef4444)', text: 'white', bg: '#fef3c7' },
   'Super Rare': { gradient: 'linear-gradient(135deg,#f472b6,#a855f7)', text: 'white', bg: '#fce7f3' },
   'Rare':       { gradient: 'linear-gradient(135deg,#a855f7,#6366f1)', text: 'white', bg: '#f5f3ff' },
+  'Limited':    { gradient: 'linear-gradient(135deg,#06b6d4,#3b82f6)', text: 'white', bg: '#ecfeff' },
   'Common':     { gradient: 'linear-gradient(135deg,#e0d2ff,#c4b5fd)', text: '#4c1d95', bg: '#faf5ff' },
 };
 
@@ -81,7 +82,7 @@ export default function ProductDetails() {
   const maxQty = product.allocations?.store ?? product.stock;
   const basePrice = product.priceRange?.min ?? product.retailPrice ?? 0;
   const hasDiscount = product.discountPrice && product.discountPrice < basePrice;
-  const rarity = RARITY_CONFIG[product.rarity || 'Common'] || RARITY_CONFIG['Common'];
+  const rarity = RARITY_CONFIG[product.rarity || 'Common'] ?? RARITY_CONFIG['Common'];
 
   const handleAddToCart = () => {
     const result = addToCart(product, quantity);

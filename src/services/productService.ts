@@ -19,7 +19,7 @@ function rowToProduct(row: DbRow): Product {
     listingType: row.listing_type,
     retailPrice: Number(row.retail_price),
     markdownPercentage: row.markdown_percentage,
-    discountPrice: Number(row.discount_price),
+    discountPrice: row.discount_price != null ? Number(row.discount_price) : (Number(row.retail_price) || 0),
     stock: row.stock,
     totalStock: row.stock,
     allocations: {
