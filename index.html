@@ -27,35 +27,6 @@
       .pb-safe { padding-bottom: env(safe-area-inset-bottom, 8px); }
       .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       .hide-scrollbar::-webkit-scrollbar { display: none; }
-      #boot-fallback {
-        display: none;
-        min-height: 100vh;
-        padding: 40px 24px;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        background: linear-gradient(180deg, #faf5ff 0%, #ffffff 100%);
-      }
-      #boot-fallback.visible { display: flex; }
-      #boot-fallback .card {
-        max-width: 420px;
-        background: white;
-        border: 1px solid #ede9fe;
-        border-radius: 24px;
-        padding: 28px;
-        box-shadow: 0 20px 50px rgba(88, 28, 135, 0.08);
-      }
-      #boot-fallback h1 { margin: 0 0 10px; font-size: 24px; color: #111827; }
-      #boot-fallback p { margin: 0 0 18px; color: #6b7280; line-height: 1.5; }
-      #boot-fallback button {
-        border: 0;
-        border-radius: 999px;
-        padding: 12px 18px;
-        background: linear-gradient(135deg, #a855f7, #ec4899);
-        color: white;
-        font-weight: 700;
-        cursor: pointer;
-      }
       #root:empty::before {
         content: ''; display: block; width: 36px; height: 36px;
         border: 2.5px solid #e9d5ff; border-top-color: #a855f7;
@@ -64,45 +35,9 @@
       }
       @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
     </style>
-    <script>
-      (function () {
-        const FLAG = 'quirkify_boot_recovery_v2';
-        if (!('serviceWorker' in navigator) || sessionStorage.getItem(FLAG) === 'done') return;
-
-        sessionStorage.setItem(FLAG, 'running');
-
-        window.addEventListener('load', function () {
-          Promise.resolve()
-            .then(() => navigator.serviceWorker.getRegistrations())
-            .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
-            .then(() => ('caches' in window ? caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key)))) : Promise.resolve()))
-            .then(() => {
-              try { localStorage.removeItem('quirkify-cart'); } catch (_) {}
-              try { sessionStorage.setItem(FLAG, 'done'); } catch (_) {}
-              window.location.replace(window.location.pathname + window.location.search + window.location.hash);
-            })
-            .catch(() => {
-              try { sessionStorage.setItem(FLAG, 'done'); } catch (_) {}
-            });
-        }, { once: true });
-
-        window.setTimeout(function () {
-          if (!document.getElementById('root')?.children.length) {
-            document.getElementById('boot-fallback')?.classList.add('visible');
-          }
-        }, 4000);
-      })();
-    </script>
   </head>
   <body>
     <div id="root"></div>
-    <div id="boot-fallback">
-      <div class="card">
-        <h1>Refreshing Quirkify</h1>
-        <p>We are clearing old browser state so the latest store loads cleanly.</p>
-        <button onclick="window.location.reload()">Reload now</button>
-      </div>
-    </div>
     <script type="module" src="/src/main.tsx"></script>
     <noscript>
       <div style="padding: 20px; text-align: center; font-family: sans-serif;">
