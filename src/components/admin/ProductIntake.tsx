@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { identifyProduct } from '../../services/gemini';
 import { uploadProductImage } from '../../services/storageService';
-import { auth } from '../../firebase';
+import { supabase } from '../../supabase';
 import { createProduct } from '../../services/productService';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -143,7 +143,8 @@ export default function ProductIntake({ onSuccess }: ProductIntakeProps) {
     setLoading(true);
     setError(null);
     try {
-      const authorUid = auth.currentUser?.uid;
+      const { data: { session } } = await supabase.auth.getSession();
+      const authorUid = session?.user?.id;
       if (!authorUid) throw new Error('Authentication required. Please sign in again.');
 
       // Use a temp UUID for the storage path; Supabase generates the real product ID

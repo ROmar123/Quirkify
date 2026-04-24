@@ -1,13 +1,79 @@
 import { useState, useEffect } from 'react';
-import type { Product, Campaign } from '../../types';
-import { subscribeToProductsAdmin } from '../../services/adminProductService';
+import type { Campaign } from '../../types';
+import { supabase } from '../../supabase';
 import { subscribeToCampaignsAdmin, createCampaignAdmin } from '../../services/adminCampaignService';
 import { suggestCampaign } from '../../services/gemini';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Loader2, CheckCircle2, TrendingUp, Megaphone, Database, ExternalLink } from 'lucide-react';
+import { Sparkles, Loader2, CheckCircle2, TrendingUp, Megaphone, Database, ExternalLink, Package, BarChart3, AlertTriangle } from 'lucide-react';
+
+interface TopProduct { id: string; name: string; category: string; revenue: number; unitsSold: number }
+interface Analytics {
+  totalRevenue30d: number;
+  topCategory: string;
+  topProducts: TopProduct[];
+  lowStock: { id: string; name: string; stock: number }[];
+}
+
+async function fetchAnalytics(): Promise<Analytics> {
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: items } = await supabase
+    .from('order_items')
+    .select('product_id, quantity, unit_price, products(name, category), orders!inner(status, created_at)')
+    .gte('orders.created_at', since);
+
+  const productMap: Record<string, TopProduct> = {};
+  let totalRevenue30d = 0;
+
+  (items || []).forEach((item: any) => {
+    const status = item.orders?.status;
+    if (!['paid', 'processing', 'shipped', 'delivered', 'completed'].includes(status)) return;
+    const id = item.product_id;
+    const revenue = Number(item.unit_price) * Number(item.quantity);
+    totalRevenue30d += revenue;
+    if (!productMap[id]) {
+      productMap[id] = {
+        id,
+        name: item.products?.name ?? 'Unknown',
+        category: item.products?.category ?? '',
+        revenue: 0,
+        unitsSold: 0,
+      };
+    }
+    productMap[id].revenue += revenue;
+    productMap[id].unitsSold += Number(item.quantity);
+  });
+
+  const topProducts = Object.values(productMap)
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5);
+
+  const categoryRevenue: Record<string, number> = {};
+  topProducts.forEach(p => {
+    if (p.category) categoryRevenue[p.category] = (categoryRevenue[p.category] ?? 0) + p.revenue;
+  });
+  const topCategory = Object.entries(categoryRevenue).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—';
+
+  const { data: lowStockData } = await supabase
+    .from('products')
+    .select('id, name, stock')
+    .eq('status', 'approved')
+    .lte('stock', 3)
+    .gt('stock', 0)
+    .order('stock', { ascending: true })
+    .limit(5);
+
+  return {
+    totalRevenue30d,
+    topCategory,
+    topProducts,
+    lowStock: (lowStockData || []) as { id: string; name: string; stock: number }[],
+  };
+}
 
 export default function CampaignManager() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [tableExists, setTableExists] = useState<boolean | null>(null);
   const [setupSql, setSetupSql] = useState<string | undefined>();
@@ -17,21 +83,32 @@ export default function CampaignManager() {
   const [sqlCopied, setSqlCopied] = useState(false);
 
   useEffect(() => {
-    const unsubProducts = subscribeToProductsAdmin('approved', setProducts);
+    fetchAnalytics()
+      .then(setAnalytics)
+      .finally(() => setAnalyticsLoading(false));
+
     const unsubCampaigns = subscribeToCampaignsAdmin(undefined, (c, exists, sql) => {
       setCampaigns(c);
       setTableExists(exists);
       if (sql) setSetupSql(sql);
     });
-    return () => { unsubProducts(); unsubCampaigns(); };
+    return () => { unsubCampaigns(); };
   }, []);
 
   const handleSuggest = async () => {
-    if (products.length === 0) return;
+    if (!analytics) return;
     setLoading(true);
     setError(null);
     try {
-      setSuggestion(await suggestCampaign(products.slice(0, 5)));
+      const month = new Date().toLocaleString('en', { month: 'long' });
+      const topSellers = analytics.topProducts.map(p => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        revenue: p.revenue,
+      }));
+      const fallback = [{ id: '', name: 'General Products', category: 'Mixed', revenue: 0 }];
+      setSuggestion(await suggestCampaign(topSellers.length ? topSellers : fallback, { month }));
     } catch (e: any) {
       setError(e?.message || 'Failed to generate suggestion');
     } finally {
@@ -78,12 +155,12 @@ export default function CampaignManager() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Campaign Automation</h1>
-          <p className="text-gray-400 text-sm mt-0.5">Aura AI analyses top sellers to suggest strategies.</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Growth & Campaigns</h1>
+          <p className="text-gray-400 text-sm mt-0.5">Real data from your store, powering AI campaign suggestions.</p>
         </div>
         <button
           onClick={handleSuggest}
-          disabled={loading || products.length === 0}
+          disabled={loading || analyticsLoading}
           className="btn-primary disabled:opacity-50"
         >
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
@@ -91,7 +168,35 @@ export default function CampaignManager() {
         </button>
       </div>
 
-      {/* Setup banner — shown when table is confirmed missing */}
+      {/* Analytics stats grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+        {analyticsLoading ? (
+          [...Array(4)].map((_, i) => <div key={i} className="h-20 skeleton rounded-2xl" />)
+        ) : analytics ? (
+          <>
+            <div className="bg-white rounded-2xl border border-gray-100 p-4">
+              <p className="section-label mb-1">Revenue (30d)</p>
+              <p className="text-xl font-black gradient-text">R{analytics.totalRevenue30d.toFixed(0)}</p>
+            </div>
+            <div className="bg-white rounded-2xl border border-gray-100 p-4">
+              <p className="section-label mb-1">Top Category</p>
+              <p className="text-xl font-black text-gray-900">{analytics.topCategory}</p>
+            </div>
+            <div className="bg-white rounded-2xl border border-gray-100 p-4">
+              <p className="section-label mb-1">Top Products</p>
+              <p className="text-xl font-black text-gray-900">{analytics.topProducts.length}</p>
+            </div>
+            <div className="bg-white rounded-2xl border border-gray-100 p-4">
+              <p className="section-label mb-1">Low Stock</p>
+              <p className={`text-xl font-black ${analytics.lowStock.length > 0 ? 'text-amber-600' : 'text-gray-900'}`}>
+                {analytics.lowStock.length}
+              </p>
+            </div>
+          </>
+        ) : null}
+      </div>
+
+      {/* Setup banner */}
       {tableExists === false && setupSql && (
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
           className="mb-6 bg-amber-50 border border-amber-200 rounded-2xl p-5">
@@ -125,6 +230,31 @@ export default function CampaignManager() {
             <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700">{error}</div>
           )}
 
+          {/* Top Performers */}
+          {!analyticsLoading && analytics && analytics.topProducts.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <BarChart3 className="w-4 h-4 text-gray-400" />
+                <p className="section-label">Top Performers (30 days)</p>
+              </div>
+              <div className="space-y-2">
+                {analytics.topProducts.map((p, i) => (
+                  <div key={p.id} className="bg-white rounded-xl border border-gray-100 p-3 flex items-center gap-3">
+                    <span className="w-6 h-6 rounded-full bg-gray-50 flex items-center justify-center text-[10px] font-black text-gray-400 flex-shrink-0">
+                      {i + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{p.name}</p>
+                      <p className="text-xs text-gray-400">{p.category} · {p.unitsSold} sold</p>
+                    </div>
+                    <p className="font-black text-sm gradient-text flex-shrink-0">R{p.revenue.toFixed(0)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* AI Campaign Suggestion */}
           <AnimatePresence mode="wait">
             {suggestion ? (
               <motion.div key="suggestion"
@@ -158,18 +288,17 @@ export default function CampaignManager() {
               </motion.div>
             ) : (
               <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                className="py-20 text-center bg-white rounded-2xl border border-dashed border-gray-200">
+                className="py-16 text-center bg-white rounded-2xl border border-dashed border-gray-200">
                 <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-3">
                   <TrendingUp className="w-6 h-6 text-gray-300" />
                 </div>
-                <p className="section-label">No active suggestions</p>
-                {products.length === 0 && tableExists !== false && (
-                  <p className="text-xs text-gray-400 mt-1">Add approved products to generate a suggestion</p>
-                )}
+                <p className="section-label">No active suggestion</p>
+                <p className="text-xs text-gray-400 mt-1">Click "Generate Suggestion" to get an AI-powered campaign based on your top sellers</p>
               </motion.div>
             )}
           </AnimatePresence>
 
+          {/* Active Campaigns */}
           <div>
             <p className="section-label mb-3">Active Campaigns</p>
             {tableExists === false && setupSql ? (
@@ -196,36 +325,65 @@ export default function CampaignManager() {
           </div>
         </div>
 
+        {/* Sidebar */}
         <div className="space-y-4">
+          {/* Real market insights */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
             <p className="section-label mb-4">Market Insights</p>
             <div className="space-y-3">
               <div className="flex items-center justify-between py-3 border-b border-gray-50">
-                <span className="text-xs text-gray-500">CPT Trend</span>
-                <span className="text-sm font-semibold text-gray-900">+14% Growth</span>
+                <span className="text-xs text-gray-500">Revenue (30d)</span>
+                <span className="text-sm font-semibold text-gray-900">
+                  {analyticsLoading ? '…' : `R${(analytics?.totalRevenue30d ?? 0).toFixed(0)}`}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-3 border-b border-gray-50">
+                <span className="text-xs text-gray-500">Top Category</span>
+                <span className="text-sm font-semibold text-gray-900">
+                  {analyticsLoading ? '…' : (analytics?.topCategory ?? '—')}
+                </span>
               </div>
               <div className="flex items-center justify-between py-3">
-                <span className="text-xs text-gray-500">Top Category</span>
-                <span className="text-sm font-semibold text-gray-900">Streetwear</span>
+                <span className="text-xs text-gray-500">Active Campaigns</span>
+                <span className="text-sm font-semibold text-gray-900">{campaigns.length}</span>
               </div>
             </div>
           </div>
 
+          {/* Low stock alerts */}
+          {!analyticsLoading && analytics && analytics.lowStock.length > 0 && (
+            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <p className="section-label text-amber-800">Low Stock Alert</p>
+              </div>
+              <div className="space-y-2">
+                {analytics.lowStock.map(p => (
+                  <div key={p.id} className="flex items-center justify-between">
+                    <span className="text-xs text-amber-800 font-medium truncate flex-1 mr-2">{p.name}</span>
+                    <span className="text-xs font-black text-amber-700 flex-shrink-0">{p.stock} left</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Campaign tips */}
           <div className="p-5 text-white rounded-2xl relative overflow-hidden noise"
             style={{ background: 'var(--gradient-primary)' }}>
             <div className="absolute -top-4 -right-4 opacity-10">
               <Megaphone className="w-24 h-24" />
             </div>
-            <p className="section-label text-white/70 mb-2 relative z-10">Social Reach</p>
-            <p className="text-xs text-white/80 mb-4 leading-relaxed relative z-10">
-              TikTok integration is analysing trending sounds for your products.
-            </p>
-            <div className="h-1 bg-white/20 rounded-full overflow-hidden relative z-10">
-              <motion.div initial={{ width: 0 }} animate={{ width: '65%' }}
-                transition={{ duration: 1.5, ease: 'easeOut' }}
-                className="h-full bg-white rounded-full" />
+            <p className="section-label text-white/70 mb-2 relative z-10">Campaign Tips</p>
+            <ul className="text-xs text-white/80 space-y-1.5 relative z-10">
+              <li>• Target your top category first</li>
+              <li>• Run sales on low-stock items to clear</li>
+              <li>• Monthly campaigns get 2× engagement</li>
+            </ul>
+            <div className="mt-4 flex items-center gap-2 relative z-10">
+              <Package className="w-3.5 h-3.5 text-white/70" />
+              <span className="text-xs text-white/70">{campaigns.length} campaigns launched</span>
             </div>
-            <span className="text-xs text-white/70 mt-2 block relative z-10">65% Optimised</span>
           </div>
         </div>
       </div>

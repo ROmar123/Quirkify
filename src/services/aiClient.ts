@@ -10,16 +10,18 @@ export async function identifyProduct(base64Image: string) {
   return res.json();
 }
 
-export async function suggestCampaign(topSellers: { id: string; name: string; category?: string }[]) {
+export async function suggestCampaign(
+  topSellers: { id: string; name: string; category?: string; revenue?: number }[],
+  opts?: { month?: string }
+) {
   const res = await fetch(`${API_BASE}/campaign`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ topSellers }),
+    body: JSON.stringify({ topSellers, month: opts?.month }),
   });
   if (!res.ok) throw new Error('Campaign generation failed');
   const data = await res.json();
-  // API returns { campaigns: [{title, description, expectedImpact}] } or a single object
-  const first = data.campaigns?.[0] ?? data;
+  const first = data.campaign ?? data.campaigns?.[0] ?? data;
   return {
     title: first.title ?? '',
     description: first.description ?? '',

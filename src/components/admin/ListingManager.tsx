@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { auth } from '../../firebase';
+import { supabase } from '../../supabase';
 import { Product, ProductCondition } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Edit3, Trash2, Save, X, Plus, ShoppingBag, Camera, Loader2, Package, Gavel } from 'lucide-react';
@@ -30,6 +30,8 @@ const BLANK_PRODUCT = {
   status: 'approved' as const,
 };
 
+interface ChannelSales { store: number; auction: number; packs: number }
+
 export default function ListingManager() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +45,7 @@ export default function ListingManager() {
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [channelSales, setChannelSales] = useState<ChannelSales | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -51,6 +54,27 @@ export default function ListingManager() {
       setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    if (!editingProduct?.id || isNew) { setChannelSales(null); return; }
+    const id = editingProduct.id;
+    supabase
+      .from('order_items')
+      .select('quantity, orders!inner(channel, status)')
+      .eq('product_id', id)
+      .then(({ data }) => {
+        const sales = { store: 0, auction: 0, packs: 0 };
+        (data || []).forEach((item: any) => {
+          const status = item.orders?.status;
+          if (!['paid', 'processing', 'shipped', 'delivered', 'completed'].includes(status)) return;
+          const ch = item.orders?.channel;
+          if (ch === 'store') sales.store += item.quantity;
+          else if (ch === 'auction') sales.auction += item.quantity;
+          else if (ch === 'pack') sales.packs += item.quantity;
+        });
+        setChannelSales(sales);
+      });
+  }, [editingProduct?.id, isNew]);
 
   const filtered = products.filter(p => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.category?.toLowerCase().includes(search.toLowerCase());
@@ -157,7 +181,10 @@ export default function ListingManager() {
       };
 
       if (isNew) {
-        await createProduct({ ...payload, authorUid: auth.currentUser?.uid ?? '' });
+        const { data: { session } } = await supabase.auth.getSession();
+        const authorUid = session?.user?.id;
+        if (!authorUid) throw new Error('Authentication required. Please sign in again.');
+        await createProduct({ ...payload, authorUid });
       } else {
         await updateProduct(editingProduct.id, payload);
       }
@@ -376,7 +403,24 @@ export default function ListingManager() {
                 </div>
 
                 <div>
-                  <label className={labelCls}>Allocate Stock to Channels</label>
+                  <label className={labelCls}>Channel Inventory</label>
+                  {!isNew && channelSales && (
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      {(['store', 'auction', 'packs'] as const).map(ch => {
+                        const avail = editingProduct.allocations?.[ch] ?? 0;
+                        const sold = channelSales[ch];
+                        return (
+                          <div key={ch} className="bg-gray-50 rounded-xl p-3 border border-gray-100 text-center">
+                            <p className="section-label capitalize mb-1">{ch}</p>
+                            <p className="text-base font-black text-gray-900">{avail}</p>
+                            <p className="text-[10px] text-gray-400">available</p>
+                            {sold > 0 && <p className="text-[10px] font-semibold text-green-600 mt-0.5">{sold} sold</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <p className="section-label block mb-2">Adjust Allocation</p>
                   <div className="grid grid-cols-3 gap-3">
                     {(['store', 'auction', 'packs'] as const).map(ch => (
                       <div key={ch}>
@@ -389,7 +433,7 @@ export default function ListingManager() {
                     ))}
                   </div>
                   <p className="text-xs text-gray-400 mt-2">
-                    Total: {(editingProduct.allocations?.store ?? 0) + (editingProduct.allocations?.auction ?? 0) + (editingProduct.allocations?.packs ?? 0)} / {editingProduct.stock ?? 1}
+                    Available total: {(editingProduct.allocations?.store ?? 0) + (editingProduct.allocations?.auction ?? 0) + (editingProduct.allocations?.packs ?? 0)} / {editingProduct.stock ?? 1} stock
                   </p>
                 </div>
 

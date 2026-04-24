@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { supabase } from '../supabase';
+import { addXP } from './gamificationService';
 import type { Auction, Bid, Product } from '../types';
 
 type AuctionDraft = Pick<Auction, 'productId' | 'sellerId' | 'startPrice' | 'startTime' | 'endTime'>;
@@ -258,6 +259,7 @@ export async function placeBid(
       });
     });
 
+    void addXP(bidderId, 10);
     return { error: null };
   } catch (error) {
     return { error: error instanceof Error ? error : new Error('Failed to place bid') };

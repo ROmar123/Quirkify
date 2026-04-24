@@ -9,6 +9,7 @@ import { auth, onAuthStateChanged, signOut, type AuthUser } from '../../firebase
 import { useCart } from '../../context/CartContext';
 import { useMode } from '../../context/ModeContext';
 import { subscribeToNotifications, markAsRead, Notification } from '../../services/notificationService';
+import { supabase } from '../../supabase';
 import { cn } from '../../lib/utils';
 import Logo from './Logo';
 import { motion, AnimatePresence } from 'motion/react';
@@ -114,7 +115,7 @@ function BellDropdown({ user }: { user: AuthUser | null }) {
   );
 }
 
-function UserMenu({ user }: { user: NonNullable<ReturnType<typeof auth.currentUser>> }) {
+function UserMenu({ user, level }: { user: NonNullable<ReturnType<typeof auth.currentUser>>; level: number }) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -132,12 +133,20 @@ function UserMenu({ user }: { user: NonNullable<ReturnType<typeof auth.currentUs
         aria-label="User menu"
         aria-expanded={open}
       >
-        <span
-          className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm transition-opacity group-hover:opacity-90 flex-shrink-0"
-          style={{ background: 'var(--gradient-primary)' }}
-        >
-          {(user.displayName?.[0] || user.email?.[0] || 'U').toUpperCase()}
-        </span>
+        <div className="relative flex-shrink-0">
+          <span
+            className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm transition-opacity group-hover:opacity-90"
+            style={{ background: 'var(--gradient-primary)' }}
+          >
+            {(user.displayName?.[0] || user.email?.[0] || 'U').toUpperCase()}
+          </span>
+          {level > 1 && (
+            <span className="absolute -bottom-1 -right-1 flex items-center justify-center w-4 h-4 rounded-full text-[8px] font-black text-white border border-white"
+              style={{ background: 'var(--gradient-primary)' }}>
+              {level}
+            </span>
+          )}
+        </div>
         <ChevronDown className={cn('w-3 h-3 text-gray-400 transition-transform duration-200 hidden sm:block', open && 'rotate-180')} />
       </button>
 
@@ -194,8 +203,16 @@ function UserMenu({ user }: { user: NonNullable<ReturnType<typeof auth.currentUs
 
 export default function PageHeader() {
   const [user, setUser] = useState<AuthUser | null>(auth.currentUser);
+  const [userLevel, setUserLevel] = useState(1);
   const [scrolled, setScrolled] = useState(false);
-  useEffect(() => onAuthStateChanged(auth, setUser), []);
+
+  useEffect(() => onAuthStateChanged(auth, (u) => {
+    setUser(u);
+    if (u?.uid) {
+      supabase.from('profiles').select('level').eq('firebase_uid', u.uid).single()
+        .then(({ data }) => { if (data?.level) setUserLevel(data.level); });
+    }
+  }), []);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -344,7 +361,7 @@ export default function PageHeader() {
 
           {/* User */}
           {user ? (
-            <UserMenu user={user} />
+            <UserMenu user={user} level={userLevel} />
           ) : (
             <button
               onClick={() => navigate(`/auth?next=${encodeURIComponent(`${location.pathname}${location.search}`)}`)}

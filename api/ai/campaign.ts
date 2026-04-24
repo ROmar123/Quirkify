@@ -4,7 +4,7 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { topSellers } = req.body ?? {};
+  const { topSellers, month } = req.body ?? {};
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return res.status(503).json({ error: 'AI not configured' });
 
@@ -17,7 +17,7 @@ export default async function handler(req: any, res: any) {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `You are a growth strategist for Quirkify, a gamified social commerce platform. Based on these top sellers: ${JSON.stringify(topSellers)}, suggest 3 campaign ideas to boost sales and engagement. Respond with ONLY a JSON array of 3 objects with fields: title, description, expectedImpact (High/Medium/Low). Nothing else.`
+              text: `You are a growth strategist for Quirkify, a Cape Town gamified social commerce platform selling quirky second-hand and unique items. It is currently ${month || 'an unspecified month'}. Based on these top-performing products by revenue: ${JSON.stringify(topSellers)}, suggest 1 focused campaign idea that is seasonally relevant and leverages the best-sellers. Respond with ONLY a JSON object (not an array) with fields: title (short, catchy), description (2 sentences max), strategy (one concrete action the seller should take). Nothing else.`
             }]
           }]
         })
@@ -27,18 +27,15 @@ export default async function handler(req: any, res: any) {
     const data = await response.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    let campaigns;
+    let campaign;
     try {
-      campaigns = JSON.parse(text);
+      const parsed = JSON.parse(text);
+      campaign = Array.isArray(parsed) ? parsed[0] : parsed;
     } catch {
-      campaigns = [
-        { title: 'Flash Sale', description: 'Limited time discount on top sellers', expectedImpact: 'High' },
-        { title: 'Bundle Deal', description: 'Buy 2 get 10% off', expectedImpact: 'Medium' },
-        { title: 'Referral Program', description: 'Reward customers who refer friends', expectedImpact: 'Medium' },
-      ];
+      campaign = { title: 'Flash Sale', description: 'Limited time discount on your top sellers.', strategy: 'Set a 24-hour discount on your 3 best-performing products and promote via WhatsApp status.' };
     }
 
-    res.json({ campaigns });
+    res.json({ campaign });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

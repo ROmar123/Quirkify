@@ -143,7 +143,7 @@ export async function fetchProduct(id: string): Promise<Product | null> {
 
 /** Create a new product (status defaults to 'pending') */
 export async function createProduct(product: Partial<Product>): Promise<Product> {
-  const row = productToRow({ ...product, status: 'pending' });
+  const row = productToRow({ status: 'pending', ...product });
   const { data, error } = await supabase
     .from('products')
     .insert(row)

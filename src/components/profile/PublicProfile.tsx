@@ -165,6 +165,31 @@ export default function PublicProfile() {
                   Level {profile.level || 1} Collector
                 </span>
               </div>
+              {/* XP progress bar */}
+              {(() => {
+                const xp = profile.xp || 0;
+                const level = profile.level || 1;
+                const xpPerLevel = 500;
+                const xpIntoLevel = xp % xpPerLevel;
+                const progress = xpIntoLevel / xpPerLevel;
+                return (
+                  <div className="mt-3 max-w-xs">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[10px] text-gray-400 font-semibold">{xpIntoLevel} / {xpPerLevel} XP</span>
+                      <span className="text-[10px] text-purple-500 font-bold">→ Lv.{level + 1}</span>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress * 100}%` }}
+                        transition={{ duration: 0.8, ease: 'easeOut' }}
+                        className="h-full rounded-full"
+                        style={{ background: 'var(--gradient-primary)' }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </motion.div>
