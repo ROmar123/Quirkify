@@ -133,6 +133,26 @@ async function handlePaymentCompleted(event: YocoEvent): Promise<void> {
       }
     }
 
+    // Add purchased products to buyer's collection vault
+    if (!shouldCreditWallet && currentOrder?.profile_id) {
+      const { data: items } = await supabase
+        .from("order_items")
+        .select("product_id, unit_price, quantity")
+        .eq("order_id", orderId);
+
+      if (items && items.length > 0) {
+        const collectionRows = items.flatMap((item: { product_id: string; unit_price: number; quantity: number }) =>
+          Array.from({ length: item.quantity ?? 1 }, () => ({
+            profile_id: currentOrder.profile_id,
+            product_id: item.product_id,
+            purchase_price: Number(item.unit_price) || 0,
+            acquired_at: new Date().toISOString(),
+          }))
+        );
+        await supabase.from("collection_items").insert(collectionRows);
+      }
+    }
+
     try {
       await sendOrderStatusEmail(orderId, "paid");
     } catch (emailError) {

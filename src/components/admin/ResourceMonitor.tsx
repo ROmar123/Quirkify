@@ -6,16 +6,17 @@ import { supabase } from '../../supabase';
 import { collection, getCountFromServer } from 'firebase/firestore';
 import { db } from '../../firebase';
 
+
 interface SupabaseStats {
   products: number;
   orders: number;
   profiles: number;
   pendingProducts: number;
+  notifications: number;
 }
 
 interface FirestoreStats {
   auctions: number;
-  notifications: number;
 }
 
 interface ServiceHealth {
@@ -49,33 +50,30 @@ export default function ResourceMonitor() {
         { count: orders },
         { count: profiles },
         { count: pendingProducts },
+        { count: notifications },
       ] = await Promise.all([
         supabase.from('products').select('*', { count: 'exact', head: true }),
         supabase.from('orders').select('*', { count: 'exact', head: true }),
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
         supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('notifications').select('*', { count: 'exact', head: true }),
       ]);
       setSupabaseStats({
         products: products ?? 0,
         orders: orders ?? 0,
         profiles: profiles ?? 0,
         pendingProducts: pendingProducts ?? 0,
+        notifications: notifications ?? 0,
       });
       setHealth(prev => ({ ...prev, supabase: 'ok' }));
     } catch {
       setHealth(prev => ({ ...prev, supabase: 'error' }));
     }
 
-    // Firestore stats
+    // Firestore stats — auctions only (bids + auctions remain in Firestore for real-time)
     try {
-      const [auctionSnap, notifSnap] = await Promise.all([
-        getCountFromServer(collection(db, 'auctions')),
-        getCountFromServer(collection(db, 'notifications')),
-      ]);
-      setFirestoreStats({
-        auctions: auctionSnap.data().count,
-        notifications: notifSnap.data().count,
-      });
+      const auctionSnap = await getCountFromServer(collection(db, 'auctions'));
+      setFirestoreStats({ auctions: auctionSnap.data().count });
       setHealth(prev => ({ ...prev, firebase: 'ok' }));
     } catch {
       setHealth(prev => ({ ...prev, firebase: 'error' }));
@@ -133,12 +131,13 @@ export default function ResourceMonitor() {
           <Database className="w-3 h-3" /> Supabase Database
           <span className="ml-1">{statusDot(health.supabase)}</span>
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {[
             { label: 'Products', value: supabaseStats?.products, icon: Package, color: 'text-purple-600', bg: 'bg-purple-50' },
             { label: 'Pending Review', value: supabaseStats?.pendingProducts, icon: AlertTriangle, color: 'text-orange-600', bg: 'bg-orange-50' },
             { label: 'Orders', value: supabaseStats?.orders, icon: ShoppingBag, color: 'text-emerald-600', bg: 'bg-emerald-50' },
             { label: 'Profiles', value: supabaseStats?.profiles, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
+            { label: 'Notifications', value: supabaseStats?.notifications, icon: Zap, color: 'text-indigo-600', bg: 'bg-indigo-50' },
           ].map(({ label, value, icon: Icon, color, bg }) => (
             <motion.div
               key={label}
@@ -158,29 +157,25 @@ export default function ResourceMonitor() {
         </div>
       </div>
 
-      {/* Firestore Stats */}
+      {/* Firestore Stats — auctions only */}
       <div>
         <p className="section-label mb-3 flex items-center gap-1.5">
-          <Zap className="w-3 h-3" /> Firestore (Real-time)
+          <Zap className="w-3 h-3" /> Firestore (Real-time Auctions)
           <span className="ml-1">{statusDot(health.firebase)}</span>
         </p>
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { label: 'Total Auctions', value: firestoreStats?.auctions },
-            { label: 'Notifications', value: firestoreStats?.notifications },
-          ].map(({ label, value }) => (
-            <motion.div
-              key={label}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm"
-            >
-              <p className="text-2xl font-bold text-gray-900">
-                {value == null ? <span className="text-gray-200 text-base">—</span> : value.toLocaleString()}
-              </p>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mt-0.5">{label}</p>
-            </motion.div>
-          ))}
+        <div className="grid grid-cols-1 gap-3 max-w-[180px]">
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm"
+          >
+            <p className="text-2xl font-bold text-gray-900">
+              {firestoreStats?.auctions == null
+                ? <span className="text-gray-200 text-base">—</span>
+                : firestoreStats.auctions.toLocaleString()}
+            </p>
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mt-0.5">Total Auctions</p>
+          </motion.div>
         </div>
       </div>
 
