@@ -1,5 +1,4 @@
 import { expireStalePendingOrders, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
-import { sendOrderStatusEmail } from '../_lib/orderNotifications.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method === 'GET') {
@@ -87,6 +86,8 @@ export default async function handler(req: any, res: any) {
     try {
       const orderId = String(req.body?.orderId || '').trim();
       const nextStatus = String(req.body?.status || '').trim();
+      const nextPaymentStatus = typeof req.body?.paymentStatus === 'string' ? req.body.paymentStatus.trim() : '';
+      const nextShippingStatus = typeof req.body?.shippingStatus === 'string' ? req.body.shippingStatus.trim() : '';
       const trackingNumber = typeof req.body?.trackingNumber === 'string' ? req.body.trackingNumber.trim() : '';
       const carrier = typeof req.body?.carrier === 'string' ? req.body.carrier.trim() : '';
       const adminNotes = typeof req.body?.adminNotes === 'string' ? req.body.adminNotes.trim() : '';
@@ -123,6 +124,17 @@ export default async function handler(req: any, res: any) {
       if (trackingNumber) updates.tracking_number = trackingNumber;
       if (carrier) updates.carrier = carrier;
       if (adminNotes) updates.admin_notes = adminNotes;
+      if (nextPaymentStatus) updates.payment_status = nextPaymentStatus;
+
+      if (nextShippingStatus) {
+        if (nextShippingStatus === 'shipped' && !currentOrder.shipped_at) {
+          updates.shipped_at = new Date().toISOString();
+        } else if (nextShippingStatus === 'delivered' && !currentOrder.delivered_at) {
+          updates.delivered_at = new Date().toISOString();
+        } else if (nextShippingStatus === 'returned') {
+          updates.cancelled_at = currentOrder.cancelled_at || new Date().toISOString();
+        }
+      }
 
       if (nextStatus && nextStatus !== previousStatus) {
         const allowed = allowedTransitions[previousStatus] || [];
@@ -194,9 +206,13 @@ export default async function handler(req: any, res: any) {
       // Send customer notifications for key status transitions (non-blocking)
       if (nextStatus && nextStatus !== previousStatus) {
         if (nextStatus === 'shipped' || nextStatus === 'delivered') {
-          sendOrderStatusEmail(orderId, nextStatus as 'shipped' | 'delivered').catch((err) => {
-            console.warn(`[order-status] Failed to send ${nextStatus} email for ${orderId}:`, err?.message);
-          });
+          void import('../_lib/orderNotifications.js')
+            .then(({ sendOrderStatusEmail }) =>
+              sendOrderStatusEmail(orderId, nextStatus as 'shipped' | 'delivered'),
+            )
+            .catch((err) => {
+              console.warn(`[order-status] Failed to send ${nextStatus} email for ${orderId}:`, err?.message);
+            });
         }
       }
 

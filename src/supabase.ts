@@ -1,9 +1,9 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { normalizeEnvValue } from './lib/env';
 
-// Fallbacks mirror the published values in firebase.ts — anon key is intentionally public
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://mvoigokzsaybwiogjpvr.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_PzK-Rd37B8yJaF8c9Wz9og_uJ6Q_CLS';
-export const isSupabaseConfigured = true;
+const supabaseUrl = normalizeEnvValue(import.meta.env.VITE_SUPABASE_URL) || 'https://missing-supabase-project.invalid';
+const supabaseAnonKey = normalizeEnvValue(import.meta.env.VITE_SUPABASE_ANON_KEY) || 'missing-supabase-anon-key';
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 // Safari private mode (and some hardened browsers) throw SecurityError: The operation
 // is insecure when any code touches localStorage. Wrap it so auth never crashes.

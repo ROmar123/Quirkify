@@ -9,6 +9,7 @@ function rowToCampaign(row: DbRow): Campaign {
     title: row.title,
     description: row.description,
     strategy: row.strategy ?? undefined,
+    featuredProductIds: row.featured_product_ids ?? row.suggested_product_ids ?? [],
     suggestedProducts: row.suggested_product_ids ?? [],
     type: row.type,
     status: row.status,

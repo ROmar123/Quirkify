@@ -1,4 +1,5 @@
-import { getSupabaseAdmin } from './supabaseAdmin.js';
+import { getSupabaseAdmin } from './supabaseAdmin';
+import { normalizeEnvValue } from './env.js';
 
 type NotificationStatus = 'paid' | 'payment_failed' | 'cancelled' | 'shipped' | 'delivered';
 
@@ -110,8 +111,8 @@ function buildEmailCopy(params: {
 }
 
 export async function sendOrderStatusEmail(orderId: string, status: NotificationStatus) {
-  const resendApiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.QUIRKIFY_FROM_EMAIL;
+  const resendApiKey = normalizeEnvValue(process.env.RESEND_API_KEY);
+  const fromEmail = normalizeEnvValue(process.env.QUIRKIFY_FROM_EMAIL);
 
   if (!resendApiKey || !fromEmail) {
     return;

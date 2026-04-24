@@ -1,10 +1,19 @@
 # Quirkify Live — Agent Session Memory
 
+## Product Guardrails (Do Not Drift)
+- Quirkify is a public commerce marketplace first. The storefront, product listings, packs, and auction listings must be browsable without login.
+- Login gates identity-bound actions only: bidding, checkout, wallet usage, orders, saved/account state, profile editing, and admin/operator actions.
+- Public profile pages should surface real public-facing commerce identity and listing activity. Do not ship "coming soon" placeholder states on customer-visible pages.
+- Supabase Postgres is the system of record for catalogue, inventory, packs, profiles, wallet, orders, fulfilment, campaigns, and reporting.
+- Firestore/Firebase is for auth, storage, and realtime auction/live-session state only. Do not move core commerce ownership into Firestore.
+- When in doubt, prefer customer trust, operational clarity, and commercially credible flows over prototype shortcuts.
+
 ## Project
 AI-powered collectibles marketplace for South Africa.
-**Live URL:** https://quirkify-live.vercel.app
+**Canonical Production URL:** https://quirkify-1.vercel.app
+**Custom Domain Target:** https://www.quirkify.co.za
 **Repo:** https://github.com/ROmar123/Quirkify.git (branch: main)
-**Vercel project:** rhidaas-projects/quirkify-live
+**Canonical Vercel project:** rhidaas-projects/quirkify-1
 **Admin email:** patengel85@gmail.com
 
 ## Tech Stack
@@ -18,9 +27,10 @@ AI-powered collectibles marketplace for South Africa.
 
 ## Deployment Rules (USER RULES — ALWAYS FOLLOW)
 1. Check `gh auth status` and `vercel whoami` before any push/deploy
-2. Only deploy from `quirkify-live` directory (canonical repo)
-3. Always verify live URL after deploy
-4. Use `vercel --prod --yes` for production deploys
+2. Only deploy from `quirkify-live` directory (canonical repo checkout)
+3. Deploy to Vercel project `quirkify-1`
+4. Always verify `https://quirkify-1.vercel.app` after deploy
+5. Treat `www.quirkify.co.za` as production only after DNS is corrected in Vercel
 
 ## Pages & Routes
 | Route | Component | Status |
@@ -44,6 +54,21 @@ AI-powered collectibles marketplace for South Africa.
 | /live/:sessionId | LiveStreamRoom | 🔄 To review |
 
 ## What Was Done (Session — Apr 2025)
+
+### Increment 7 — Product alignment pass (Apr 24 2026)
+- **Storefront discovery upgraded**:
+  - `/` now presents store, auction, pack, and live-session discovery as one commercial surface
+  - added marketplace summary metrics, auction pulse panels, and richer featured product cards using shared stock/timing helpers
+- **Product detail upgraded**:
+  - `/product/:productId` now exposes channel-aware stock context, trust cues, auction pricing context, and clearer purchase state
+- **Auction discovery upgraded**:
+  - `/auctions` now includes marketplace summary cards, live-room entry points, countdowns, quick bid buttons, and wallet-settlement context
+- **Growth ops upgraded**:
+  - `/admin/growth` now reads like an operator planning surface with launch-mix recommendations, approved-campaign visibility, and clearer snapshot framing
+- **Live room upgraded**:
+  - `/live/:sessionId` now has a stronger live-event layout with lot hero media, quick bid presets, settlement guardrails, and queue context
+- **Admin dashboard quick navigation**:
+  - admin dashboard now links directly to the public auction feed for end-to-end operator testing
 
 ### Increment 2 — Live (commit 1d733a9)
 - Checkout: mobile sticky CTA bar (Next/Pay always visible), SSL badge replaces XP message, Mapbox brand removed from hints, pb-36 mobile padding
@@ -102,6 +127,25 @@ AI-powered collectibles marketplace for South Africa.
   - stale pending orders are cancelled by the DB function `expire_stale_pending_orders()`
   - commerce list/detail/mutation APIs now invoke expiry before reading or mutating order state
   - no Vercel cron dependency
+
+### Increment 6 — Live smoke-test fix (commit c3b573d)
+- **Admin commerce filter fix**:
+  - `excludeSourceRef=wallet_topup` was previously implemented with `neq`, which also excluded normal store orders where `source_ref` is `NULL`
+  - fixed in both `api/commerce/order-status.ts` and `server.ts` using `source_ref.is.null,source_ref.neq.wallet_topup`
+  - production symptom before fix: admin/commerce could appear empty even though real store orders existed
+- **Live verification**:
+  - pushed to `main` and verified the public alias after Vercel deploy
+  - verified `GET /api/commerce/order-status?profileId=<admin-profile>&excludeSourceRef=wallet_topup` now returns the expected non-wallet store order instead of `[]`
+
+### Production data risk discovered during smoke test
+- There are many wallet top-up attempts in `orders` still sitting as `pending` with `source_ref=wallet_topup`
+- At least one store order row is state-inconsistent in production:
+  - `status='paid'`
+  - `payment_status='cancelled'`
+  - no matching `payment_events`
+  - only a legacy reservation-release event is present
+- This appears to be old bad data rather than the current filter bug, but it means ops truth is not yet fully clean
+- Next hardening pass should separate/clean wallet top-up records and reconcile inconsistent legacy store rows
 
 ## API Routes Status
 | Route | Status |

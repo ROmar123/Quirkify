@@ -3,308 +3,239 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
+  limit,
   onSnapshot,
+  orderBy,
   query,
   runTransaction,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where,
-  type DocumentData,
-  type QuerySnapshot,
 } from 'firebase/firestore';
-import { auth, db, handleFirestoreError, OperationType } from '../firebase';
-import { supabase } from '../supabase';
-import { addXP } from './gamificationService';
-import type { Auction, Bid, Product } from '../types';
+import { auth, db, isFirebaseConfigured } from '../firebase';
+import type { Auction, Bid, LiveSession, Product } from '../types';
 
-type AuctionDraft = Pick<Auction, 'productId' | 'sellerId' | 'startPrice' | 'startTime' | 'endTime'>;
-
-function mapBid(id: string, data: DocumentData): Bid {
-  const timestampValue = data.timestamp?.toDate?.();
-  return {
-    id,
-    auctionId: data.auctionId,
-    bidderId: data.bidderId,
-    amount: Number(data.amount ?? 0),
-    timestamp: timestampValue ? timestampValue.toISOString() : data.timestamp ?? new Date().toISOString(),
-  };
+function fromSnapshot<T>(snapshot: any) {
+  return { id: snapshot.id, ...snapshot.data() } as T;
 }
 
-async function attachProducts(snapshot: QuerySnapshot<DocumentData>): Promise<Auction[]> {
-  const auctions = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) as Auction[];
-  const productIds = [...new Set(auctions.map((auction) => auction.productId).filter(Boolean))];
+function toRealtimeErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : 'Realtime auction data is unavailable';
+  return message || 'Realtime auction data is unavailable';
+}
 
-  const products = new Map<string, Product>();
-  if (productIds.length > 0) {
-    const { data } = await supabase
-      .from('products')
-      .select('*')
-      .in('id', productIds);
-    (data ?? []).forEach((row: any) => {
-      products.set(row.id, {
-        id: row.id,
-        name: row.name,
-        description: row.description,
-        category: row.category,
-        condition: row.condition,
-        status: row.status,
-        listingType: row.listing_type,
-        retailPrice: Number(row.retail_price),
-        discountPrice: row.discount_price != null ? Number(row.discount_price) : (Number(row.retail_price) || 0),
-        markdownPercentage: row.markdown_percentage,
-        stock: row.stock,
-        totalStock: row.stock,
-        allocations: { store: row.alloc_store, auction: row.alloc_auction, packs: row.alloc_packs },
-        imageUrl: row.image_url,
-        imageUrls: row.image_urls || [],
-        rarity: row.rarity,
-        stats: row.stats,
-        confidenceScore: Number(row.confidence_score) || 0,
-        priceRange: { min: Number(row.price_range_min) || 0, max: Number(row.price_range_max) || 0 },
-        tags: row.tags || [],
-        createdAt: row.created_at ?? '',
-        authorUid: row.author_uid ?? '',
-      } as Product);
-    });
+export function subscribeToAuctions(
+  callback: (auctions: Auction[]) => void,
+  onError?: (message: string) => void,
+) {
+  if (!isFirebaseConfigured) {
+    callback([]);
+    onError?.('Realtime auctions are not configured for this environment.');
+    return () => undefined;
   }
-
-  return auctions
-    .map((auction) => {
-      const product = products.get(auction.productId) ?? auction.product;
-      return {
-        ...auction,
-        product,
-        productSnapshot: auction.productSnapshot ?? (product
-          ? {
-              name: product.name,
-              imageUrl: product.imageUrl,
-              allocations: product.allocations,
-              stock: product.stock,
-            }
-          : undefined),
-      };
-    })
-    .sort((a, b) => new Date(a.endTime).getTime() - new Date(b.endTime).getTime());
-}
-
-export function subscribeToAuctions(callback: (auctions: Auction[]) => void): () => void {
-  const auctionsQuery = query(
-    collection(db, 'auctions'),
-    where('status', '==', 'active')
-  );
 
   return onSnapshot(
-    auctionsQuery,
-    (snapshot) => {
-      void attachProducts(snapshot)
-        .then((auctions) => callback(auctions.slice(0, 50)))
-        .catch((error) => {
-          handleFirestoreError(error, OperationType.GET, 'auctions');
-          callback([]);
-        });
-    },
+    query(collection(db, 'auctions'), orderBy('startsAt', 'asc'), limit(40)),
+    (snapshot) => callback(snapshot.docs.map((item) => fromSnapshot<Auction>(item))),
     (error) => {
-      handleFirestoreError(error, OperationType.LISTEN, 'auctions');
       callback([]);
-    }
+      onError?.(toRealtimeErrorMessage(error));
+    },
   );
 }
 
-export function subscribeToBids(
-  auctionId: string,
-  callback: (bids: Bid[]) => void
-): () => void {
-  const bidsQuery = query(collection(db, 'bids'), where('auctionId', '==', auctionId));
+export async function listAuctions() {
+  if (!isFirebaseConfigured) {
+    return [];
+  }
+  const snapshot = await getDocs(query(collection(db, 'auctions'), orderBy('startsAt', 'asc'), limit(40)));
+  return snapshot.docs.map((item) => fromSnapshot<Auction>(item));
+}
+
+export async function listAuctionsByCreator(createdBy: string) {
+  if (!isFirebaseConfigured) {
+    return [];
+  }
+  const snapshot = await getDocs(
+    query(
+      collection(db, 'auctions'),
+      where('createdBy', '==', createdBy),
+      orderBy('startsAt', 'desc'),
+      limit(12),
+    ),
+  );
+  return snapshot.docs.map((item) => fromSnapshot<Auction>(item));
+}
+
+export function subscribeToBids(auctionId: string, callback: (bids: Bid[]) => void) {
+  if (!isFirebaseConfigured) {
+    callback([]);
+    return () => undefined;
+  }
 
   return onSnapshot(
-    bidsQuery,
-    (snapshot) => {
-      const bids = snapshot.docs
-        .map((docSnap) => mapBid(docSnap.id, docSnap.data()))
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      callback(bids);
-    },
-    (error) => {
-      handleFirestoreError(error, OperationType.LISTEN, 'bids');
-      callback([]);
-    }
+    query(collection(db, 'auctions', auctionId, 'bids'), orderBy('amount', 'desc'), limit(25)),
+    (snapshot) => callback(snapshot.docs.map((item) => fromSnapshot<Bid>(item)))
   );
 }
 
-export async function createAuction(input: AuctionDraft): Promise<string> {
-  const { data: productRow, error: productError } = await supabase
-    .from('products')
-    .select('*')
-    .eq('id', input.productId)
-    .single();
-
-  if (productError || !productRow) {
-    throw new Error('Selected product no longer exists');
+export async function placeBid(auctionId: string, amount: number) {
+  if (!isFirebaseConfigured) {
+    return { error: new Error('Realtime bidding is not configured right now') };
   }
 
-  const product: Product = {
-    id: productRow.id,
-    name: productRow.name,
-    description: productRow.description,
-    category: productRow.category,
-    condition: productRow.condition,
-    status: productRow.status,
-    listingType: productRow.listing_type,
-    retailPrice: Number(productRow.retail_price),
-    discountPrice: Number(productRow.discount_price),
-    markdownPercentage: productRow.markdown_percentage,
-    stock: productRow.stock,
-    totalStock: productRow.stock,
-    allocations: { store: productRow.alloc_store, auction: productRow.alloc_auction, packs: productRow.alloc_packs },
-    imageUrl: productRow.image_url,
-    imageUrls: productRow.image_urls || [],
-    rarity: productRow.rarity,
-    stats: productRow.stats,
-    confidenceScore: Number(productRow.confidence_score) || 0,
-    priceRange: productRow.price_range,
-    tags: productRow.tags || [],
-    createdAt: productRow.created_at ?? '',
-    authorUid: productRow.author_uid ?? '',
-  };
-  const startsAt = new Date(input.startTime);
-  const endsAt = new Date(input.endTime);
-
-  if (!(startsAt.getTime() < endsAt.getTime())) {
-    throw new Error('Auction end time must be after the start time');
+  const user = auth.currentUser;
+  if (!user) {
+    return { error: new Error('Sign in to bid') };
   }
-
-  const auctionRef = await addDoc(collection(db, 'auctions'), {
-    productId: input.productId,
-    sellerId: input.sellerId,
-    startPrice: input.startPrice,
-    currentBid: input.startPrice,
-    highestBidderId: null,
-    startTime: input.startTime,
-    endTime: input.endTime,
-    status: startsAt <= new Date() ? 'active' : 'scheduled',
-    bidCount: 0,
-    product,
-    productSnapshot: {
-      name: product.name,
-      imageUrl: product.imageUrl,
-      allocations: product.allocations,
-      stock: product.stock,
-    },
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-
-  return auctionRef.id;
-}
-
-export async function placeBid(
-  auctionId: string,
-  bidderIdOrAmount: string | number,
-  maybeAmount?: number
-): Promise<{ error: Error | null }> {
-  const bidderId = typeof bidderIdOrAmount === 'string' ? bidderIdOrAmount : auth.currentUser?.uid;
-  const amount = typeof bidderIdOrAmount === 'number' ? bidderIdOrAmount : maybeAmount;
-
-  if (!bidderId) {
-    return { error: new Error('You need to sign in before bidding') };
-  }
-
-  if (!amount || amount <= 0) {
-    return { error: new Error('Invalid bid amount') };
-  }
-
-  const auctionRef = doc(db, 'auctions', auctionId);
 
   try {
     await runTransaction(db, async (transaction) => {
-      const auctionSnap = await transaction.get(auctionRef);
-      if (!auctionSnap.exists()) {
+      const auctionRef = doc(db, 'auctions', auctionId);
+      const auctionSnapshot = await transaction.get(auctionRef);
+      if (!auctionSnapshot.exists()) {
         throw new Error('Auction not found');
       }
 
-      const auction = { id: auctionSnap.id, ...auctionSnap.data() } as Auction;
-      if (auction.status !== 'active') {
-        throw new Error('Auction is no longer active');
+      const auction = fromSnapshot<Auction>(auctionSnapshot);
+      if (auction.status !== 'live') {
+        throw new Error('Auction is not live');
       }
 
-      if (new Date(auction.endTime).getTime() <= Date.now()) {
-        throw new Error('Auction has already ended');
+      const minimum = Math.max(auction.startPrice, auction.currentBid) + auction.increment;
+      if (amount < minimum) {
+        throw new Error(`Minimum bid is R${minimum}`);
       }
 
-      const minimumBid = Number(auction.currentBid ?? auction.startPrice ?? 0) + 1;
-      if (amount < minimumBid) {
-        throw new Error(`Bid must be at least R${minimumBid}`);
-      }
-
-      const bidRef = doc(collection(db, 'bids'));
-      const bidderName =
-        auth.currentUser?.displayName ??
-        auth.currentUser?.email ??
-        'Anonymous';
-
+      const bidRef = doc(collection(db, 'auctions', auctionId, 'bids'));
       transaction.set(bidRef, {
         auctionId,
-        bidderId,
-        bidderName,
+        bidderId: user.uid,
+        bidderName: user.displayName || user.email || 'Bidder',
         amount,
-        timestamp: serverTimestamp(),
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
-
       transaction.update(auctionRef, {
         currentBid: amount,
-        highestBidderId: bidderId,
-        bidCount: Number(auction.bidCount ?? 0) + 1,
-        updatedAt: serverTimestamp(),
+        highestBidderId: user.uid,
+        bidCount: (auction.bidCount || 0) + 1,
+        updatedAt: new Date().toISOString(),
       });
     });
 
-    void addXP(bidderId, 10);
     return { error: null };
   } catch (error) {
     return { error: error instanceof Error ? error : new Error('Failed to place bid') };
   }
 }
 
-export async function concludeAuction(
-  auctionId: string,
-  winnerId?: string | null,
-  finalPrice?: number
-): Promise<{ error: Error | null }> {
-  try {
-    const auctionRef = doc(db, 'auctions', auctionId);
-    const auctionSnap = await getDoc(auctionRef);
-
-    if (!auctionSnap.exists()) {
-      return { error: new Error('Auction not found') };
-    }
-
-    const auction = { id: auctionSnap.id, ...auctionSnap.data() } as Auction;
-    const resolvedWinnerId = winnerId ?? auction.highestBidderId ?? null;
-    const resolvedPrice = finalPrice ?? auction.currentBid;
-
-    await updateDoc(auctionRef, {
-      status: 'ended',
-      winnerId: resolvedWinnerId,
-      currentBid: resolvedPrice,
-      updatedAt: serverTimestamp(),
-    });
-
-    // Notify winner asynchronously — don't block or throw on failure
-    if (resolvedWinnerId) {
-      fetch('/api/admin/auction-winner-notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          winnerId: resolvedWinnerId,
-          productName: auction.product?.name ?? undefined,
-          winningBid: resolvedPrice,
-        }),
-      }).catch((e) => console.error('[concludeAuction] winner notification failed:', e));
-    }
-
-    return { error: null };
-  } catch (error) {
-    return { error: error instanceof Error ? error : new Error('Failed to conclude auction') };
+export async function createAuctionFromProduct(params: {
+  product: Product;
+  startsAt: string;
+  endsAt: string;
+  startPrice: number;
+  reservePrice?: number;
+  increment?: number;
+  createdBy: string;
+}) {
+  if (!isFirebaseConfigured) {
+    throw new Error('Realtime auctions are not configured right now');
   }
+
+  const auctionRef = doc(collection(db, 'auctions'));
+  const auction: Auction = {
+    id: auctionRef.id,
+    productId: params.product.id,
+    title: params.product.title,
+    heroImage: params.product.media[0]?.url,
+    status: new Date(params.startsAt).getTime() <= Date.now() ? 'live' : 'scheduled',
+    startsAt: params.startsAt,
+    endsAt: params.endsAt,
+    currentBid: params.startPrice,
+    startPrice: params.startPrice,
+    reservePrice: params.reservePrice,
+    increment: params.increment || 50,
+    bidCount: 0,
+    highestBidderId: null,
+    winnerOrderId: null,
+    channelReservationQuantity: 1,
+    createdBy: params.createdBy,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await setDoc(auctionRef, auction);
+  return auction;
+}
+
+export async function createAuction(params: {
+  product: Product;
+  productId?: string;
+  startsAt?: string;
+  endsAt?: string;
+  startTime?: string;
+  endTime?: string;
+  startPrice: number;
+  reservePrice?: number;
+  increment?: number;
+  createdBy?: string;
+  sellerId?: string;
+}) {
+  return createAuctionFromProduct({
+    product: params.product,
+    startsAt: params.startsAt || params.startTime || new Date().toISOString(),
+    endsAt: params.endsAt || params.endTime || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    startPrice: params.startPrice,
+    reservePrice: params.reservePrice,
+    increment: params.increment,
+    createdBy: params.createdBy || params.sellerId || auth.currentUser?.uid || 'admin',
+  });
+}
+
+export async function listLiveSessions() {
+  if (!isFirebaseConfigured) {
+    return [];
+  }
+  const snapshot = await getDocs(query(collection(db, 'liveSessions'), orderBy('createdAt', 'desc'), limit(20)));
+  return snapshot.docs.map((item) => fromSnapshot<LiveSession>(item));
+}
+
+export async function createLiveSession(session: LiveSession) {
+  if (!isFirebaseConfigured) {
+    throw new Error('Realtime live sessions are not configured right now');
+  }
+  await setDoc(doc(db, 'liveSessions', session.id), session);
+  return session;
+}
+
+export async function advanceLiveSession(sessionId: string, currentAuctionId: string | null, spotlightMessage?: string) {
+  if (!isFirebaseConfigured) {
+    throw new Error('Realtime live sessions are not configured right now');
+  }
+  await updateDoc(doc(db, 'liveSessions', sessionId), {
+    currentAuctionId,
+    spotlightMessage: spotlightMessage || null,
+    status: 'live',
+    startedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function closeAuction(auctionId: string) {
+  const response = await fetch('/api/commerce/auction-close', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ auctionId }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to close auction');
+  }
+  return data;
 }

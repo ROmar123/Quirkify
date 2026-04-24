@@ -1,264 +1,114 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { LoaderCircle, Mail, Lock, ArrowRight, UserPlus, Sparkles, Shield, Zap } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import {
-  auth,
-  onAuthStateChanged,
-  sendMagicLink,
-  signInWithPassword,
-  signUpWithPassword,
-} from '../../firebase';
-
-type AuthMode = 'signin' | 'signup';
-
-function sanitizeNext(next: string | null) {
-  if (!next || !next.startsWith('/')) return '/';
-  return next;
-}
+import { ArrowRight, Mail, Lock, Sparkles } from 'lucide-react';
+import { auth, onAuthStateChanged, signIn, signInWithPassword, signUpWithPassword } from '../../firebase';
 
 export default function AuthPage() {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const next = sanitizeNext(searchParams.get('next'));
-  const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'signin';
-
-  const [mode, setMode] = useState<AuthMode>(initialMode);
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState(auth.currentUser?.email ?? '');
+  const navigate = useNavigate();
+  const next = searchParams.get('next')?.startsWith('/') ? searchParams.get('next')! : '/';
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [busyAction, setBusyAction] = useState<'password' | 'magic' | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
-      if (user) navigate(next, { replace: true });
-    });
-    return unsub;
-  }, [navigate, next]);
+  useEffect(() => onAuthStateChanged(auth, (user) => user && navigate(next, { replace: true })), [navigate, next]);
 
-  const handlePasswordSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    setBusyAction('password');
+    setBusy(true);
     setError(null);
-    setNotice(null);
     try {
       if (mode === 'signin') {
         await signInWithPassword(email, password);
-        navigate(next, { replace: true });
       } else {
-        const { session, user } = await signUpWithPassword(email, password, fullName, next);
-        if (session || user?.identities?.length) {
-          setNotice('Account created! Check your inbox to confirm your email.');
-        } else {
-          setNotice('Account created. Check your inbox to finish setup.');
-        }
+        await signUpWithPassword(email, password, name);
       }
+      navigate(next, { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed. Please try again.');
+      setError(err instanceof Error ? err.message : 'Authentication failed');
     } finally {
-      setBusyAction(null);
+      setBusy(false);
     }
-  };
-
-  const handleMagicLink = async () => {
-    if (!email) {
-      setError('Enter your email address to receive a magic link.');
-      return;
-    }
-    setBusyAction('magic');
-    setError(null);
-    setNotice(null);
-    try {
-      await sendMagicLink(email, next);
-      setNotice('Magic link sent — check your inbox and open it on this device.');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send magic link.');
-    } finally {
-      setBusyAction(null);
-    }
-  };
+  }
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] hero-bg px-4 py-8 pb-24 md:pb-8">
-      <div className="max-w-5xl mx-auto grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-
-        {/* Left — brand panel (shown below form on mobile) */}
-        <motion.section
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="relative overflow-hidden rounded-3xl text-white noise order-2 lg:order-1"
-          style={{
-            background: 'linear-gradient(145deg, #1e1b4b 0%, #4c1d95 50%, #be185d 100%)',
-            boxShadow: '0 20px 60px rgba(76,29,149,0.30)',
-          }}
-        >
-          <div className="p-8 md:p-10 h-full flex flex-col">
-            <span className="section-label text-purple-300 mb-5">Quirkify Access</span>
-            <h1 className="text-3xl md:text-5xl font-extrabold leading-tight tracking-tight mb-4"
-              style={{ fontFamily: 'Nunito, sans-serif' }}>
-              Sign in only when it matters.
-            </h1>
-            <p className="text-white/70 text-sm md:text-base leading-relaxed mb-8">
-              Browse the store and auctions freely. Sign in when you're ready to buy, bid, or track orders.
-            </p>
-
-            <div className="grid gap-3 sm:grid-cols-3 mt-auto">
-              {[
-                { icon: Sparkles, title: 'AI Verified', body: 'Every listing checked by Gemini before approval.' },
-                { icon: Zap, title: 'Live Auctions', body: 'Bid live on rare & limited drops.' },
-                { icon: Shield, title: 'Secure', body: 'PCI-compliant Yoco payments.' },
-              ].map(({ icon: Icon, title, body }) => (
-                <div key={title} className="rounded-2xl border border-white/10 bg-white/8 p-4 backdrop-blur-sm">
-                  <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center mb-2.5">
-                    <Icon className="w-3.5 h-3.5 text-purple-200" />
-                  </div>
-                  <p className="text-xs font-bold text-white mb-1">{title}</p>
-                  <p className="text-[11px] text-white/60 leading-relaxed">{body}</p>
-                </div>
-              ))}
-            </div>
+    <section className="min-h-[calc(100vh-80px)] bg-[radial-gradient(circle_at_top,#19324a,transparent_35%),linear-gradient(180deg,#090d14,#101823)] px-4 py-10 text-white">
+      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="rounded-[2rem] border border-white/10 bg-white/5 p-8 shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
+          <p className="text-[11px] uppercase tracking-[0.35em] text-[#f6c971]">Quirkify Access</p>
+          <h1 className="mt-4 text-4xl font-black leading-tight md:text-5xl">
+            Sign in to buy, bid, manage stock, and approve AI workflows.
+          </h1>
+          <p className="mt-5 max-w-xl text-white/65">
+            Customer and admin surfaces share one system. Authentication unlocks checkout, order history, review queue approvals, and live auction operations.
+          </p>
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            {[
+              'One account unlocks store checkout, profile, wallet, and bids',
+              'Gemini-assisted intake with human review before publishing',
+              'Commerce and customer records reconcile into the same operating backend',
+            ].map((item) => (
+              <div key={item} className="rounded-3xl border border-white/10 bg-black/15 p-4 text-sm text-white/70">
+                {item}
+              </div>
+            ))}
           </div>
-        </motion.section>
+        </div>
 
-        {/* Right — form (shown first on mobile) */}
-        <motion.section
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.06, ease: [0.16, 1, 0.3, 1] }}
-          className="rounded-3xl border border-gray-100 bg-white p-6 md:p-8 shadow-lg order-1 lg:order-2"
-        >
-          {/* Mode toggle */}
-          <div className="inline-flex rounded-xl bg-gray-100 p-1 mb-6">
-            {(['signin', 'signup'] as const).map((m) => (
+        <div className="rounded-[2rem] border border-white/10 bg-[#f6f1e8] p-6 text-[#10151e] shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
+          <div className="inline-flex rounded-full bg-[#10151e]/8 p-1">
+            {(['signin', 'signup'] as const).map((item) => (
               <button
-                key={m}
-                onClick={() => { setMode(m); setError(null); setNotice(null); }}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                  mode === m ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                }`}
+                key={item}
+                onClick={() => setMode(item)}
+                className={`rounded-full px-4 py-2 text-sm font-bold ${mode === item ? 'bg-[#10151e] text-white' : 'text-[#10151e]/60'}`}
               >
-                {m === 'signin' ? 'Sign In' : 'Create Account'}
+                {item === 'signin' ? 'Sign in' : 'Create account'}
               </button>
             ))}
           </div>
 
-          <form onSubmit={handlePasswordSubmit} className="space-y-4">
-            <AnimatePresence>
-              {mode === 'signup' && (
-                <motion.div
-                  key="fullname"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                >
-                  <label className="block">
-                    <span className="block text-xs font-medium text-gray-600 mb-1.5">Full Name</span>
-                    <div className="relative">
-                      <UserPlus className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                      <input
-                        value={fullName}
-                        onChange={e => setFullName(e.target.value)}
-                        placeholder="Your full name"
-                        className="input pl-10"
-                      />
-                    </div>
-                  </label>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            {mode === 'signup' && (
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.25em] text-[#10151e]/55">Name</span>
+                <input value={name} onChange={(e) => setName(e.target.value)} className="input bg-white" placeholder="Hamza’s biggest collector fan" />
+              </label>
+            )}
             <label className="block">
-              <span className="block text-xs font-medium text-gray-600 mb-1.5">Email Address</span>
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.25em] text-[#10151e]/55">Email</span>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="input pl-10"
-                  required
-                />
+                <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#10151e]/35" />
+                <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" className="input bg-white pl-11" placeholder="you@example.com" />
               </div>
             </label>
-
             <label className="block">
-              <span className="block text-xs font-medium text-gray-600 mb-1.5">Password</span>
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.25em] text-[#10151e]/55">Password</span>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder={mode === 'signin' ? 'Enter your password' : 'Create a secure password'}
-                  className="input pl-10"
-                  required
-                />
+                <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#10151e]/35" />
+                <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" className="input bg-white pl-11" placeholder="••••••••" />
               </div>
             </label>
-
-            {/* Feedback */}
-            <AnimatePresence>
-              {(error || notice) && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  className={`rounded-xl border px-4 py-3 text-sm font-medium ${
-                    error
-                      ? 'border-red-100 bg-red-50 text-red-600'
-                      : 'border-green-100 bg-green-50 text-green-700'
-                  }`}
-                >
-                  {error || notice}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <button
-              type="submit"
-              disabled={busyAction !== null}
-              className="btn-primary w-full py-3 text-sm justify-center disabled:opacity-60"
-            >
-              {busyAction === 'password' ? (
-                <LoaderCircle className="h-4 w-4 animate-spin" />
-              ) : (
-                <ArrowRight className="h-4 w-4" />
-              )}
-              {mode === 'signin' ? 'Sign In with Email' : 'Create Account'}
+            {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
+            <button disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#10151e] px-4 py-3 text-sm font-bold text-white">
+              <ArrowRight className="h-4 w-4" />
+              {mode === 'signin' ? 'Continue with email' : 'Create Quirkify account'}
             </button>
           </form>
 
-          <div className="my-5 flex items-center gap-3">
-            <div className="h-px flex-1 bg-gray-100" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">or</span>
-            <div className="h-px flex-1 bg-gray-100" />
-          </div>
-
           <button
-            onClick={handleMagicLink}
-            disabled={busyAction !== null}
-            className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-all disabled:opacity-60"
+            onClick={() => void signIn(next)}
+            disabled={busy}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-full border border-[#10151e]/10 bg-white px-4 py-3 text-sm font-bold text-[#10151e]"
           >
-            {busyAction === 'magic' ? (
-              <LoaderCircle className="h-4 w-4 animate-spin" />
-            ) : (
-              <Mail className="h-4 w-4 text-purple-500" />
-            )}
-            Send Magic Link
+            <Sparkles className="h-4 w-4" />
+            Continue with Google
           </button>
-
-          <p className="text-center text-[10px] text-gray-400 mt-5">
-            By continuing, you agree to our{' '}
-            <a href="/terms" className="underline hover:text-gray-600 transition-colors">Terms</a>
-            {' '}and{' '}
-            <a href="/privacy" className="underline hover:text-gray-600 transition-colors">Privacy Policy</a>.
-          </p>
-        </motion.section>
+        </div>
       </div>
-    </div>
+    </section>
   );
 }

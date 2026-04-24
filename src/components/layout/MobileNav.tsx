@@ -1,80 +1,43 @@
 import { Link, useLocation } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { ShoppingBag, Gavel, ClipboardList, User, LayoutDashboard, Megaphone } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { Boxes, Gavel, LayoutDashboard, ShoppingBag, Sparkles, User2 } from 'lucide-react';
 import { useMode } from '../../context/ModeContext';
-import { auth, onAuthStateChanged } from '../../firebase';
-import { motion } from 'motion/react';
+import { useSession } from '../../hooks/useSession';
+
+const customerNav = [
+  { label: 'Store', path: '/', icon: ShoppingBag },
+  { label: 'Auctions', path: '/auctions', icon: Gavel },
+  { label: 'Orders', path: '/orders', icon: Boxes },
+  { label: 'Profile', path: '/profile', icon: User2 },
+];
+
+const adminNav = [
+  { label: 'Dash', path: '/admin', icon: LayoutDashboard },
+  { label: 'Stock', path: '/admin/inventory', icon: Boxes },
+  { label: 'Ops', path: '/admin/commerce', icon: ShoppingBag },
+  { label: 'Growth', path: '/admin/growth', icon: Sparkles },
+];
 
 export default function MobileNav() {
   const location = useLocation();
-  const { mode, isAdmin } = useMode();
-  const [user, setUser] = useState(auth.currentUser);
-  const nextParam = new URLSearchParams(location.search).get('next');
-  const effectivePath =
-    location.pathname === '/auth' && nextParam?.startsWith('/')
-      ? nextParam
-      : location.pathname;
-
-  useEffect(() => onAuthStateChanged(auth, setUser), []);
-
-  const isActivePath = (itemPath: string) => {
-    if (itemPath === '/') return effectivePath === '/';
-    return effectivePath === itemPath || effectivePath.startsWith(`${itemPath}/`);
-  };
-
-  const customerItems = [
-    { label: 'Store', path: '/', icon: ShoppingBag },
-    { label: 'Auctions', path: '/auctions', icon: Gavel },
-    { label: 'Orders', path: '/orders', icon: ClipboardList },
-    { label: 'Account', path: '/collection', icon: User },
-  ];
-
-  const employeeItems = [
-    { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
-    { label: 'Inventory', path: '/admin/inventory', icon: ShoppingBag },
-    { label: 'Commerce', path: '/admin/orders', icon: ClipboardList },
-    { label: 'Growth', path: '/admin/campaigns', icon: Megaphone },
-  ];
-
-  const navItems = isAdmin && mode === 'employee' ? employeeItems : customerItems;
+  const { mode } = useMode();
+  const { isAdmin } = useSession();
+  const nav = isAdmin && mode === 'employee' ? adminNav : customerNav;
 
   return (
-    <nav
-      className="fixed bottom-0 left-0 right-0 z-50 md:hidden glass border-t border-gray-100"
-      style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}
-    >
-      <div className="flex items-center justify-around px-2 py-2">
-        {navItems.map((item) => {
-          const isActive = isActivePath(item.path);
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[rgba(8,13,21,0.92)] px-2 py-2 backdrop-blur-xl md:hidden">
+      <div className="grid grid-cols-4 gap-1">
+        {nav.map((item) => {
+          const active = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
           return (
             <Link
-              key={item.label}
+              key={item.path}
               to={item.path}
-              className="relative flex flex-col items-center gap-1 min-w-[56px] py-1"
+              className={`flex flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-semibold ${
+                active ? 'bg-[#f6c971] text-[#10151e]' : 'text-white/60'
+              }`}
             >
-              <div className="relative">
-                {isActive && (
-                  <motion.div
-                    layoutId="mobile-nav-bg"
-                    className="absolute inset-0 rounded-xl"
-                    style={{ background: 'linear-gradient(135deg,#f472b6,#a855f7)', inset: '-6px -10px' }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 35 }}
-                  />
-                )}
-                <item.icon
-                  className={cn(
-                    'relative z-10 w-5 h-5 transition-all duration-200',
-                    isActive ? 'text-white' : 'text-gray-400'
-                  )}
-                />
-              </div>
-              <span className={cn(
-                'text-[9px] font-semibold uppercase tracking-wide transition-colors',
-                isActive ? 'text-purple-600' : 'text-gray-400'
-              )}>
-                {item.label}
-              </span>
+              <item.icon className="h-4 w-4" />
+              <span>{item.label}</span>
             </Link>
           );
         })}

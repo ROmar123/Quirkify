@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import axios from 'axios';
 import crypto from 'crypto';
-import { sendOrderStatusEmail } from './api/_lib/orderNotifications';
+import { sendOrderStatusEmail } from './api/_lib/orderNotifications.js';
 import { ensureProfileByIdentity, expireStalePendingOrders, getSupabaseAdmin } from './api/_lib/supabaseAdmin.js';
 import { getShippingQuote, getTrackingDetails } from './api/_lib/shipping';
 
@@ -16,17 +16,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function startServer() {
-  const {
-    identifyProduct,
-    suggestCampaign,
-    getHostTalkingPoints,
-    getPersonalizedRecommendations,
-  } = await import('./server/ai/controller');
+  const { default: healthHandler } = await import('./api/health');
+  const { default: aiHandler } = await import('./api/ai/[action]');
+  const { default: shippingHandler } = await import('./api/shipping/[action]');
 
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT || 3000);
 
   app.use(express.json());
+
+  app.get('/api/health', (req, res) => void healthHandler(req, res));
+  app.post('/api/ai/:action', (req, res) => void aiHandler({ ...req, query: { ...req.query, action: req.params.action } }, res));
 
   app.post('/api/commerce/store-checkout', async (req, res) => {
     let createdOrderId: string | null = null;
@@ -660,29 +660,18 @@ async function startServer() {
     }
   }
 
-  // The Courier Guy API Proxy
-  app.post('/api/shipping/quote', async (req, res) => {
-    try {
-      const quote = await getShippingQuote({
-        city: req.body?.city,
-        zip: req.body?.zip,
-      });
-      res.json(quote);
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to get shipping quote' });
-    }
-  });
-
-  app.get('/api/shipping/track/:trackingNumber', async (req, res) => {
-    try {
-      const tracking = await getTrackingDetails({
-        trackingNumber: String(req.params.trackingNumber || ''),
-      });
-      res.json(tracking);
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to load tracking details' });
-    }
-  });
+  app.all('/api/shipping/:action', (req, res) =>
+    void shippingHandler(
+      {
+        ...req,
+        query: {
+          ...req.query,
+          action: req.params.action,
+          trackingNumber: req.query.trackingNumber,
+        },
+      },
+      res,
+    ));
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {

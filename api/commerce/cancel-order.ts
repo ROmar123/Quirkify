@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { normalizeEnvValue } from '../_lib/env.js';
 import { expireStalePendingOrders, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 
 export default async function handler(req: any, res: any) {
@@ -47,7 +48,7 @@ export default async function handler(req: any, res: any) {
         return res.status(400).json({ error: itemsError.message });
       }
 
-      const yocoSecretKey = process.env.YOCO_SECRET_KEY;
+      const yocoSecretKey = normalizeEnvValue(process.env.YOCO_SECRET_KEY);
       if (!yocoSecretKey) {
         return res.status(500).json({ error: 'Payment system not configured' });
       }

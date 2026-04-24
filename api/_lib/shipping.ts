@@ -1,3 +1,5 @@
+import { normalizeEnvValue } from './env.js';
+
 type ShippingQuoteInput = {
   city?: string | null;
   zip?: string | null;
@@ -69,22 +71,22 @@ function zoneFallback(city?: string | null, zip?: string | null) {
 const TCG_BASE = 'https://api-tcg.co.za';
 
 const COLLECTION_ADDRESS = {
-  lat: parseFloat(process.env.TCG_COLLECTION_LAT || '-26.1367'),
-  lng: parseFloat(process.env.TCG_COLLECTION_LNG || '27.9810'),
-  street_address: process.env.TCG_COLLECTION_STREET || 'Quirkify Warehouse',
-  local_area: process.env.TCG_COLLECTION_SUBURB || 'Randburg',
-  suburb: process.env.TCG_COLLECTION_SUBURB || 'Randburg',
-  city: process.env.TCG_COLLECTION_CITY || 'Johannesburg',
-  code: process.env.TCG_COLLECTION_POSTAL || '2194',
-  zone: process.env.TCG_COLLECTION_ZONE || 'GP',
+  lat: parseFloat(normalizeEnvValue(process.env.TCG_COLLECTION_LAT) || '-26.1367'),
+  lng: parseFloat(normalizeEnvValue(process.env.TCG_COLLECTION_LNG) || '27.9810'),
+  street_address: normalizeEnvValue(process.env.TCG_COLLECTION_STREET) || 'Quirkify Warehouse',
+  local_area: normalizeEnvValue(process.env.TCG_COLLECTION_SUBURB) || 'Randburg',
+  suburb: normalizeEnvValue(process.env.TCG_COLLECTION_SUBURB) || 'Randburg',
+  city: normalizeEnvValue(process.env.TCG_COLLECTION_CITY) || 'Johannesburg',
+  code: normalizeEnvValue(process.env.TCG_COLLECTION_POSTAL) || '2194',
+  zone: normalizeEnvValue(process.env.TCG_COLLECTION_ZONE) || 'GP',
   country: 'South Africa',
-  entered_address: process.env.TCG_COLLECTION_ENTERED || 'Randburg, Johannesburg, South Africa',
+  entered_address: normalizeEnvValue(process.env.TCG_COLLECTION_ENTERED) || 'Randburg, Johannesburg, South Africa',
   type: 'residential' as const,
   company: 'Quirkify',
 };
 
 async function tcgRateQuote(input: ShippingQuoteInput) {
-  const apiKey = process.env.TCG_API_KEY;
+  const apiKey = normalizeEnvValue(process.env.TCG_API_KEY);
   if (!apiKey || !input.lat || !input.lng) return null;
 
   const deliveryAddress = {

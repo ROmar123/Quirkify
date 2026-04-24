@@ -1,14 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
+import { normalizeEnvValue } from './env.js';
 
-// @supabase/realtime-js calls getWebSocketConstructor() in RealtimeClient constructor,
-// which throws on any Node.js build that lacks a globalThis.WebSocket. Polyfill it
-// before the first createClient() so cold-starts never crash on this check.
-if (typeof (globalThis as any).WebSocket === 'undefined') {
-  (globalThis as any).WebSocket = class {};
-}
-
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://mvoigokzsaybwiogjpvr.supabase.co';
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = normalizeEnvValue(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
+const supabaseServiceRoleKey = normalizeEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 if (!supabaseUrl || !supabaseServiceRoleKey) {
   console.warn('[Supabase Admin] Missing SUPABASE_URL/VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');

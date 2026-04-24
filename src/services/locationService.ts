@@ -1,3 +1,5 @@
+import { normalizeEnvValue } from '../lib/env';
+
 export interface AddressSuggestion {
   id: string;
   label: string;
@@ -10,7 +12,7 @@ export interface AddressSuggestion {
   latitude: number | null;
 }
 
-const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
+const MAPBOX_ACCESS_TOKEN = normalizeEnvValue(import.meta.env.VITE_MAPBOX_ACCESS_TOKEN);
 
 function getContextValue(context: any[] | undefined, type: string) {
   return context?.find((entry) => entry.id?.startsWith(`${type}.`) || entry.mapbox_id?.includes(type))?.text || '';

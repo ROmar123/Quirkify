@@ -1,26 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { supabase } from '../../supabase';
 import { getProfileByUid, type Profile } from '../../services/profileService';
-import { Star, MapPin, Twitter, Instagram, Package, Sparkles, ArrowLeft, AlertCircle } from 'lucide-react';
-
-interface CollectionItem {
-  id: string;
-  productId: string;
-  acquiredAt: string;
-  purchasePrice: number;
-  productName?: string;
-  productImage?: string;
-  productCategory?: string;
-  productRarity?: string;
-}
+import { listProductsByAuthor } from '../../services/catalogService';
+import { listAuctionsByCreator } from '../../services/auctionService';
+import { currency, formatDate, labelCondition } from '../../lib/quirkify';
+import type { Auction, Product } from '../../types';
+import { Star, MapPin, Twitter, Instagram, Package, Sparkles, ArrowLeft, AlertCircle, Gavel, ShieldCheck } from 'lucide-react';
 
 export default function PublicProfile() {
   const { uid } = useParams<{ uid: string }>();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [collectionItems, setCollectionItems] = useState<CollectionItem[]>([]);
-  const [collectionLoading, setCollectionLoading] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [auctions, setAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,10 +22,23 @@ export default function PublicProfile() {
       try {
         const p = await getProfileByUid(uid);
         setProfile(p);
+        if (p?.firebaseUid) {
+          const [productRows, auctionRows] = await Promise.all([
+            listProductsByAuthor(p.firebaseUid).catch(() => []),
+            listAuctionsByCreator(p.firebaseUid).catch(() => []),
+          ]);
+          setProducts(productRows);
+          setAuctions(auctionRows);
+        } else {
+          setProducts([]);
+          setAuctions([]);
+        }
         setError(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load profile');
         setProfile(null);
+        setProducts([]);
+        setAuctions([]);
       } finally {
         setLoading(false);
       }
@@ -41,37 +46,10 @@ export default function PublicProfile() {
     loadProfile();
   }, [uid]);
 
-  useEffect(() => {
-    if (!profile?.id) return;
-    const loadCollection = async () => {
-      setCollectionLoading(true);
-      try {
-        const { data } = await supabase
-          .from('collection_items')
-          .select('id, product_id, acquired_at, purchase_price, products(id, name, image_url, category, rarity)')
-          .eq('profile_id', profile.id)
-          .order('acquired_at', { ascending: false })
-          .limit(24);
-
-        const items: CollectionItem[] = (data ?? []).map((row: any) => ({
-          id: row.id,
-          productId: row.product_id,
-          acquiredAt: row.acquired_at ?? '',
-          purchasePrice: Number(row.purchase_price) || 0,
-          productName: row.products?.name,
-          productImage: row.products?.image_url,
-          productCategory: row.products?.category,
-          productRarity: row.products?.rarity,
-        }));
-        setCollectionItems(items);
-      } catch {
-        setCollectionItems([]);
-      } finally {
-        setCollectionLoading(false);
-      }
-    };
-    loadCollection();
-  }, [profile?.id]);
+  const liveAuctions = useMemo(
+    () => auctions.filter((auction) => ['live', 'scheduled'].includes(auction.status)).slice(0, 6),
+    [auctions],
+  );
 
   if (loading) {
     return (
@@ -165,31 +143,6 @@ export default function PublicProfile() {
                   Level {profile.level || 1} Collector
                 </span>
               </div>
-              {/* XP progress bar */}
-              {(() => {
-                const xp = profile.xp || 0;
-                const level = profile.level || 1;
-                const xpPerLevel = 500;
-                const xpIntoLevel = xp % xpPerLevel;
-                const progress = xpIntoLevel / xpPerLevel;
-                return (
-                  <div className="mt-3 max-w-xs">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-[10px] text-gray-400 font-semibold">{xpIntoLevel} / {xpPerLevel} XP</span>
-                      <span className="text-[10px] text-purple-500 font-bold">→ Lv.{level + 1}</span>
-                    </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${progress * 100}%` }}
-                        transition={{ duration: 0.8, ease: 'easeOut' }}
-                        className="h-full rounded-full"
-                        style={{ background: 'var(--gradient-primary)' }}
-                      />
-                    </div>
-                  </div>
-                );
-              })()}
             </div>
           </div>
         </motion.div>
@@ -280,53 +233,86 @@ export default function PublicProfile() {
                   <Package className="w-4 h-4 text-purple-500" />
                   <h2 className="text-sm font-bold text-gray-900">Public Collection</h2>
                 </div>
-                <span className="section-label">{profile.itemsCollected || 0} items</span>
+                <span className="section-label">{products.length} listings</span>
               </div>
 
-              {collectionLoading ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {[1,2,3,4,5,6].map(i => (
-                    <div key={i} className="skeleton h-36 rounded-xl" />
-                  ))}
-                </div>
-              ) : collectionItems.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {collectionItems.map(item => (
-                    <motion.div
-                      key={item.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="group relative rounded-xl border border-gray-100 bg-gray-50 overflow-hidden hover:border-purple-200 hover:shadow-sm transition-all"
+              {products.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {products.map((product) => (
+                    <Link
+                      key={product.id}
+                      to={`/product/${product.id}`}
+                      className="group rounded-xl border border-gray-100 bg-[#fbfaf8] p-4 transition hover:-translate-y-0.5 hover:shadow-md"
                     >
-                      <div className="aspect-square bg-white flex items-center justify-center overflow-hidden">
-                        {item.productImage ? (
-                          <img
-                            src={item.productImage}
-                            alt={item.productName ?? 'Item'}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
+                      <div className="aspect-[4/3] overflow-hidden rounded-xl bg-gray-100">
+                        {product.imageUrl ? (
+                          <img src={product.imageUrl} alt={product.title || product.name || 'Listing'} className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" />
                         ) : (
-                          <Package className="w-10 h-10 text-gray-200" />
+                          <div className="flex h-full w-full items-center justify-center">
+                            <Package className="h-8 w-8 text-gray-300" />
+                          </div>
                         )}
                       </div>
-                      <div className="p-2">
-                        <p className="text-xs font-semibold text-gray-800 truncate">
-                          {item.productName ?? 'Unknown Item'}
-                        </p>
-                        {item.productRarity && (
-                          <span className="text-[10px] font-medium text-purple-500">{item.productRarity}</span>
-                        )}
-                        {item.productCategory && (
-                          <p className="text-[10px] text-gray-400 truncate">{item.productCategory}</p>
-                        )}
+                      <div className="mt-4 flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-gray-400">{product.category}</p>
+                          <h3 className="mt-1 text-sm font-bold text-gray-900">{product.title || product.name}</h3>
+                        </div>
+                        <span className="badge whitespace-nowrap">{labelCondition(product.condition)}</span>
                       </div>
-                    </motion.div>
+                      <div className="mt-3 flex items-center justify-between text-sm">
+                        <span className="font-bold text-gray-900">{currency(product.pricing?.salePrice || product.retailPrice || 0)}</span>
+                        <span className="text-xs text-gray-500">{product.inventory?.onHand || 0} available</span>
+                      </div>
+                    </Link>
                   ))}
                 </div>
               ) : (
                 <div className="py-16 text-center rounded-xl border-2 border-dashed border-gray-100">
                   <Package className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-                  <p className="text-xs text-gray-400">No items collected yet</p>
+                  <p className="text-sm font-semibold text-gray-700">No public listings yet</p>
+                  <p className="text-xs text-gray-400 mt-1">This collector has not published store inventory yet.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-5 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Gavel className="w-4 h-4 text-purple-500" />
+                  <h2 className="text-sm font-bold text-gray-900">Auction listings</h2>
+                </div>
+                <span className="section-label">{liveAuctions.length} live or scheduled</span>
+              </div>
+
+              {liveAuctions.length > 0 ? (
+                <div className="space-y-3">
+                  {liveAuctions.map((auction) => (
+                    <Link
+                      key={auction.id}
+                      to="/auctions"
+                      className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 bg-[#fbfaf8] p-4 transition hover:shadow-sm"
+                    >
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{auction.title}</p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {auction.status === 'live' ? 'Live now' : `Starts ${formatDate(auction.startsAt)}`}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-gray-900">{currency(auction.currentBid)}</p>
+                        <span className="mt-1 inline-flex rounded-full bg-gray-100 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+                          {auction.status}
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-12 text-center rounded-xl border-2 border-dashed border-gray-100">
+                  <ShieldCheck className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm font-semibold text-gray-700">No public auction listings</p>
+                  <p className="text-xs text-gray-400 mt-1">Live or scheduled lots from this collector will appear here.</p>
                 </div>
               )}
             </div>

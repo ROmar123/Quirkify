@@ -52,7 +52,7 @@ export async function fetchShippingQuote(input: {
 }
 
 export async function fetchShipmentTracking(trackingNumber: string): Promise<ShipmentTracking> {
-  const response = await fetch(`/api/shipping/track/${encodeURIComponent(trackingNumber)}`, {
+  const response = await fetch(`/api/shipping/track?trackingNumber=${encodeURIComponent(trackingNumber)}`, {
     headers: {
       Accept: 'application/json',
     },

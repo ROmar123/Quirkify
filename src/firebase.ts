@@ -1,181 +1,142 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, serverTimestamp, increment } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
-import { supabase } from './supabase';
+import {
+  GoogleAuthProvider,
+  createUserWithEmailAndPassword,
+  getAuth,
+  onAuthStateChanged as firebaseOnAuthStateChanged,
+  sendSignInLinkToEmail,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut as firebaseSignOut,
+  updateProfile,
+  type User,
+} from 'firebase/auth';
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  getFirestore,
+  increment,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  runTransaction,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+  writeBatch,
+} from 'firebase/firestore';
+import { getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
+import { normalizeEnvValue } from './lib/env';
+
+export type AuthUser = User;
+export enum OperationType {
+  GET = 'get',
+  CREATE = 'create',
+  WRITE = 'write',
+  DELETE = 'delete',
+}
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDZ5wLauYYVERxEfcdOGOZ8GNI2Qvjf9RM",
-  authDomain: "gen-lang-client-0358761247.firebaseapp.com",
-  projectId: "gen-lang-client-0358761247",
-  storageBucket: "gen-lang-client-0358761247.firebasestorage.app",
-  messagingSenderId: "24353526972",
-  appId: "1:24353526972:web:f80463794cd97f98b9ecb9"
+  apiKey: normalizeEnvValue(import.meta.env.VITE_FIREBASE_API_KEY) || 'missing-firebase-api-key',
+  authDomain: normalizeEnvValue(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN) || 'missing-firebase-auth-domain',
+  projectId: normalizeEnvValue(import.meta.env.VITE_FIREBASE_PROJECT_ID) || 'missing-firebase-project-id',
+  storageBucket: normalizeEnvValue(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET) || 'missing-firebase-storage-bucket',
+  messagingSenderId: normalizeEnvValue(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID) || 'missing-firebase-sender-id',
+  appId: normalizeEnvValue(import.meta.env.VITE_FIREBASE_APP_ID) || 'missing-firebase-app-id',
 };
+
+export const isFirebaseConfigured = Boolean(
+  normalizeEnvValue(import.meta.env.VITE_FIREBASE_API_KEY) &&
+    normalizeEnvValue(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN) &&
+    normalizeEnvValue(import.meta.env.VITE_FIREBASE_PROJECT_ID) &&
+    normalizeEnvValue(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET) &&
+    normalizeEnvValue(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID) &&
+    normalizeEnvValue(import.meta.env.VITE_FIREBASE_APP_ID),
+);
 
 const app = initializeApp(firebaseConfig);
-const _db = getFirestore(app);
-const _storage = getStorage(app);
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);
+const provider = new GoogleAuthProvider();
 
-export interface AuthUser {
-  uid: string;
-  email: string | null;
-  displayName: string | null;
-  photoURL: string | null;
-}
-
-type AuthListener = (user: AuthUser | null) => void;
-
-let currentUser: AuthUser | null = null;
-let authReady = false;
-const listeners = new Set<AuthListener>();
-
-function mapSupabaseUser(user: SupabaseUser | null): AuthUser | null {
-  if (!user) return null;
-
-  const metadata = user.user_metadata ?? {};
-  return {
-    uid: user.id,
-    email: user.email ?? null,
-    displayName:
-      metadata.display_name ??
-      metadata.full_name ??
-      metadata.name ??
-      metadata.user_name ??
-      null,
-    photoURL: metadata.avatar_url ?? metadata.picture ?? null,
-  };
-}
-
-function emitAuthState(user: AuthUser | null) {
-  currentUser = user;
-  authReady = true;
-  listeners.forEach((listener) => listener(user));
-}
-
-void supabase.auth.getUser().then(({ data }) => {
-  emitAuthState(mapSupabaseUser(data?.user ?? null));
-});
-
-supabase.auth.onAuthStateChange((_event, session) => {
-  emitAuthState(mapSupabaseUser(session?.user ?? null));
-});
-
-export const auth = {
-  get currentUser() {
-    return currentUser;
-  },
-};
-
-export function onAuthStateChanged(_: typeof auth, callback: AuthListener) {
-  listeners.add(callback);
-  if (authReady) {
-    callback(currentUser);
-  }
-  return () => {
-    listeners.delete(callback);
-  };
-}
+export const onAuthStateChanged = firebaseOnAuthStateChanged;
 
 export async function signIn(nextPath?: string) {
-  const next =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/auth?next=${encodeURIComponent(nextPath ?? window.location.pathname + window.location.search)}`
-      : undefined;
-
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: next ? { redirectTo: next } : undefined,
-  });
-
-  if (error) throw error;
-  return data;
+  const result = await signInWithPopup(auth, provider);
+  if (nextPath && typeof window !== 'undefined') {
+    window.localStorage.setItem('quirkify-next-path', nextPath);
+  }
+  return result;
 }
 
 export async function signOut() {
-  const { error } = await supabase.auth.signOut();
-  if (error) throw error;
+  await firebaseSignOut(auth);
 }
 
 export async function signInWithPassword(email: string, password: string) {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) throw error;
-  return data;
+  return signInWithEmailAndPassword(auth, email, password);
 }
 
-export async function signUpWithPassword(email: string, password: string, displayName?: string, nextPath?: string) {
-  const redirectTo =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/auth?next=${encodeURIComponent(nextPath ?? '/')}`
-      : undefined;
-
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: displayName ? { display_name: displayName } : undefined,
-      emailRedirectTo: redirectTo,
-    },
-  });
-
-  if (error) throw error;
-  return data;
+export async function signUpWithPassword(email: string, password: string, displayName?: string) {
+  const credential = await createUserWithEmailAndPassword(auth, email, password);
+  if (displayName) {
+    await updateProfile(credential.user, { displayName });
+  }
+  return credential;
 }
 
 export async function sendMagicLink(email: string, nextPath?: string) {
-  const redirectTo =
+  const redirectUrl =
     typeof window !== 'undefined'
-      ? `${window.location.origin}/auth?next=${encodeURIComponent(nextPath ?? '/')}`
+      ? `${window.location.origin}/auth${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ''}`
       : undefined;
-
-  const { data, error } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: redirectTo,
-    },
+  await sendSignInLinkToEmail(auth, email, {
+    url: redirectUrl || 'http://localhost:3000/auth',
+    handleCodeInApp: true,
   });
-
-  if (error) throw error;
-  return data;
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem('quirkify-email-link', email);
+  }
+  return { sent: true };
 }
 
 export async function getRedirectResult() {
-  return { data: { user: currentUser }, error: null };
+  return { data: { user: auth.currentUser }, error: null };
 }
 
-// Firestore
-export const db = _db;
-export { addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, collection, doc, query, where, orderBy, limit, serverTimestamp, increment };
-
-// Storage
-export const storage = _storage;
-export { ref, uploadBytes, getDownloadURL };
-
-// Utilities
-export enum OperationType {
-  CREATE = 'create',
-  GET = 'get',
-  LIST = 'list',
-  UPDATE = 'update',
-  WRITE = 'write',
-  DELETE = 'delete',
-  LISTEN = 'listen',
+export function handleFirestoreError(error: unknown, _operation: OperationType, resource: string): never {
+  const message = error instanceof Error ? error.message : 'Unknown Firestore error';
+  throw new Error(`${resource}: ${message}`);
 }
 
-export function handleFirestoreError(error: unknown, operation: OperationType, collection: string): void {
-  const code = (error as { code?: string }).code ?? 'unknown';
-  const msgs: Record<string, string> = {
-    'permission-denied': `Permission denied on ${operation} for ${collection}`,
-    'not-found': `${collection} not found`,
-    'invalid-argument': `Invalid argument for ${operation} on ${collection}`,
-    'unavailable': 'Service unavailable — check connection',
-    'deadline-exceeded': 'Request timed out',
-    'already-exists': 'Record already exists',
-    'resource-exhausted': 'Quota exceeded',
-    'cancelled': 'Operation cancelled',
-    'unknown': `Firestore error (${operation} on ${collection})`,
-  };
-  console.error(`[Firestore] [${operation.toUpperCase()}] ${collection}:`, msgs[code] ?? msgs.unknown, error);
-}
+export {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  increment,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  runTransaction,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+  writeBatch,
+  ref,
+  uploadBytes,
+  getDownloadURL,
+};
 
 export default app;

@@ -1,16 +1,12 @@
 import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
+import { normalizeEnvValue } from '../../_lib/env.js';
 
-// Polyfill WebSocket before createClient() — realtime-js checks it in constructor
-if (typeof (globalThis as any).WebSocket === 'undefined') {
-  (globalThis as any).WebSocket = class {};
-}
-
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://mvoigokzsaybwiogjpvr.supabase.co';
+const supabaseUrl = normalizeEnvValue(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
 const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  process.env.VITE_SUPABASE_ANON_KEY;
+  normalizeEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY) ||
+  normalizeEnvValue(process.env.SUPABASE_ANON_KEY) ||
+  normalizeEnvValue(process.env.VITE_SUPABASE_ANON_KEY);
 
 const supabase =
   supabaseUrl && supabaseKey
@@ -34,7 +30,7 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const yocoSecretKey = process.env.YOCO_SECRET_KEY;
+    const yocoSecretKey = normalizeEnvValue(process.env.YOCO_SECRET_KEY);
 
     if (!yocoSecretKey) {
       console.error('YOCO_SECRET_KEY not configured');

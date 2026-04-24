@@ -9,7 +9,7 @@ const CATEGORIES = ['Sneakers', 'Clothing', 'Accessories', 'Electronics', 'Colle
 const CONDITIONS: ProductCondition[] = ['New', 'Like New', 'Pre-owned', 'Refurbished'];
 
 // Default markdowns by condition — agentic suggestion
-const CONDITION_MARKDOWNS: Record<ProductCondition, number> = {
+const CONDITION_MARKDOWNS: Partial<Record<ProductCondition, number>> = {
   'New': 0,
   'Like New': 15,
   'Pre-owned': 30,
@@ -39,7 +39,7 @@ export default function ManualEntry({ onComplete, onCancel }: ManualEntryProps) 
   const saving = retail > 0 && salePrice < retail ? `Save ${markdown}% · R${retail - salePrice} off` : null;
 
   const setCondition = (c: ProductCondition) => {
-    setForm(f => ({ ...f, condition: c, markdownPercentage: String(CONDITION_MARKDOWNS[c]) }));
+    setForm(f => ({ ...f, condition: c, markdownPercentage: String(CONDITION_MARKDOWNS[c] ?? 0) }));
   };
 
   const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {

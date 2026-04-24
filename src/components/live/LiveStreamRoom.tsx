@@ -1,399 +1,360 @@
-import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
-import { db, auth } from '../../firebase';
-import { LiveSession, ChatMessage, Auction } from '../../types';
-import { motion, AnimatePresence } from 'motion/react';
-import { Send, Users, Heart, Share2, X, Gavel, TrendingUp, Sparkles, Camera, Mic, MicOff, CameraOff, Play } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { doc, getDoc } from 'firebase/firestore';
+import { Clock3, Gavel, Radio, ShieldCheck, Trophy, Wallet } from 'lucide-react';
+import { db } from '../../firebase';
+import { closeAuction, placeBid, subscribeToBids } from '../../services/auctionService';
+import { useSession } from '../../hooks/useSession';
+import { auctionStatusLabel, currency, formatCountdown } from '../../lib/quirkify';
+import type { Auction, Bid, LiveSession } from '../../types';
 
-import { getHostTalkingPoints } from '../../services/hostService';
-
-function HostSetup({ onReady }: { onReady: (stream: MediaStream) => void }) {
-  const [stream, setStream] = useState<MediaStream | null>(null);
+export default function LiveStreamRoom() {
+  const { sessionId = '' } = useParams();
+  const { isAdmin, isAuthenticated } = useSession();
+  const [session, setSession] = useState<LiveSession | null>(null);
+  const [auction, setAuction] = useState<Auction | null>(null);
+  const [bids, setBids] = useState<Bid[]>([]);
+  const [bidAmount, setBidAmount] = useState('');
+  const [sessionQueue, setSessionQueue] = useState<Auction[]>([]);
+  const [settlementNotice, setSettlementNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  const startSetup = async () => {
-    setError(null);
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' },
-        audio: true
-      });
-      setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
-    } catch (err) {
-      console.error('Host setup error:', err);
-      setError('Camera or microphone access denied. Grant permissions to host a live stream.');
-    }
-  };
+  const [closing, setClosing] = useState(false);
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    startSetup();
+    let active = true;
+
+    async function load() {
+      setError(null);
+      try {
+        const sessionSnap = await getDoc(doc(db, 'liveSessions', sessionId));
+        if (!sessionSnap.exists()) {
+          if (active) setError('Live session not found.');
+          return;
+        }
+
+        const sessionData = { id: sessionSnap.id, ...sessionSnap.data() } as LiveSession;
+        if (!active) return;
+        setSession(sessionData);
+
+        if (sessionData.currentAuctionId) {
+          const auctionSnap = await getDoc(doc(db, 'auctions', sessionData.currentAuctionId));
+          if (auctionSnap.exists() && active) {
+            setAuction({ id: auctionSnap.id, ...auctionSnap.data() } as Auction);
+          }
+        }
+
+        const queuedIds = (sessionData.auctionQueue || [])
+          .filter((auctionId) => auctionId && auctionId !== sessionData.currentAuctionId)
+          .slice(0, 4);
+        if (!queuedIds.length) {
+          if (active) setSessionQueue([]);
+          return;
+        }
+
+        const queuedSnapshots = await Promise.all(queuedIds.map((auctionId) => getDoc(doc(db, 'auctions', auctionId))));
+        if (!active) return;
+        setSessionQueue(
+          queuedSnapshots
+            .filter((snapshot) => snapshot.exists())
+            .map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }) as Auction),
+        );
+      } catch (loadError) {
+        if (!active) return;
+        setError(loadError instanceof Error ? loadError.message : 'Failed to load live session');
+      }
+    }
+
+    void load();
     return () => {
-      if (stream) stream.getTracks().forEach(t => t.stop());
+      active = false;
     };
+  }, [sessionId]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
   }, []);
 
-  if (error) {
-    return (
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-6">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="max-w-sm w-full bg-white rounded-2xl p-8 text-center shadow-2xl"
-        >
-          <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4">
-            <X className="w-7 h-7 text-red-500" />
-          </div>
-          <h2 className="text-lg font-bold text-gray-900 mb-2">Permissions Required</h2>
-          <p className="text-gray-500 text-sm mb-6">{error}</p>
-          <button onClick={() => window.location.reload()} className="btn-primary w-full py-3 justify-center">
-            Retry Permissions
-          </button>
-        </motion.div>
-      </div>
-    );
+  useEffect(() => {
+    if (!auction?.id) return;
+    return subscribeToBids(auction.id, (nextBids) => {
+      setBids(nextBids);
+      setAuction((current) => {
+        if (!current) return current;
+        const highestBid = nextBids[0]?.amount;
+        if (!highestBid || highestBid <= current.currentBid) return current;
+        return {
+          ...current,
+          currentBid: highestBid,
+          bidCount: Math.max(current.bidCount, nextBids.length),
+        };
+      });
+    });
+  }, [auction?.id]);
+
+  const minimumBid = useMemo(() => {
+    if (!auction) return 0;
+    return Math.max(auction.startPrice, auction.currentBid) + auction.increment;
+  }, [auction]);
+
+  const nextBidOptions = useMemo(() => {
+    if (!auction) return [];
+    return [minimumBid, minimumBid + auction.increment, minimumBid + auction.increment * 2];
+  }, [auction, minimumBid]);
+
+  async function handleBid() {
+    if (!auction) return;
+    setError(null);
+    const result = await placeBid(auction.id, Number(bidAmount));
+    if (result.error) {
+      setError(result.error.message);
+      return;
+    }
+    setBidAmount('');
+  }
+
+  async function handleClose() {
+    if (!auction) return;
+    setClosing(true);
+    setError(null);
+    setSettlementNotice(null);
+    try {
+      const result = await closeAuction(auction.id);
+      setAuction((current) => current ? { ...current, status: 'closed', winnerOrderId: result.orderId || null } : current);
+      setSettlementNotice(
+        result.settled
+          ? `Auction settled successfully. Order ${result.orderId} created and wallet capture completed.`
+          : result.reason === 'no_valid_bids'
+            ? 'Auction closed without a valid bid.'
+            : `Auction closed. Order ${result.orderId || 'created'} is awaiting payment follow-up.`,
+      );
+    } catch (closeError) {
+      setError(closeError instanceof Error ? closeError.message : 'Failed to close auction');
+    } finally {
+      setClosing(false);
+    }
+  }
+
+  if (error && !session) {
+    return <div className="px-4 py-12 text-white">{error}</div>;
+  }
+
+  if (!session) {
+    return <div className="px-4 py-12 text-white">Loading live room…</div>;
   }
 
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[70] flex items-center justify-center p-6">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="max-w-lg w-full bg-white rounded-2xl overflow-hidden shadow-2xl"
-      >
-        <div className="aspect-video bg-gray-900 relative">
-          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-          {!stream && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-              <div className="w-8 h-8 rounded-full animate-spin"
-                style={{ border: '2.5px solid rgba(255,255,255,0.2)', borderTopColor: '#fff' }} />
-              <p className="text-white/60 text-xs font-medium">Accessing camera…</p>
-            </div>
-          )}
-        </div>
-        <div className="p-6 text-center">
-          <h2 className="text-xl font-bold text-gray-900 mb-1">Ready to go live?</h2>
-          <p className="text-gray-400 text-xs mb-5">Check your look before the session begins.</p>
-          <button
-            onClick={() => stream && onReady(stream)}
-            disabled={!stream}
-            className="btn-primary w-full py-3 justify-center disabled:opacity-40"
-          >
-            <Play className="w-4 h-4 fill-current" />
-            Start Streaming
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
-export default function LiveStreamRoom() {
-  const { sessionId } = useParams();
-  const navigate = useNavigate();
-  const [session, setSession] = useState<LiveSession | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [currentAuction, setCurrentAuction] = useState<Auction | null>(null);
-  const [likes, setLikes] = useState(0);
-  const [talkingPoints, setTalkingPoints] = useState<{ talkingPoints: string[], hypePhrase: string } | null>(null);
-  const [hostStream, setHostStream] = useState<MediaStream | null>(null);
-  const [isReady, setIsReady] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const hostVideoRef = useRef<HTMLVideoElement>(null);
-
-  const isHost = auth.currentUser?.uid === session?.hostId;
-
-  useEffect(() => {
-    if (isReady && hostStream && hostVideoRef.current) {
-      hostVideoRef.current.srcObject = hostStream;
-    }
-  }, [isReady, hostStream]);
-
-  useEffect(() => {
-    if (!sessionId) return;
-
-    // Fetch session
-    const sessionRef = doc(db, 'live_sessions', sessionId);
-    let unsubscribeAuction: (() => void) | null = null;
-
-    const unsubscribeSession = onSnapshot(sessionRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const sessionData = { id: docSnap.id, ...docSnap.data() } as LiveSession;
-        setSession(sessionData);
-
-        // If there's a current auction, fetch it
-        if (sessionData.currentAuctionId) {
-          // Clean up previous auction listener if exists
-          if (unsubscribeAuction) {
-            unsubscribeAuction();
-          }
-
-          const auctionRef = doc(db, 'auctions', sessionData.currentAuctionId);
-          unsubscribeAuction = onSnapshot(auctionRef, async (auctionSnap) => {
-            if (auctionSnap.exists()) {
-              const auctionData = { id: auctionSnap.id, ...auctionSnap.data() } as Auction;
-              setCurrentAuction(auctionData);
-
-              // Get AI talking points if host
-              if (auth.currentUser?.uid === sessionData.hostId && auctionData.product) {
-                try {
-                  const points = await getHostTalkingPoints(
-                    auctionData.product.name,
-                    auctionData.product.category || 'General'
-                  );
-                  setTalkingPoints(points);
-                } catch (err) {
-                  console.error('Failed to get talking points:', err);
-                }
-              }
-            }
-          }, (error) => {
-            console.error('Error fetching auction:', error);
-          });
-        } else {
-          // No active auction, clean up listener if exists
-          if (unsubscribeAuction) {
-            unsubscribeAuction();
-            unsubscribeAuction = null;
-          }
-        }
-      } else {
-        navigate('/auctions');
-      }
-    }, (error) => {
-      console.error('Error fetching session:', error);
-    });
-
-    // Fetch chat messages
-    const q = query(
-      collection(db, 'live_sessions', sessionId, 'chat'),
-      orderBy('timestamp', 'asc')
-    );
-    const unsubscribeChat = onSnapshot(q, (snapshot) => {
-      setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatMessage)));
-    }, (error) => {
-      console.error('Error fetching chat messages:', error);
-    });
-
-    return () => {
-      unsubscribeSession();
-      unsubscribeChat();
-      if (unsubscribeAuction) {
-        unsubscribeAuction();
-      }
-    };
-  }, [sessionId, navigate]);
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !auth.currentUser || !sessionId) return;
-
-    try {
-      await addDoc(collection(db, 'live_sessions', sessionId, 'chat'), {
-        sessionId,
-        senderId: auth.currentUser.uid,
-        senderName: auth.currentUser.displayName || 'Anonymous',
-        text: newMessage,
-        timestamp: serverTimestamp(),
-        type: 'text'
-      });
-      setNewMessage('');
-    } catch (err) {
-      console.error('Failed to send message:', err);
-    }
-  };
-
-  const handleLike = () => {
-    setLikes(prev => prev + 1);
-    // In a real app, we'd sync this to Firestore
-  };
-
-  if (!session) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black z-[60] flex flex-col md:flex-row overflow-hidden font-sans">
-      {/* Preview banner — overlay on top */}
-      <div className="absolute top-0 left-0 right-0 z-[80] flex items-center gap-2 bg-amber-500/90 backdrop-blur-sm px-4 py-2 pointer-events-none">
-        <Sparkles className="w-3.5 h-3.5 text-white flex-shrink-0" />
-        <p className="text-[11px] text-white font-semibold">Preview mode — live WebRTC broadcasting not yet implemented</p>
-      </div>
-      {isHost && !isReady && (
-        <HostSetup onReady={(stream) => {
-          setHostStream(stream);
-          setIsReady(true);
-        }} />
-      )}
-
-      {/* Video Area (Vertical) */}
-      <div className="relative flex-1 bg-zinc-900 flex items-center justify-center overflow-hidden">
-        {isHost && isReady ? (
-          <video 
-            ref={hostVideoRef}
-            autoPlay
-            playsInline
-            muted
-            className="h-full w-auto object-cover aspect-[9/16] shadow-2xl grayscale"
-          />
-        ) : (
-          <img 
-            src={session.thumbnailUrl || `https://picsum.photos/seed/${sessionId}/1080/1920`} 
-            className="h-full w-auto object-cover aspect-[9/16] shadow-2xl"
-            referrerPolicy="no-referrer"
-            alt="Live Stream"
-          />
-        )}
-        
-        {/* Overlays */}
-        <div className="absolute inset-0 p-6 flex flex-col justify-between pointer-events-none">
-          {/* Top Bar */}
-          <div className="flex items-center justify-between pointer-events-auto">
-            <div className="flex items-center gap-3 bg-black/40 backdrop-blur-md p-2 pr-4 rounded-full border border-white/10">
-              <div className="w-10 h-10 rounded-full bg-quirky flex items-center justify-center text-white font-bold">
-                {session.hostName[0]}
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-white uppercase tracking-widest">{session.hostName}</p>
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                  <span className="text-[8px] text-white/60 font-bold uppercase tracking-widest">LIVE</span>
+    <section className="min-h-[calc(100vh-80px)] bg-[linear-gradient(180deg,#090d14,#101823_38%,#0d1420_100%)] px-4 py-10 text-white">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: 'Current bid', value: currency(auction?.currentBid || 0), icon: Gavel },
+            { label: 'Bid count', value: String(auction?.bidCount || bids.length), icon: Trophy },
+            { label: 'Time remaining', value: auction ? formatCountdown(auction.endsAt, now) : 'Awaiting lot', icon: Clock3 },
+            { label: 'Wallet rule', value: 'Preloaded credit', icon: Wallet },
+          ].map((card) => {
+            const Icon = card.icon;
+            return (
+              <div key={card.label} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] uppercase tracking-[0.35em] text-white/55">{card.label}</p>
+                  <Icon className="h-4 w-4 text-[#f6c971]" />
                 </div>
+                <p className="mt-6 text-2xl font-black">{card.value}</p>
               </div>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <div className="bg-black/40 backdrop-blur-md px-3 py-2 rounded-full border border-white/10 flex items-center gap-2">
-                <Users className="w-3 h-3 text-white" />
-                <span className="text-[10px] font-bold text-white">{session.viewerCount + likes}</span>
-              </div>
-              <button 
-                onClick={() => navigate('/auctions')}
-                className="w-10 h-10 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/10 hover:bg-white/20 transition-all"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
+            );
+          })}
+        </div>
 
-          {/* Bottom Overlay (Auction Info) */}
-          <div className="space-y-4 pointer-events-auto">
-            <AnimatePresence>
-              {currentAuction && (
-                <motion.div 
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  className="bg-white/95 backdrop-blur-md p-4 rounded-2xl border-l-4 border-purple-500 shadow-2xl max-w-xs"
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-                      {currentAuction.product?.imageUrl && (
-                        <img src={currentAuction.product.imageUrl} className="w-full h-full object-cover" alt="" />
-                      )}
+        {settlementNotice ? (
+          <div className="rounded-[1.75rem] border border-emerald-400/25 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100">
+            {settlementNotice}
+          </div>
+        ) : null}
+        {error ? (
+          <div className="rounded-[1.75rem] border border-red-400/25 bg-red-400/10 px-5 py-4 text-sm text-red-100">
+            {error}
+          </div>
+        ) : null}
+
+        <div className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
+          <div className="space-y-6">
+            <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/5">
+              <div className="grid gap-6 p-8 lg:grid-cols-[1.05fr_0.95fr]">
+                <div>
+                  <div className="flex items-center gap-2 text-[#9fd3c7]">
+                    <Radio className="h-4 w-4" />
+                    <p className="text-[11px] uppercase tracking-[0.35em]">Live auction room</p>
+                  </div>
+                  <h1 className="mt-4 text-5xl font-black">{session.title}</h1>
+                  <p className="mt-4 max-w-2xl text-white/65">
+                    {session.spotlightMessage || 'Structured premium bidding with visible trust signals, live momentum, and clean operator controls.'}
+                  </p>
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <div className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-white/70">
+                      Session status: {session.status}
                     </div>
-                    <div className="min-w-0">
-                      <h4 className="text-xs font-semibold text-gray-900 truncate">{currentAuction.product?.name}</h4>
-                      <p className="text-[10px] text-gray-400">Current Bid</p>
-                      <p className="text-lg font-bold text-gray-900">R{currentAuction.currentBid}</p>
+                    <div className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-white/70">
+                      Queue size: {sessionQueue.length + (auction ? 1 : 0)} lots
                     </div>
                   </div>
-                  <button className="btn-primary w-full py-2 justify-center text-sm">
-                    <Gavel className="w-3.5 h-3.5" />
-                    Bid R{currentAuction.currentBid + 10}
-                  </button>
-                </motion.div>
+                </div>
+
+                <div className="rounded-[1.75rem] border border-white/10 bg-black/15 p-5">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-[#f6c971]" />
+                    <p className="text-[11px] uppercase tracking-[0.28em] text-white/60">Settlement guardrails</p>
+                  </div>
+                  <div className="mt-4 space-y-4 text-sm text-white/75">
+                    <p>Winning bidders are settled against wallet balance first, with follow-up payment only if the wallet does not fully cover the lot.</p>
+                    <p>Bid ladder, order creation, and closure reconcile into the same commerce records used by admin operations.</p>
+                    <p>Operators can close the lot here and continue fulfilment from the admin commerce surface.</p>
+                  </div>
+                </div>
+              </div>
+
+              {auction ? (
+                <div className="grid gap-6 border-t border-white/10 bg-black/10 p-8 lg:grid-cols-[0.95fr_1.05fr]">
+                  <div className="overflow-hidden rounded-[1.75rem] bg-[#1b2533]">
+                    {auction.heroImage ? (
+                      <img src={auction.heroImage} alt={auction.title} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="grid min-h-[320px] place-items-center text-sm text-white/45">No lot image available</div>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.25em] text-[#9fd3c7]">Current lot</p>
+                        <h2 className="mt-3 text-3xl font-black">{auction.title}</h2>
+                      </div>
+                      <div className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-white/70">
+                        {auctionStatusLabel(auction.status)}
+                      </div>
+                    </div>
+
+                    <div className="mt-6 grid gap-4 md:grid-cols-3">
+                      <div className="rounded-2xl bg-white/5 p-4">
+                        <p className="text-xs uppercase tracking-[0.25em] text-white/50">Current bid</p>
+                        <p className="mt-3 text-2xl font-black">{currency(auction.currentBid)}</p>
+                      </div>
+                      <div className="rounded-2xl bg-white/5 p-4">
+                        <p className="text-xs uppercase tracking-[0.25em] text-white/50">Minimum next bid</p>
+                        <p className="mt-3 text-2xl font-black">{currency(minimumBid)}</p>
+                      </div>
+                      <div className="rounded-2xl bg-white/5 p-4">
+                        <p className="text-xs uppercase tracking-[0.25em] text-white/50">Ends</p>
+                        <p className="mt-3 text-lg font-black">
+                          {new Date(auction.endsAt).toLocaleString('en-ZA', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' })}
+                        </p>
+                      </div>
+                    </div>
+
+                    {auction.status === 'live' || auction.status === 'active' ? (
+                      isAuthenticated ? (
+                        <div className="mt-6">
+                          <div className="mb-3 flex flex-wrap gap-2">
+                            {nextBidOptions.map((amount) => (
+                              <button
+                                key={amount}
+                                onClick={() => setBidAmount(String(amount))}
+                                className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-bold text-white"
+                              >
+                                {currency(amount)}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex flex-col gap-3 md:flex-row">
+                            <input
+                              value={bidAmount}
+                              onChange={(event) => setBidAmount(event.target.value)}
+                              className="input bg-white/5 text-white"
+                              placeholder={`Min ${currency(minimumBid)}`}
+                            />
+                            <button
+                              onClick={() => void handleBid()}
+                              className="rounded-full bg-[#f6c971] px-4 py-2 text-sm font-bold text-[#10151e]"
+                            >
+                              Place bid
+                            </button>
+                            {isAdmin ? (
+                              <button
+                                onClick={() => void handleClose()}
+                                disabled={closing}
+                                className="rounded-full border border-white/10 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                              >
+                                {closing ? 'Closing...' : 'Close lot'}
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+                          Sign in to bid. Your wallet balance will be checked before settlement.
+                        </div>
+                      )
+                    ) : (
+                      <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+                        This lot is no longer taking bids.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="border-t border-white/10 p-8 text-sm text-white/55">No current auction is queued for this live session yet.</div>
               )}
-            </AnimatePresence>
-            
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={handleLike}
-                className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/10 hover:bg-hot hover:border-hot transition-all group"
-              >
-                <Heart className={cn("w-6 h-6 transition-transform group-active:scale-150", likes > 0 && "fill-current")} />
-              </button>
-              <button className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/10 hover:bg-white/20 transition-all">
-                <Share2 className="w-5 h-5" />
-              </button>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-8">
+              <p className="text-[11px] uppercase tracking-[0.35em] text-[#9fd3c7]">Bid ladder</p>
+              <div className="mt-5 space-y-3">
+                {bids.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-white/10 p-5 text-sm text-white/55">No bids yet.</div>
+                ) : bids.map((bid, index) => (
+                  <div key={bid.id} className="flex items-center justify-between rounded-2xl bg-black/15 px-4 py-3 text-sm">
+                    <div>
+                      <p className="font-bold text-white">{bid.bidderName}</p>
+                      <p className="text-xs uppercase tracking-[0.25em] text-white/45">{index === 0 ? 'Highest bid' : 'Bid recorded'}</p>
+                    </div>
+                    <span className="font-black">{currency(bid.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-8">
+              <p className="text-[11px] uppercase tracking-[0.35em] text-[#f6c971]">Queue</p>
+              <div className="mt-5 space-y-3">
+                {sessionQueue.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-white/10 p-5 text-sm text-white/55">No queued lots loaded yet.</div>
+                ) : sessionQueue.map((queuedAuction) => (
+                  <div key={queuedAuction.id} className="rounded-2xl bg-black/15 px-4 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-bold text-white">{queuedAuction.title}</p>
+                        <p className="mt-1 text-sm text-white/60">
+                          Starts {new Date(queuedAuction.startsAt).toLocaleString('en-ZA', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' })}
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.25em] text-white/60">
+                        {auctionStatusLabel(queuedAuction.status)}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-sm text-white/65">
+                      <span>Opening bid</span>
+                      <span className="font-black text-white">{currency(queuedAuction.startPrice)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Chat Panel */}
-      <div className="w-full md:w-[360px] bg-white flex flex-col border-l border-gray-100">
-        {isHost && talkingPoints && (
-          <div className="p-4 bg-gray-950 text-white border-b border-white/10">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-purple-400">AI Host Assistant</span>
-            </div>
-            <div className="space-y-2">
-              {talkingPoints.talkingPoints.map((point, i) => (
-                <p key={i} className="text-[11px] text-white/60 leading-relaxed">• {point}</p>
-              ))}
-              <div className="mt-3 p-2.5 bg-white/5 rounded-lg border border-white/10 text-[11px] text-purple-300 italic">
-                "{talkingPoints.hypePhrase}"
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-          <span className="section-label">Live Chat</span>
-          <div className="flex items-center gap-1.5">
-            <span className="live-dot" />
-            <span className="text-[10px] font-semibold text-purple-500">AI Moderating</span>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {messages.map((msg) => (
-            <div key={msg.id}>
-              <div className="flex items-baseline gap-2 mb-0.5">
-                <span className="text-xs font-semibold text-gray-900">{msg.senderName}</span>
-                <span className="text-[10px] text-gray-400">
-                  {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '…'}
-                </span>
-              </div>
-              <p className={cn(
-                'text-xs leading-relaxed',
-                msg.type === 'bid' ? 'text-purple-600 font-semibold' : 'text-gray-600'
-              )}>
-                {msg.text}
-              </p>
-            </div>
-          ))}
-          <div ref={chatEndRef} />
-        </div>
-
-        <form onSubmit={handleSendMessage} className="p-3 bg-gray-50 border-t border-gray-100">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Say something quirky…"
-              className="input flex-1 py-2 text-sm"
-            />
-            <button
-              type="submit"
-              className="btn-primary px-3 py-2"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    </section>
   );
 }

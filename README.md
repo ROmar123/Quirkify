@@ -1,201 +1,83 @@
-<<<<<<< HEAD
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Quirkify Live
 
-# Run and deploy your AI Studio app
+Canonical Quirkify production repo.
 
-This contains everything you need to run your app locally.
+## Canonical Production Path
 
-View your app in AI Studio: https://ai.studio/apps/3a0606b8-4950-4129-84f3-037b307d2152
+- GitHub deploy branch: `main`
+- Canonical Vercel project: `quirkify-1`
+- Canonical public alias: `https://quirkify-1.vercel.app`
+- Intended custom domain: `https://www.quirkify.co.za`
+- The older `quirkify-live` Vercel project is not the production source of truth.
 
-## Run Locally
+## Architecture
 
-**Prerequisites:**  Node.js
+- Supabase Postgres is the primary source of truth for products, packs, orders, profiles, wallet, and campaign drafts.
+- Firebase handles auth, storage, and realtime auction/live-session surfaces.
+- Vercel API routes in `api/` handle privileged commerce, payment, shipping, and AI flows.
 
+## Product Surfaces
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
-=======
-# Quirkify - Gamified Social Commerce Platform
+Customer:
+- `/`
+- `/product/:id`
+- `/checkout`
+- `/orders`
+- `/auctions`
+- `/collection`
+- `/auth`
 
-South Africa's home for verified collectibles, limited drops, and pre-loved finds.
+Admin:
+- `/admin`
+- `/admin/inventory`
+- `/admin/orders`
+- `/admin/campaigns`
 
-## Features
-
-- **AI-Powered Product Verification**: Every item is AI-checked before approval
-- **Live Auctions**: Bid on exclusive drops in real-time
-- **Secure Payments**: Powered by Yoco
-- **Order Tracking**: Full shipment tracking integration
-- **Gamification**: Level up and earn rewards as you shop
-- **Mobile-First**: Optimized for mobile experience
-
-## Tech Stack
-
-- React 19 + TypeScript
-- Vite 6
-- Tailwind CSS 4
-- Firebase (Firestore, Storage)
-- Supabase (Auth, PostgreSQL)
-- Motion (animations)
-- Yoco (payments)
-
-## Quick Start
-
-### Prerequisites
-
-- Node.js 20+
-- npm or yarn
-
-### Installation
+## Local Run
 
 ```bash
-# Clone the repository
-git clone https://github.com/ROmar123/Quirkify.git
-cd Quirkify
-
-# Install dependencies
 npm install
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your credentials
-
-# Start development server
 npm run dev
 ```
 
-### Environment Variables
+## Required Environment
 
-Create a `.env` file with:
+Frontend:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_FIREBASE_API_KEY`
+- `VITE_FIREBASE_AUTH_DOMAIN`
+- `VITE_FIREBASE_PROJECT_ID`
+- `VITE_FIREBASE_STORAGE_BUCKET`
+- `VITE_FIREBASE_MESSAGING_SENDER_ID`
+- `VITE_FIREBASE_APP_ID`
+- `VITE_ADMIN_EMAILS`
+
+Backend:
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `GEMINI_API_KEY`
+- `YOCO_SECRET_KEY`
+- `TCG_API_KEY`
+
+Optional:
+- `VITE_MAPBOX_ACCESS_TOKEN`
+- `TCG_COLLECTION_LAT`
+- `TCG_COLLECTION_LNG`
+- `TCG_COLLECTION_STREET`
+- `TCG_COLLECTION_SUBURB`
+- `TCG_COLLECTION_CITY`
+- `TCG_COLLECTION_POSTAL`
+- `TCG_COLLECTION_ZONE`
+- `TCG_COLLECTION_ENTERED`
+
+## Verification
 
 ```bash
-# Firebase
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your_project
-VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
-VITE_FIREBASE_APP_ID=1:123456789:web:abcdef
-
-# Supabase
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your_anon_key
-
-# Admin Emails (comma-separated)
-VITE_ADMIN_EMAILS=admin@example.com
-```
-
-### Build for Production
-
-```bash
+npm run lint
 npm run build
 ```
 
-The build output will be in the `dist/` directory.
+## Database Notes
 
-## Project Structure
-
-```
-src/
-├── components/
-│   ├── admin/          # Admin dashboard components
-│   ├── auth/           # Authentication components
-│   ├── inventory/      # Inventory management
-│   ├── layout/         # Header, Footer, Navigation
-│   ├── legal/          # Terms, Privacy, Returns
-│   ├── live/           # Live streaming
-│   ├── profile/        # User profile, Orders, Collection
-│   ├── store/          # Storefront, Product details, Checkout
-│   └── ui/             # Reusable UI components
-├── context/            # React contexts (Cart, Mode)
-├── hooks/              # Custom React hooks
-├── lib/                # Utilities (security, retry, utils)
-├── services/           # API services
-├── types/              # TypeScript types
-├── firebase.ts         # Firebase configuration
-├── supabase.ts         # Supabase configuration
-└── App.tsx             # Main app component
-```
-
-## Key Features Implemented
-
-### Security
-- XSS protection with input sanitization
-- Rate limiting on API calls
-- CSRF token generation
-- Secure localStorage wrapper
-- Content Security Policy headers
-
-### Performance
-- Code splitting with Vite
-- Lazy loading for images
-- Exponential backoff retry logic
-- Circuit breaker pattern
-- Cart persistence
-
-### Accessibility
-- Screen reader support
-- Keyboard navigation
-- Focus management
-- ARIA labels
-- Skip links
-
-### Mobile
-- 44px minimum touch targets
-- Bottom navigation
-- Safe area support
-- Responsive grids
-- Touch-optimized interactions
-
-## Database Setup
-
-### Supabase RLS Policy
-
-Add this policy for public product access:
-
-```sql
-CREATE POLICY "Allow public read access to approved products"
-ON products FOR SELECT
-TO public
-USING (status = 'approved');
-```
-
-## Deployment
-
-### Vercel
-
-1. Connect your GitHub repository
-2. Add environment variables in Vercel dashboard
-3. Deploy
-
-### Manual
-
-```bash
-npm run build
-# Upload dist/ to your hosting provider
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-## License
-
-MIT License - see LICENSE file for details
-
-## Support
-
-For support, email support@quirkify.co.za or join our Discord community.
-
----
-
-Built with ❤️ in Cape Town, South Africa
->>>>>>> origin/main
+- Apply Supabase migrations before relying on admin inventory and growth surfaces.
+- `supabase/migrations/007_campaign_drafts.sql` adds campaign draft persistence for the Growth page.

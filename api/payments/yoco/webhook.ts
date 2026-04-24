@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import crypto from "crypto";
 import { sendOrderStatusEmail } from "../../_lib/orderNotifications";
+import { normalizeEnvValue } from "../../_lib/env.js";
 import { getSupabaseAdmin } from "../../_lib/supabaseAdmin.js";
 
 // In-memory idempotency cache with 24hr TTL
@@ -244,7 +245,7 @@ export async function handleYocoWebhook(
   }
 
   // Always verify signature (no NODE_ENV bypass)
-  const secret = process.env.YOCO_SECRET_KEY;
+  const secret = normalizeEnvValue(process.env.YOCO_SECRET_KEY);
   if (!secret) {
     console.error("YOCO_SECRET_KEY environment variable is not set");
     // In production this should never happen - fail closed

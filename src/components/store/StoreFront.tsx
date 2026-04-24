@@ -1,758 +1,432 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Product, Campaign } from '../../types';
-import { fetchProducts } from '../../services/productService';
-import { fetchActiveCampaigns } from '../../services/campaignService';
-import { getPersonalizedRecommendations } from '../../services/aiClient';
-import { auth } from '../../firebase';
-import { motion, AnimatePresence } from 'motion/react';
-import {
-  ShoppingBag, Search, X, Shield, Truck,
-  Sparkles, Zap, ChevronRight, Package, Megaphone, Heart
-} from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-import { cn } from '../../lib/utils';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, Boxes, Gavel, Radio, ShoppingBag, Sparkles, Stars, Zap } from 'lucide-react';
+import { listActiveProducts, listFeaturedProducts, listPacks } from '../../services/catalogService';
+import { listAuctions, listLiveSessions } from '../../services/auctionService';
 import { useCart } from '../../context/CartContext';
-import { PRODUCT_CATEGORIES } from '../../lib/categories';
-import { sanitizeInput, searchRateLimiter } from '../../lib/security';
-import { ProductSkeleton, ErrorState } from '../ui/LoadingSpinner';
+import { useSession } from '../../hooks/useSession';
+import { availableUnits, auctionStatusLabel, currency, formatCountdown, totalReservedUnits } from '../../lib/quirkify';
+import type { Auction, LiveSession, Pack, Product } from '../../types';
 
-const CONDITION_FILTERS = [
-  { key: null,        label: 'All', emoji: '' },
-  { key: 'sale',      label: 'Sale', emoji: '🔥' },
-  { key: 'New',       label: 'New', emoji: '✨' },
-  { key: 'Pre-owned', label: 'Pre-owned', emoji: '💎' },
-];
+const PUBLIC_DATA_TIMEOUT_MS = 4500;
 
-const RARITY_CONFIG: Record<string, { gradient: string; text: string }> = {
-  'Unique':     { gradient: 'linear-gradient(135deg,#f59e0b,#ef4444)', text: 'white' },
-  'Super Rare': { gradient: 'linear-gradient(135deg,#f472b6,#a855f7)', text: 'white' },
-  'Rare':       { gradient: 'linear-gradient(135deg,#a855f7,#6366f1)', text: 'white' },
-  'Limited':    { gradient: 'linear-gradient(135deg,#06b6d4,#3b82f6)', text: 'white' },
-  'Common':     { gradient: 'linear-gradient(135deg,#e0d2ff,#c4b5fd)', text: '#4c1d95' },
-};
-
-const CATEGORY_ICONS: Record<string, string> = {
-  'Sneakers': '👟', 'Clothing': '👕', 'Accessories': '👜',
-  'Electronics': '📱', 'Collectibles': '🏆', 'Toys & Games': '🎮',
-  'Books & Media': '📚', 'Beauty & Health': '💅', 'Home & Decor': '🏡',
-  'Sports & Outdoors': '⚽', 'Art & Crafts': '🎨', 'Vintage & Retro': '📻',
-  'Other': '✨',
-};
-
-function FeaturedCard({ product, idx }: { product: Product; idx: number }) {
-  const { addToCart } = useCart();
-  const [added, setAdded] = useState(false);
-  const basePrice = product.retailPrice ?? product.priceRange?.max ?? 0;
-  const hasDiscount = Boolean(product.discountPrice && product.discountPrice > 0 && product.discountPrice < basePrice);
-  const displayPrice = hasDiscount ? product.discountPrice! : (product.priceRange?.min || basePrice);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: 16 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: Math.min(idx * 0.04, 0.3), duration: 0.4 }}
-      className="flex-shrink-0 w-36 bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow group"
-    >
-      <Link to={`/product/${product.id}`} className="block relative aspect-square overflow-hidden bg-gray-50">
-        <img
-          src={product.imageUrl}
-          alt={product.name}
-          loading="lazy"
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          referrerPolicy="no-referrer"
-          onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder-product.png'; }}
-        />
-        {hasDiscount && (
-          <span className="absolute top-1.5 left-1.5 text-[8px] font-black px-1.5 py-0.5 rounded-full bg-red-500 text-white">
-            SALE
-          </span>
-        )}
-      </Link>
-      <div className="p-2.5">
-        <p className="text-[11px] font-semibold text-gray-800 leading-tight line-clamp-1">{product.name}</p>
-        <div className="flex items-center justify-between mt-1.5">
-          <p className="text-[11px] font-black text-purple-600">R{displayPrice}</p>
-          {product.stock > 0 && (
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                addToCart(product);
-                setAdded(true);
-                setTimeout(() => setAdded(false), 1200);
-              }}
-              className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 transition-all"
-              style={{ background: added ? '#22c55e' : 'var(--gradient-primary)' }}
-              title="Add to cart"
-            >
-              {added ? '✓' : <ShoppingBag className="w-3 h-3" />}
-            </button>
-          )}
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-function ProductCard({ product, idx }: { product: Product; idx: number }) {
-  const { addToCart } = useCart();
-  const [wishlisted, setWishlisted] = useState(false);
-  const [added, setAdded] = useState(false);
-  const isSoldOut = product.stock === 0;
-  const isLowStock = product.stock > 0 && product.stock < 5;
-  const basePrice = product.retailPrice ?? product.priceRange?.max ?? 0;
-  const hasDiscount = Boolean(product.discountPrice && product.discountPrice > 0 && product.discountPrice < basePrice);
-  const displayPrice = hasDiscount ? product.discountPrice! : (product.priceRange?.min || basePrice);
-  const discountPct = hasDiscount ? Math.round((1 - displayPrice / basePrice) * 100) : 0;
-  const rarity = RARITY_CONFIG[product.rarity || 'Common'] ?? RARITY_CONFIG['Common'];
-
-  const handleAddToCart = (e?: React.MouseEvent) => {
-    e?.preventDefault();
-    e?.stopPropagation();
-    addToCart(product);
-    setAdded(true);
-    setTimeout(() => setAdded(false), 1200);
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(idx * 0.05, 0.4), duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className="card-product group flex flex-col"
-    >
-      {/* Image */}
-      <Link to={`/product/${product.id}`} className="relative block aspect-[3/4] overflow-hidden bg-gray-50 img-zoom">
-        <img
-          src={product.imageUrl}
-          alt={product.name}
-          loading="lazy"
-          decoding="async"
-          className="w-full h-full object-cover"
-          referrerPolicy="no-referrer"
-          onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder-product.png'; }}
-        />
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/8 transition-colors duration-300" />
-
-        {/* Wishlist heart */}
-        <motion.button
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setWishlisted(v => !v); }}
-          whileTap={{ scale: 0.85 }}
-          className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center bg-white/80 backdrop-blur-sm shadow-sm opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
-          aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-        >
-          <Heart className={cn('w-4 h-4 transition-colors', wishlisted ? 'fill-red-500 text-red-500' : 'text-gray-400')} />
-        </motion.button>
-
-        {/* Badges */}
-        <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-          {product.rarity && product.rarity !== 'Common' && (
-            <span
-              className="text-[9px] font-bold px-2.5 py-1 rounded-full shadow-sm"
-              style={{ background: rarity.gradient, color: rarity.text }}
-            >
-              {product.rarity}
-            </span>
-          )}
-          {hasDiscount && (
-            <span className="text-[9px] font-black px-2.5 py-1 rounded-full bg-red-500 text-white shadow-sm tracking-tight">
-              -{discountPct}%
-            </span>
-          )}
-          {isLowStock && (
-            <span className="text-[9px] font-bold px-2.5 py-1 rounded-full bg-amber-500 text-white shadow-sm">
-              {product.stock} left
-            </span>
-          )}
-        </div>
-
-        {/* Sold out overlay */}
-        {isSoldOut && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-sm">
-            <span className="text-xs font-bold text-gray-500 bg-white px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">
-              Sold Out
-            </span>
-          </div>
-        )}
-
-        {/* Added ✓ overlay */}
-        <AnimatePresence>
-          {added && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px] z-20"
-            >
-              <motion.div
-                initial={{ scale: 0.7 }}
-                animate={{ scale: 1 }}
-                exit={{ scale: 0.7 }}
-                className="bg-white rounded-full px-4 py-2 shadow-lg"
-              >
-                <span className="text-xs font-bold text-gray-900">Added ✓</span>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Quick add button */}
-        {!isSoldOut && !added && (
-          <motion.button
-            onClick={handleAddToCart}
-            whileTap={{ scale: 0.93 }}
-            className="absolute bottom-3 right-3 w-9 h-9 rounded-full flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0 z-10"
-            style={{ background: 'var(--gradient-primary)' }}
-            title="Add to cart"
-          >
-            <ShoppingBag className="w-4 h-4" />
-          </motion.button>
-        )}
-      </Link>
-
-      {/* Info */}
-      <div className="p-3.5 flex flex-col gap-2 flex-1">
-        <div className="flex-1">
-          <Link to={`/product/${product.id}`}>
-            <p className="text-sm font-semibold leading-tight line-clamp-2 text-gray-900 hover:text-purple-700 transition-colors">
-              {product.name}
-            </p>
-          </Link>
-          {product.condition && (
-            <p className="text-[10px] text-gray-400 font-medium mt-0.5 uppercase tracking-wide">{product.condition}</p>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between mt-auto">
-          {hasDiscount ? (
-            <div>
-              <p className="text-[10px] text-gray-400 line-through font-medium">R{basePrice}</p>
-              <p className="price text-base text-red-500">R{displayPrice}</p>
-            </div>
-          ) : (
-            <p className="price text-base gradient-text">R{displayPrice}</p>
-          )}
-
-          {!isSoldOut ? (
-            <motion.button
-              onClick={() => handleAddToCart()}
-              whileTap={{ scale: 0.93 }}
-              className="flex items-center justify-center w-9 h-9 rounded-full text-white shadow-sm lg:hidden flex-shrink-0"
-              style={{ background: 'var(--gradient-primary)' }}
-              aria-label="Add to cart"
-            >
-              <ShoppingBag className="w-4 h-4" />
-            </motion.button>
-          ) : (
-            <Link
-              to={`/product/${product.id}`}
-              className="text-[10px] font-semibold text-gray-400 hover:text-purple-500 transition-colors"
-            >
-              Details
-            </Link>
-          )}
-        </div>
-      </div>
-    </motion.div>
-  );
+function withTimeout<T>(promise: Promise<T>, message: string, timeoutMs = PUBLIC_DATA_TIMEOUT_MS) {
+  return Promise.race<T>([
+    promise,
+    new Promise<T>((_, reject) => {
+      window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    }),
+  ]);
 }
 
 export default function StoreFront() {
-  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
-  const [liveSessions] = useState<{ id: string; title: string; viewerCount: number }[]>([]);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [recommendations, setRecommendations] = useState<Product[]>([]);
+  const [featured, setFeatured] = useState<Product[]>([]);
+  const [packs, setPacks] = useState<Pack[]>([]);
+  const [sessions, setSessions] = useState<LiveSession[]>([]);
+  const [auctions, setAuctions] = useState<Auction[]>([]);
+  const [sessionWarning, setSessionWarning] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [rateLimitError, setRateLimitError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const viewedIdsRef = useRef<string[]>([]);
-  const hasRecommendedRef = useRef(false);
-
-  const handleSearchChange = useCallback((value: string) => {
-    const sanitized = sanitizeInput(value);
-    if (!searchRateLimiter.canProceed('storefront_search')) {
-      setRateLimitError('Too many searches. Please slow down.');
-      setTimeout(() => setRateLimitError(null), 3000);
-      return;
-    }
-    setRateLimitError(null);
-    setSearch(sanitized);
-  }, []);
-
-  const loadProducts = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchProducts('approved');
-      setProducts(data);
-    } catch (err) {
-      setError('Failed to load products. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { addToCart, addPackToCart } = useCart();
+  const { isAdmin } = useSession();
 
   useEffect(() => {
-    loadProducts();
-    fetchActiveCampaigns().then(setCampaigns).catch(() => {});
+    let active = true;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+      setSessionWarning(null);
+      try {
+        const [productRowsResult, featuredRowsResult, packRowsResult, sessionRowsResult, auctionRowsResult] = await Promise.allSettled([
+          withTimeout(listActiveProducts(), 'Store inventory request timed out'),
+          withTimeout(listFeaturedProducts(), 'Featured product request timed out'),
+          withTimeout(listPacks(), 'Pack inventory request timed out'),
+          withTimeout(listLiveSessions(), 'Live auction data timed out'),
+          withTimeout(listAuctions(), 'Auction feed request timed out'),
+        ]);
+
+        if (!active) return;
+
+        const productRows = productRowsResult.status === 'fulfilled' ? productRowsResult.value : [];
+        const featuredRows = featuredRowsResult.status === 'fulfilled' ? featuredRowsResult.value : [];
+        const packRows = packRowsResult.status === 'fulfilled' ? packRowsResult.value : [];
+        const sessionRows = sessionRowsResult.status === 'fulfilled' ? sessionRowsResult.value : [];
+        const auctionRows = auctionRowsResult.status === 'fulfilled' ? auctionRowsResult.value : [];
+
+        setProducts(productRows);
+        setFeatured(featuredRows.length ? featuredRows : productRows.slice(0, 6));
+        setPacks(packRows);
+        setSessions(sessionRows.slice(0, 3));
+        setAuctions(auctionRows);
+
+        const catalogFailure =
+          productRowsResult.status === 'rejected'
+            ? productRowsResult.reason
+            : featuredRowsResult.status === 'rejected' && productRows.length === 0
+              ? featuredRowsResult.reason
+              : packRowsResult.status === 'rejected' && productRows.length === 0 && featuredRows.length === 0
+                ? packRowsResult.reason
+                : null;
+
+        if (catalogFailure) {
+          throw catalogFailure;
+        }
+
+        if (sessionRowsResult.status === 'rejected') {
+          setSessionWarning(
+            sessionRowsResult.reason instanceof Error
+              ? sessionRowsResult.reason.message
+              : 'Live session data is temporarily unavailable',
+          );
+        }
+      } catch (loadError) {
+        if (!active) return;
+        setProducts([]);
+        setFeatured([]);
+        setPacks([]);
+        setSessions([]);
+        setAuctions([]);
+        setSessionWarning(null);
+        setError(loadError instanceof Error ? loadError.message : 'Failed to load storefront data');
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    void load();
+    return () => {
+      active = false;
+    };
   }, []);
 
-  // AI recommendations — fetch once after user has viewed 3+ products
-  const trackView = useCallback((productId: string) => {
-    if (hasRecommendedRef.current) return;
-    if (!viewedIdsRef.current.includes(productId)) {
-      viewedIdsRef.current = [...viewedIdsRef.current, productId].slice(-10);
-    }
-    if (viewedIdsRef.current.length >= 3 && auth.currentUser) {
-      hasRecommendedRef.current = true;
-      const viewed = products.filter(p => viewedIdsRef.current.includes(p.id));
-      getPersonalizedRecommendations(viewed, [activeCategory].filter(Boolean) as string[])
-        .then((res) => {
-          const names: string[] = Array.isArray(res?.recommendations) ? res.recommendations : [];
-          const matched = products
-            .filter(p => names.some(n => p.name.toLowerCase().includes(n.toLowerCase())))
-            .filter(p => !viewedIdsRef.current.includes(p.id))
-            .slice(0, 4);
-          if (matched.length > 0) setRecommendations(matched);
-        })
-        .catch(() => {});
-    }
-  }, [products, activeCategory]);
-
-  const isOnSale = (p: typeof products[0]) => {
-    const base = p.retailPrice ?? p.priceRange?.max ?? 0;
-    const sale = (p.discountPrice && p.discountPrice > 0) ? p.discountPrice : (p.priceRange?.min ?? base);
-    return base > 0 && sale > 0 && sale < base;
-  };
-
-  const filtered = useMemo(() => {
-    let list = products;
-    if (activeFilter === 'sale') list = list.filter(isOnSale);
-    else if (activeFilter) list = list.filter(p => p.condition === activeFilter);
-    if (activeCategory) list = list.filter(p => p.category === activeCategory);
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(p => p.name.toLowerCase().includes(q) || p.category?.toLowerCase().includes(q));
-    }
-    return list;
-  }, [products, activeFilter, activeCategory, search]);
-
-  const saleCount = products.filter(isOnSale).length;
+  const liveAuctions = useMemo(() => auctions.filter((auction) => auction.status === 'live' || auction.status === 'active').slice(0, 3), [auctions]);
+  const scheduledAuctions = useMemo(() => auctions.filter((auction) => auction.status === 'scheduled').slice(0, 3), [auctions]);
+  const storeReadyProducts = useMemo(
+    () => products.filter((product) => availableUnits(product, 'store') > 0).slice(0, 4),
+    [products],
+  );
+  const discoveryMetrics = useMemo(() => {
+    const readyStoreUnits = products.reduce((sum, product) => sum + availableUnits(product, 'store'), 0);
+    const readyAuctionLots = auctions.filter((auction) => auction.status === 'scheduled' || auction.status === 'live' || auction.status === 'active').length;
+    const reservedUnits = products.reduce((sum, product) => sum + totalReservedUnits(product), 0);
+    return {
+      readyStoreUnits,
+      readyAuctionLots,
+      reservedUnits,
+      activePacks: packs.filter((pack) => pack.active).length,
+    };
+  }, [auctions, packs, products]);
 
   return (
-    <div className="hero-bg min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 pt-8 pb-24">
+    <div className="bg-[linear-gradient(180deg,#091019,#101823_34%,#efe8dc_34%,#efe8dc_100%)] text-[#10151e]">
+      <section className="px-4 pb-12 pt-10 text-white">
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.4em] text-[#f6c971]">Customer View</p>
+            <h1 className="mt-4 max-w-4xl text-5xl font-black leading-[0.93] md:text-7xl">
+              One marketplace for product drops, premium bidding, and pack-led discovery.
+            </h1>
+            <p className="mt-6 max-w-2xl text-base leading-7 text-white/68">
+              Quirkify keeps storefront products, auction lots, and bundles aligned to the same stock picture so you can browse publicly and buy with confidence when you are ready.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link to="/auctions" className="rounded-full bg-[#f6c971] px-5 py-3 text-sm font-bold text-[#10151e]">
+                Explore auctions
+              </Link>
+              <Link to="/checkout" className="rounded-full border border-white/12 bg-white/5 px-5 py-3 text-sm font-bold text-white">
+                Open checkout
+              </Link>
+              <Link to="/profile" className="rounded-full border border-white/12 bg-white/5 px-5 py-3 text-sm font-bold text-white">
+                Your profile
+              </Link>
+              {isAdmin ? (
+                <Link to="/admin" className="rounded-full border border-white/12 bg-white/5 px-5 py-3 text-sm font-bold text-white">
+                  Open admin
+                </Link>
+              ) : null}
+            </div>
+            <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                { label: 'Store-ready units', value: String(discoveryMetrics.readyStoreUnits), icon: ShoppingBag },
+                { label: 'Auction lots', value: String(discoveryMetrics.readyAuctionLots), icon: Gavel },
+                { label: 'Pack offers', value: String(discoveryMetrics.activePacks), icon: Boxes },
+                { label: 'Reserved units', value: String(discoveryMetrics.reservedUnits), icon: Zap },
+              ].map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div key={item.label} className="rounded-[1.6rem] border border-white/10 bg-white/6 p-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] uppercase tracking-[0.25em] text-white/55">{item.label}</p>
+                      <Icon className="h-4 w-4 text-[#f6c971]" />
+                    </div>
+                    <p className="mt-5 text-3xl font-black">{item.value}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
-        {/* ── Hero Section ── */}
-        <section className="mb-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-            className="relative overflow-hidden rounded-3xl noise"
-            style={{
-              background: 'linear-gradient(160deg, #1e1b4b 0%, #4c1d95 55%, #9d174d 100%)',
-              boxShadow: '0 12px 40px rgba(76,29,149,0.35)',
-            }}
-          >
-            <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full opacity-20 pointer-events-none"
-              style={{ background: 'radial-gradient(circle, #f472b6, transparent)' }} />
-            <div className="absolute -bottom-20 -left-16 w-64 h-64 rounded-full opacity-10 pointer-events-none"
-              style={{ background: 'radial-gradient(circle, #60a5fa, transparent)' }} />
-
-            <div className="relative p-6 md:p-10">
-              <div className="max-w-2xl">
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-purple-300 mb-4">
-                  <Sparkles className="w-3 h-3" /> Quirkify Store
-                </span>
-
-                <h1
-                  className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-white leading-[1.1] tracking-tight mb-4"
-                  style={{ fontFamily: 'Nunito, sans-serif' }}
-                >
-                  Curated resale,{' '}
-                  <span className="text-pink-300">auction energy</span>{' '}
-                  &amp; quirky finds.
-                </h1>
-
-                <p className="text-white/70 text-sm md:text-base leading-relaxed mb-6 max-w-lg">
-                  South Africa's home for AI-verified collectibles, limited drops, and pre-loved finds.
-                  Every item checked before it hits the shelf.
+          <div className="grid gap-4 md:grid-cols-2">
+            {[
+              { title: 'Unified stock engine', copy: 'Store, auctions, and packs allocate from one inventory ledger.', tone: 'bg-[#f6c971] text-[#10151e]' },
+              { title: 'Public-first browsing', copy: 'Customers can browse live stock and auction momentum before signing in.', tone: 'bg-white/6 text-white' },
+              { title: 'Human-gated AI intake', copy: 'AI drafts listings, but approval stays with operators before anything goes live.', tone: 'bg-white/6 text-white' },
+              { title: 'Campaign-led merchandising', copy: 'Growth planning surfaces stale stock, auction pressure, and pack opportunities.', tone: 'bg-[#142231] text-white' },
+            ].map((item) => (
+              <div key={item.title} className={`rounded-[1.75rem] border border-white/10 p-5 ${item.tone}`}>
+                <p className="text-sm font-black">{item.title}</p>
+                <p className={`mt-3 text-sm leading-6 ${item.title === 'Unified stock engine' ? 'text-[#10151e]/75' : 'text-white/68'}`}>
+                  {item.copy}
                 </p>
-
-                <div className="flex flex-wrap gap-2 mb-7">
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 backdrop-blur-sm">
-                    <span className="text-[10px] text-white/60 font-medium">Products</span>
-                    <span className="text-sm font-black text-white">{loading ? '—' : products.length}</span>
-                  </div>
-                  {liveSessions.length > 0 && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/30 backdrop-blur-sm">
-                      <span className="live-dot" />
-                      <span className="text-[10px] text-emerald-300 font-medium">Live Now</span>
-                      <span className="text-sm font-black text-emerald-300">{liveSessions.length}</span>
-                    </div>
-                  )}
-                  {saleCount > 0 && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/20 border border-red-400/30 backdrop-blur-sm">
-                      <span className="text-[10px] text-red-300 font-medium">On Sale</span>
-                      <span className="text-sm font-black text-red-300">{saleCount}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 backdrop-blur-sm">
-                    <span className="text-[10px] text-white/60 font-medium">Categories</span>
-                    <span className="text-sm font-black text-white">13</span>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={() => document.getElementById('product-grid')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white text-gray-900 text-sm font-bold hover:bg-white/90 transition-colors shadow-lg"
-                  >
-                    <ShoppingBag className="w-4 h-4" />
-                    Shop Now
-                  </button>
-                  <Link
-                    to="/auctions"
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/15 border border-white/25 text-white text-sm font-semibold hover:bg-white/25 transition-colors"
-                  >
-                    <Zap className="w-4 h-4" />
-                    Live Auctions
-                  </Link>
-                </div>
               </div>
-
-              <div className="hidden md:flex absolute right-8 bottom-8 gap-2">
-                {[
-                  { icon: Shield, label: 'Secure Payments' },
-                  { icon: Sparkles, label: 'AI Verified' },
-                  { icon: Truck, label: 'Nationwide Delivery' },
-                ].map(({ icon: Icon, label }) => (
-                  <div key={label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 backdrop-blur-sm">
-                    <Icon className="w-3 h-3 text-white/70" />
-                    <span className="text-[10px] font-semibold text-white/80">{label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        </section>
-
-        {/* ── New Arrivals strip ── */}
-        {!loading && products.length > 0 && (
-          <section className="mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide">New Arrivals</h2>
-              <button
-                onClick={() => {
-                  setActiveFilter(null);
-                  setActiveCategory(null);
-                  document.getElementById('product-grid')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="text-xs font-semibold text-purple-600 hover:text-purple-800 transition-colors flex items-center gap-1"
-              >
-                See all <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            <div className="tag-strip gap-3 pb-2">
-              {products.slice(0, 8).map((product, idx) => (
-                <FeaturedCard key={product.id} product={product} idx={idx} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ── Campaign Banner ── */}
-        <AnimatePresence>
-          {campaigns.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="mb-6"
-            >
-              <div
-                className="rounded-2xl p-5 relative overflow-hidden noise cursor-pointer"
-                style={{ background: 'var(--gradient-warm)' }}
-                onClick={() => {
-                  setSearch('');
-                  setActiveCategory(null);
-                  if (campaigns[0].discountPercentage) {
-                    setActiveFilter('sale');
-                  } else {
-                    setActiveFilter(null);
-                  }
-                  document.getElementById('product-grid')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-              >
-                <div className="absolute -right-6 -top-6 opacity-10">
-                  <Megaphone className="w-28 h-28 text-white" />
-                </div>
-                <div className="flex items-start justify-between gap-4 relative z-10">
-                  <div>
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-white/70 mb-1 block">
-                      Active Campaign
-                    </span>
-                    <h3 className="text-base font-black text-white leading-tight">{campaigns[0].title}</h3>
-                    <p className="text-xs text-white/80 mt-1 leading-relaxed max-w-xs">{campaigns[0].description}</p>
-                  </div>
-                  {campaigns[0].discountPercentage && (
-                    <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-white/20 border border-white/30 flex flex-col items-center justify-center">
-                      <span className="text-[10px] font-bold text-white/70">UP TO</span>
-                      <span className="text-lg font-black text-white leading-none">{campaigns[0].discountPercentage}%</span>
-                      <span className="text-[9px] font-bold text-white/70">OFF</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5 mt-3 relative z-10">
-                  <span className="text-xs font-bold text-white">Shop Now</span>
-                  <ChevronRight className="w-3.5 h-3.5 text-white" />
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ── Search + Filters ── */}
-        <div className="mb-8 space-y-4">
-          {/* Search bar */}
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            <input
-              value={search}
-              onChange={e => handleSearchChange(e.target.value)}
-              placeholder="Search products, categories…"
-              className="w-full pl-11 pr-10 py-3 bg-white border border-gray-200 rounded-2xl text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 transition-all shadow-sm"
-              maxLength={100}
-              aria-label="Search products"
-            />
-            {search && (
-              <button
-                onClick={() => setSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full hover:bg-gray-100 transition-colors"
-                aria-label="Clear search"
-              >
-                <X className="w-3.5 h-3.5 text-gray-400" />
-              </button>
-            )}
-          </div>
-
-          {rateLimitError && (
-            <p className="text-xs text-amber-600 font-medium px-1">{rateLimitError}</p>
-          )}
-
-          {/* Condition filter pills */}
-          <div className="tag-strip">
-            {CONDITION_FILTERS.map(f => (
-              <button
-                key={String(f.key)}
-                onClick={() => setActiveFilter(activeFilter === f.key ? null : f.key)}
-                className={cn('filter-pill', activeFilter === f.key && 'active')}
-              >
-                {f.emoji && <span>{f.emoji}</span>}
-                {f.label}
-                {f.key === 'sale' && saleCount > 0 && (
-                  <span className={cn(
-                    'ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold',
-                    activeFilter === 'sale' ? 'bg-white/20 text-white' : 'bg-red-100 text-red-600'
-                  )}>
-                    {saleCount}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* Category icon pills */}
-          <div className="tag-strip mt-2">
-            <button
-              onClick={() => setActiveCategory(null)}
-              className={cn('filter-pill', !activeCategory && 'active')}
-            >
-              All
-            </button>
-            {PRODUCT_CATEGORIES.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat === activeCategory ? null : cat)}
-                className={cn('filter-pill', activeCategory === cat && 'active')}
-              >
-                <span>{CATEGORY_ICONS[cat] || '🏷️'}</span>
-                {cat}
-              </button>
             ))}
           </div>
         </div>
-
-        {/* ── Product Grid ── */}
-        <section>
-          {/* Section header */}
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-3">
-              <h2 className="text-base font-bold text-gray-900">
-                {activeFilter === 'sale' ? '🔥 On Sale'
-                  : activeFilter === 'New' ? '✨ New Arrivals'
-                  : activeFilter === 'Pre-owned' ? '💎 Pre-owned'
-                  : activeCategory ? activeCategory
-                  : 'All Products'}
-              </h2>
-              {!loading && filtered.length > 0 && (
-                <span className="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-                  {filtered.length}
-                </span>
-              )}
-            </div>
-
-            {(activeFilter || activeCategory || search) && (
-              <button
-                onClick={() => { setActiveFilter(null); setActiveCategory(null); setSearch(''); }}
-                className="text-xs font-medium text-gray-500 hover:text-gray-700 flex items-center gap-1 transition-colors"
-              >
-                <X className="w-3 h-3" /> Clear filters
-              </button>
-            )}
+        {error ? (
+          <div className="mx-auto mt-6 max-w-7xl rounded-[1.5rem] border border-red-300/20 bg-red-500/10 px-5 py-4 text-sm text-red-100">
+            Storefront data could not be loaded from the catalogue source of truth. {error}
           </div>
+        ) : null}
+      </section>
 
-          {loading ? (
-            <ProductSkeleton count={8} />
-          ) : error ? (
-            <ErrorState
-              title="Couldn't load products"
-              message={error}
-              onRetry={loadProducts}
-              onGoHome={() => navigate('/')}
-            />
-          ) : filtered.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center py-24 rounded-3xl border border-gray-100 bg-white"
-            >
-              <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
-                <Package className="w-6 h-6 text-gray-300" />
+      <section className="px-4 pb-12">
+        <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-[1.05fr_0.95fr]">
+          <div className="rounded-[2rem] bg-[#10151e] p-6 text-white shadow-[0_25px_80px_rgba(0,0,0,0.35)]">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.35em] text-[#9fd3c7]">Live right now</p>
+                <h2 className="mt-2 text-2xl font-black">Live auction sessions</h2>
               </div>
-              <p className="text-gray-500 font-semibold text-sm">No products found</p>
-              {(search || activeFilter || activeCategory) ? (
-                <>
-                  <p className="text-gray-400 text-xs mt-1 mb-3">These filters returned no results:</p>
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    {search && (
-                      <button
-                        onClick={() => setSearch('')}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full text-xs font-semibold hover:bg-purple-100 transition-colors"
-                      >
-                        "{search}" <X className="w-3 h-3" />
-                      </button>
-                    )}
-                    {activeFilter && (
-                      <button
-                        onClick={() => setActiveFilter(null)}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full text-xs font-semibold hover:bg-purple-100 transition-colors"
-                      >
-                        {activeFilter} <X className="w-3 h-3" />
-                      </button>
-                    )}
-                    {activeCategory && (
-                      <button
-                        onClick={() => setActiveCategory(null)}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full text-xs font-semibold hover:bg-purple-100 transition-colors"
-                      >
-                        {activeCategory} <X className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => { setSearch(''); setActiveFilter(null); setActiveCategory(null); }}
-                    className="mt-4 text-xs font-semibold text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    Clear all
-                  </button>
-                </>
-              ) : (
-                <p className="text-gray-400 text-xs mt-1">No products have been listed yet</p>
-              )}
-            </motion.div>
-          ) : (
-            <div id="product-grid" className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-              {filtered.map((product, idx) => (
-                <div key={product.id} onClick={() => trackView(product.id)}>
-                  <ProductCard product={product} idx={idx} />
+              <Link to="/auctions" className="text-sm font-bold text-[#f6c971]">See all</Link>
+            </div>
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              {sessions.length === 0 ? (
+                <div className="rounded-[1.5rem] border border-dashed border-white/10 p-6 text-sm text-white/55 md:col-span-3">
+                  {loading
+                    ? 'Loading live session state…'
+                    : sessionWarning
+                      ? `Live session data is temporarily unavailable. ${sessionWarning}`
+                      : 'No live session is running yet. Scheduled and live auctions still appear in the auctions feed.'}
                 </div>
+              ) : sessions.map((session) => (
+                <Link key={session.id} to={`/live/${session.id}`} className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5 transition hover:bg-white/8">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs uppercase tracking-[0.25em] text-[#9fd3c7]">{session.status}</p>
+                    <Radio className="h-4 w-4 text-[#f6c971]" />
+                  </div>
+                  <h3 className="mt-3 text-xl font-black">{session.title}</h3>
+                  <p className="mt-2 text-sm text-white/60">{session.spotlightMessage || 'Join the live room to watch the active lot and place bids.'}</p>
+                  <p className="mt-5 text-xs font-semibold uppercase tracking-[0.22em] text-white/45">Enter live room</p>
+                </Link>
               ))}
             </div>
-          )}
-        </section>
+          </div>
 
-        {/* ── AI Recommendations ── */}
-        <AnimatePresence>
-          {recommendations.length > 0 && (
-            <motion.section
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-10"
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <Sparkles className="w-4 h-4 text-purple-500" />
-                <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Picked for You</h2>
+          <div className="rounded-[2rem] border border-black/8 bg-white p-6 shadow-[0_15px_50px_rgba(15,21,30,0.08)]">
+            <div className="flex items-center gap-3">
+              <Sparkles className="h-5 w-5 text-[#725d34]" />
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.3em] text-[#725d34]">Discovery mix</p>
+                <h2 className="mt-1 text-2xl font-black">What is moving across the marketplace</h2>
               </div>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                {recommendations.map((product, idx) => (
-                  <ProductCard key={product.id} product={product} idx={idx} />
-                ))}
-              </div>
-            </motion.section>
-          )}
-        </AnimatePresence>
-
-        {/* ── Trust strip ── */}
-        <motion.section
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="mt-16"
-        >
-          <div className="rounded-2xl border border-gray-100 bg-white px-6 py-5 shadow-sm">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            </div>
+            <div className="mt-6 space-y-4">
               {[
                 {
-                  icon: Shield,
-                  label: 'Secure Payments',
-                  sub: 'PCI-compliant via Yoco',
-                  color: '#a855f7',
+                  title: 'Storefront pressure',
+                  value: `${storeReadyProducts.length} featured products`,
+                  copy: 'Approved catalogue items with immediate store availability.',
                 },
                 {
-                  icon: Sparkles,
-                  label: 'AI Verified',
-                  sub: 'Every item checked by Gemini',
-                  color: '#f472b6',
+                  title: 'Auction momentum',
+                  value: `${liveAuctions.length} live / ${scheduledAuctions.length} scheduled`,
+                  copy: 'Bidding surfaces and upcoming drops are visible from the same browse flow.',
                 },
                 {
-                  icon: Truck,
-                  label: 'Nationwide Delivery',
-                  sub: 'The Courier Guy',
-                  color: '#4ade80',
+                  title: 'Pack-led merchandising',
+                  value: `${packs.filter((pack) => pack.active).length} active bundles`,
+                  copy: 'Bundles pull from linked inventory lines rather than a duplicate stock pool.',
                 },
-              ].map(({ icon: Icon, label, sub, color }) => (
-                <div key={label} className="flex items-center gap-3 sm:flex-col sm:text-center">
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ background: `${color}15` }}
-                  >
-                    <Icon className="w-5 h-5" style={{ color }} />
+              ].map((item) => (
+                <div key={item.title} className="rounded-[1.4rem] bg-[#f8f4ec] p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-black text-[#10151e]">{item.title}</p>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#725d34]">{item.value}</span>
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">{label}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{sub}</p>
-                  </div>
+                  <p className="mt-3 text-sm leading-6 text-[#10151e]/62">{item.copy}</p>
                 </div>
               ))}
             </div>
           </div>
-        </motion.section>
-      </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 pb-14">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.35em] text-[#725d34]">Merchandised store</p>
+            <h2 className="mt-2 text-3xl font-black text-[#10151e]">Featured products</h2>
+          </div>
+          <Link to="/auctions" className="inline-flex items-center gap-2 text-sm font-bold text-[#10151e]">
+            Auction feed <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {featured.length === 0 ? (
+            <div className="rounded-[1.75rem] border border-dashed border-black/10 bg-white p-8 text-sm text-[#10151e]/60 xl:col-span-4">
+              {loading ? 'Loading approved store products…' : 'No approved store products are live yet. Once inventory is approved in admin, featured catalogue items will populate here automatically.'}
+            </div>
+          ) : (
+            featured.map((product) => {
+              const storeAvailable = availableUnits(product, 'store');
+              return (
+                <article key={product.id} className="overflow-hidden rounded-[1.75rem] border border-black/8 bg-white shadow-[0_10px_40px_rgba(15,21,30,0.08)]">
+                  <Link to={`/product/${product.id}`} className="block aspect-[4/4.8] bg-[#ece5d8]">
+                    {product.media?.[0]?.url ? <img src={product.media[0].url} alt={product.title} className="h-full w-full object-cover" /> : null}
+                  </Link>
+                  <div className="space-y-4 p-5">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-full bg-[#f8f4ec] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#725d34]">
+                        {product.category}
+                      </span>
+                      <span className="rounded-full bg-[#eef5f1] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#35664a]">
+                        {storeAvailable > 0 ? `${storeAvailable} ready` : 'Awaiting restock'}
+                      </span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black">{product.title}</h3>
+                      <p className="mt-2 line-clamp-2 text-sm leading-6 text-[#10151e]/62">{product.description}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 rounded-[1.25rem] bg-[#f8f4ec] p-3 text-sm">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-[#725d34]">Store price</p>
+                        <p className="mt-1 font-black">{currency(product.pricing?.salePrice || 0)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-[#725d34]">Auction ceiling</p>
+                        <p className="mt-1 font-black">{currency(product.priceRange?.max || product.pricing?.listPrice || 0)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs text-[#10151e]/50">Reserved across channels</p>
+                        <p className="text-sm font-bold text-[#10151e]">{totalReservedUnits(product)} units</p>
+                      </div>
+                      <button
+                        onClick={() => addToCart(product)}
+                        disabled={storeAvailable <= 0}
+                        className="rounded-full bg-[#10151e] px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })
+          )}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 pb-14">
+        <div className="flex items-center gap-3">
+          <Gavel className="h-5 w-5 text-[#725d34]" />
+          <h2 className="text-3xl font-black">Auction pulse</h2>
+        </div>
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          {([['Live lots', liveAuctions], ['Upcoming lots', scheduledAuctions]] as const).map(([title, rows]) => (
+            <div key={title} className="rounded-[1.8rem] border border-black/8 bg-white p-6 shadow-[0_12px_40px_rgba(15,21,30,0.08)]">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-2xl font-black">{title}</h3>
+                <Link to="/auctions" className="text-sm font-bold text-[#725d34]">Open feed</Link>
+              </div>
+              <div className="mt-5 space-y-3">
+                {rows.length === 0 ? (
+                  <div className="rounded-[1.4rem] border border-dashed border-black/10 p-5 text-sm text-[#10151e]/55">
+                    {loading ? 'Loading auction state…' : `No ${title.toLowerCase()} yet.`}
+                  </div>
+                ) : rows.map((auction) => (
+                  <div key={auction.id} className="rounded-[1.4rem] bg-[#f8f4ec] p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-[#725d34]">{auctionStatusLabel(auction.status)}</p>
+                        <p className="mt-1 text-lg font-black text-[#10151e]">{auction.title}</p>
+                      </div>
+                      <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#10151e]">
+                        {title === 'Live lots' ? formatCountdown(auction.endsAt) : formatCountdown(auction.startsAt)}
+                      </span>
+                    </div>
+                    <div className="mt-4 flex items-center justify-between gap-3 text-sm">
+                      <div>
+                        <p className="text-[#10151e]/55">Current bid</p>
+                        <p className="font-black text-[#10151e]">{currency(auction.currentBid)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[#10151e]/55">Bid count</p>
+                        <p className="font-black text-[#10151e]">{auction.bidCount}</p>
+                      </div>
+                      <div>
+                        <p className="text-[#10151e]/55">Entry</p>
+                        <p className="font-black text-[#10151e]">{sessions.find((session) => session.currentAuctionId === auction.id) ? 'Live room' : 'Feed'}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 pb-18">
+        <div className="flex items-center gap-3">
+          <Stars className="h-5 w-5 text-[#725d34]" />
+          <h2 className="text-3xl font-black">Packs and bundles</h2>
+        </div>
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {packs.length === 0 ? (
+            <div className="rounded-[1.75rem] border border-dashed border-black/10 bg-white p-8 text-sm text-[#10151e]/60">
+              {loading ? 'Loading pack inventory…' : 'Pack inventory is configured from admin inventory operations. Once packs are created they appear here as purchasable store items.'}
+            </div>
+          ) : packs.map((pack) => (
+            <article key={pack.id} className="rounded-[1.75rem] border border-black/8 bg-white p-6 shadow-[0_10px_40px_rgba(15,21,30,0.08)]">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.25em] text-[#725d34]">Pack</p>
+                  <h3 className="mt-2 text-2xl font-black">{pack.title}</h3>
+                </div>
+                <Boxes className="h-6 w-6 text-[#725d34]" />
+              </div>
+              <p className="mt-3 text-sm leading-6 text-[#10151e]/65">{pack.description}</p>
+              <div className="mt-5 rounded-[1.35rem] bg-[#f8f4ec] p-4 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[#10151e]/55">Linked inventory lines</p>
+                  <p className="font-black text-[#10151e]">{pack.componentCount}</p>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <p className="text-[#10151e]/55">Status</p>
+                  <p className="font-black text-[#10151e]">{pack.active ? 'Available' : 'Draft'}</p>
+                </div>
+              </div>
+              <div className="mt-6 flex items-center justify-between">
+                <div>
+                  <p className="text-lg font-black">{currency(pack.price)}</p>
+                  <p className="text-xs text-[#10151e]/50">Curated bundle offer</p>
+                </div>
+                <button
+                  onClick={() => addPackToCart(pack)}
+                  disabled={!pack.active}
+                  className="rounded-full bg-[#9fd3c7] px-4 py-2 text-sm font-bold text-[#10151e] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Add pack
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

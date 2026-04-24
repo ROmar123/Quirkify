@@ -1,14 +1,11 @@
 import { isSupabaseConfigured, supabase } from '../supabase';
 import { Product, AllocationSnapshot } from '../types';
-import { DEMO_PRODUCTS, isDemoProductId } from '../constants/demoProducts';
 
 const PRODUCT_POLL_INTERVAL_MS = 30000;
 let productSubscriptionSequence = 0;
 
-type DbRow = Record<string, any>;
-
 // Maps Supabase row → frontend Product type
-function rowToProduct(row: DbRow): Product {
+function rowToProduct(row: any): Product {
   return {
     id: row.id,
     name: row.name,
@@ -19,7 +16,7 @@ function rowToProduct(row: DbRow): Product {
     listingType: row.listing_type,
     retailPrice: Number(row.retail_price),
     markdownPercentage: row.markdown_percentage,
-    discountPrice: row.discount_price != null ? Number(row.discount_price) : (Number(row.retail_price) || 0),
+    discountPrice: Number(row.discount_price),
     stock: row.stock,
     totalStock: row.stock,
     allocations: {
@@ -51,7 +48,7 @@ function rowToProduct(row: DbRow): Product {
 
 // Maps frontend Product → Supabase insert/update
 function productToRow(product: Partial<Product>) {
-  const row: Record<string, unknown> = {};
+  const row: Record<string, any> = {};
 
   if (product.name !== undefined) row.name = product.name.trim();
   if (product.description !== undefined) row.description = product.description.trim();
@@ -87,63 +84,31 @@ function productToRow(product: Partial<Product>) {
   return row;
 }
 
-/** Fetch products by status.
- *  Pass skipDemo=true in admin views so empty DB shows an empty list rather than demo data. */
-export async function fetchProducts(status?: Product['status'], opts?: { skipDemo?: boolean }): Promise<Product[]> {
-  try {
-    let query = supabase.from('products').select('*');
-    if (status) {
-      query = query.eq('status', status);
-    }
-    const { data, error } = await query.order('created_at', { ascending: false });
-    if (error) throw new Error(error.message);
-
-    const products = (data || []).map(rowToProduct);
-    if (products.length > 0) {
-      return products;
-    }
-  } catch (error) {
-    if (status && status !== 'approved') {
-      throw error;
-    }
+/** Fetch products by status */
+export async function fetchProducts(status?: Product['status']): Promise<Product[]> {
+  let query = supabase.from('products').select('*');
+  if (status) {
+    query = query.eq('status', status);
   }
-
-  if (opts?.skipDemo) return [];
-
-  if (!status || status === 'approved') {
-    return DEMO_PRODUCTS;
-  }
-
-  return [];
+  const { data, error } = await query.order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data || []).map(rowToProduct);
 }
 
 /** Fetch a single product by ID */
 export async function fetchProduct(id: string): Promise<Product | null> {
-  try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('id', id)
-      .single();
-    if (error) {
-      if (error.code === 'PGRST116' && isDemoProductId(id)) {
-        return DEMO_PRODUCTS.find(product => product.id === id) ?? null;
-      }
-      if (error.code === 'PGRST116') return null;
-      throw new Error(error.message);
-    }
-    return rowToProduct(data);
-  } catch (error) {
-    if (isDemoProductId(id)) {
-      return DEMO_PRODUCTS.find(product => product.id === id) ?? null;
-    }
-    throw error;
-  }
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? rowToProduct(data) : null;
 }
 
 /** Create a new product (status defaults to 'pending') */
 export async function createProduct(product: Partial<Product>): Promise<Product> {
-  const row = productToRow({ status: 'pending', ...product });
+  const row = productToRow({ ...product, status: 'pending' });
   const { data, error } = await supabase
     .from('products')
     .insert(row)
@@ -175,12 +140,10 @@ export async function deleteProduct(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-/** Subscribe to real-time product changes (uses Supabase Realtime).
- *  Pass skipDemo=true in admin views to avoid showing demo products. */
+/** Subscribe to real-time product changes (uses Supabase Realtime) */
 export function subscribeToProducts(
   status: Product['status'] | undefined,
-  callback: (products: Product[]) => void,
-  opts?: { skipDemo?: boolean }
+  callback: (products: Product[]) => void
 ) {
   let disposed = false;
   let pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -189,7 +152,7 @@ export function subscribeToProducts(
     if (disposed) return;
 
     try {
-      const products = await fetchProducts(status, opts);
+      const products = await fetchProducts(status);
       if (!disposed) {
         callback(products);
       }

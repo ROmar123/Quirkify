@@ -1,20 +1,25 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { Product } from "../../src/types";
+import { normalizeEnvValue } from "../../api/_lib/env.js";
 
-const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-if (!apiKey) {
-  throw new Error("GEMINI_API_KEY environment variable is required for AI features.");
+const apiKey = normalizeEnvValue(process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY);
+let ai: GoogleGenAI | null = apiKey ? new GoogleGenAI({ apiKey }) : null;
+
+function requireAi() {
+  if (!ai) {
+    throw new Error("GEMINI_API_KEY environment variable is required for AI features.");
+  }
+  return ai;
 }
 
-const ai = new GoogleGenAI({ apiKey });
-
 export async function identifyProduct(base64Image: string) {
+  const aiClient = requireAi();
   const timeoutPromise = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error("AI analysis timed out after 30 seconds. Please try again.")), 30000)
   );
 
-  const analyzePromise = ai.models.generateContent({
-    model: "gemini-1.5-flash",
+  const analyzePromise = aiClient.models.generateContent({
+    model: "gemini-3-flash-preview",
     contents: [
       {
         parts: [
@@ -69,9 +74,10 @@ export async function identifyProduct(base64Image: string) {
 }
 
 export async function suggestCampaign(topSellers: any[]) {
-  const response = await ai.models.generateContent({
-    model: "gemini-1.5-flash",
-    contents: `Analyze these top selling products and suggest a marketing campaign strategy for Aura Commerce. Include a title, description, and which products to feature.
+  const aiClient = requireAi();
+  const response = await aiClient.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `Analyze these top selling products and suggest a marketing campaign strategy for Quirkify. Include a title, description, and which products to feature.
     Products: ${JSON.stringify(topSellers)}`,
     config: {
       responseMimeType: "application/json",
@@ -95,8 +101,9 @@ export async function suggestCampaign(topSellers: any[]) {
 }
 
 export async function getHostTalkingPoints(product: Product) {
-  const response = await ai.models.generateContent({
-    model: "gemini-1.5-flash",
+  const aiClient = requireAi();
+  const response = await aiClient.models.generateContent({
+    model: "gemini-3-flash-preview",
     contents: `You are an AI assistant for a live stream host on Quirkify. Generate 3 engaging talking points for this product to help the host sell it.
     Product: ${JSON.stringify(product)}`,
     config: {
@@ -119,12 +126,13 @@ export async function getHostTalkingPoints(product: Product) {
 }
 
 export async function getPersonalizedRecommendations(products: Product[], userInterests: string[]) {
-  const response = await ai.models.generateContent({
-    model: "gemini-1.5-flash",
+  const aiClient = requireAi();
+  const response = await aiClient.models.generateContent({
+    model: "gemini-3-flash-preview",
     contents: `Based on the user's interests: ${userInterests.join(", ")}, select the top 3 most relevant products from this list for Quirkify.
     Products: ${JSON.stringify(products.map((p) => ({
       id: p.id,
-      name: p.name,
+      name: p.name || p.title,
       category: p.category,
       description: p.description,
     })))}`,

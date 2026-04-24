@@ -452,8 +452,8 @@ export default function SellerOnboarding() {
                 </ul>
               </div>
 
-              <button onClick={() => navigate('/collection')} className="btn-primary w-full py-3 justify-center">
-                Go to My Collection <ArrowRight className="w-4 h-4" />
+              <button onClick={() => navigate('/profile')} className="btn-primary w-full py-3 justify-center">
+                Open Mission Control <ArrowRight className="w-4 h-4" />
               </button>
             </motion.div>
           )}
