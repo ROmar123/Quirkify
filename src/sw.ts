@@ -1,24 +1,20 @@
-import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
-import { registerRoute } from 'workbox-routing';
-import { StaleWhileRevalidate, CacheFirst } from 'workbox-strategies';
+declare const self: ServiceWorkerGlobalScope;
 
-declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: any[] };
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+  event.waitUntil(Promise.resolve());
+});
 
-precacheAndRoute(self.__WB_MANIFEST);
-cleanupOutdatedCaches();
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    (async () => {
+      const cacheKeys = await caches.keys();
+      await Promise.all(cacheKeys.map((key) => caches.delete(key)));
 
-// API responses: network-first with cache fallback
-registerRoute(
-  ({ url }) => url.pathname.startsWith('/api/'),
-  new StaleWhileRevalidate({ cacheName: 'quirkify-api' })
-);
-
-// Images: cache-first (Firebase Storage + Supabase CDN URLs)
-registerRoute(
-  ({ request }) => request.destination === 'image',
-  new CacheFirst({ cacheName: 'quirkify-images' })
-);
-
-self.addEventListener('message', (event) => {
-  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+      const registrations = await self.registration.unregister();
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      await Promise.all(clients.map((client) => client.navigate(client.url)));
+      return registrations;
+    })(),
+  );
 });
