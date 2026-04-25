@@ -376,4 +376,5 @@ export interface CartItem {
   image?: string;
   unitPrice: number;
   quantity: number;
+  maxStock?: number;
 }

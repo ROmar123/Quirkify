@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { CartItem, Pack, Product } from '../types';
+import { availableUnits } from '../lib/quirkify';
 
 interface CartContextValue {
   items: CartItem[];
@@ -35,15 +36,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const value = useMemo<CartContextValue>(() => ({
     items,
     addToCart(product, quantity = 1) {
+      const maxStock = availableUnits(product, 'store');
       setItems((current) => {
         const existing = current.find((item) => item.productId === product.id && item.kind === 'product');
         if (existing) {
+          const capped = Math.min(existing.quantity + quantity, maxStock > 0 ? maxStock : existing.quantity + quantity);
           return current.map((item) =>
             item.productId === product.id && item.kind === 'product'
-              ? { ...item, quantity: item.quantity + quantity }
+              ? { ...item, quantity: capped, maxStock }
               : item
           );
         }
+        const cappedQty = maxStock > 0 ? Math.min(quantity, maxStock) : quantity;
         return [
           ...current,
           {
@@ -52,7 +56,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
             title: product.title,
             image: product.media[0]?.url,
             unitPrice: product.pricing.salePrice,
-            quantity,
+            quantity: cappedQty,
+            maxStock,
           },
         ];
       });

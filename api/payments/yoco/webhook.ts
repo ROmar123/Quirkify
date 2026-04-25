@@ -1,4 +1,3 @@
-import type { Context } from "hono";
 import crypto from "crypto";
 import { sendOrderStatusEmail } from "../../_lib/orderNotifications";
 import { normalizeEnvValue } from "../../_lib/env.js";
