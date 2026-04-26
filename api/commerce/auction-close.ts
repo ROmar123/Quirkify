@@ -231,6 +231,54 @@ export default async function handler(req: any, res: any) {
       }
     }
 
+    // Award XP + send notification to winner (fire-and-forget — don't block settlement)
+    const xpAmount = 100;
+    const xpBonus = Math.min(Math.floor(settlementAmount / 100) * 10, 200);
+    const totalXP = xpAmount + xpBonus;
+    void Promise.allSettled([
+      supabase.rpc('increment_profile_xp', {
+        p_firebase_uid: bidderUser.uid,
+        p_amount: totalXP,
+      }).then(({ error }) => {
+        // Fallback: direct update if RPC not present
+        if (error) {
+          return supabase
+            .from('profiles')
+            .select('xp')
+            .eq('firebase_uid', bidderUser.uid)
+            .single()
+            .then(({ data }) => {
+              const newXP = (Number(data?.xp) || 0) + totalXP;
+              return supabase
+                .from('profiles')
+                .update({ xp: newXP, level: Math.floor(Math.sqrt(newXP / 100)) + 1, last_active_at: new Date().toISOString() })
+                .eq('firebase_uid', bidderUser.uid);
+            });
+        }
+      }),
+      supabase.from('notifications').insert({
+        firebase_uid: bidderUser.uid,
+        type: 'auction_won',
+        title: '🏆 You won the auction!',
+        message: walletCovered
+          ? `You won "${auction.title || product.name}" for R${settlementAmount}. Check your collection!`
+          : `You won "${auction.title || product.name}" for R${settlementAmount}. Top up your wallet to complete payment.`,
+        link: '/orders',
+        read: false,
+      }),
+    ]);
+
+    // Add to collection when payment is confirmed via wallet
+    if (walletCovered) {
+      void supabase.from('collection_items').insert({
+        profile_id: profile.id,
+        product_id: product.id,
+        purchase_price: settlementAmount,
+        order_id: insertedOrder.id,
+        acquired_at: new Date().toISOString(),
+      });
+    }
+
     const orderEventPayload = {
       auctionId,
       productId: product.id,

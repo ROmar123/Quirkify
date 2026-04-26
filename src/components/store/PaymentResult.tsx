@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
@@ -6,7 +6,9 @@ import {
   Sparkles, Clock3, AlertCircle, Package
 } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
+import { auth } from '../../firebase';
 import { cancelStoreCheckout, getStoreCheckoutStatus } from '../../services/paymentService';
+import { useGamification } from '../../hooks/useGamification';
 
 type ResolutionState = 'pending' | 'paid' | 'payment_failed' | 'cancelled' | 'error';
 
@@ -14,6 +16,8 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { clearCart } = useCart();
+  const { awardPurchase } = useGamification();
+  const xpAwardedRef = useRef(false);
   const [resolution, setResolution] = useState<ResolutionState>('pending');
   const [message, setMessage] = useState('Confirming your payment…');
   const [isWalletTopUp, setIsWalletTopUp] = useState(false);
@@ -67,7 +71,17 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
           if (!cancelled) setIsWalletTopUp(wallet);
 
           if (order.status === 'paid' || order.payment_status === 'completed') {
-            if (!wallet && !cancelled) clearCart();
+            if (!wallet && !cancelled) {
+              clearCart();
+              // Award XP once per successful store purchase
+              if (!xpAwardedRef.current) {
+                xpAwardedRef.current = true;
+                const uid = auth.currentUser?.uid;
+                if (uid && order.total > 0) {
+                  void awardPurchase(uid, order.total);
+                }
+              }
+            }
             if (!cancelled) {
               setResolution('paid');
               setMessage(wallet ? 'Your wallet has been topped up.' : 'Your order is confirmed.');
@@ -99,7 +113,7 @@ export default function PaymentResult({ type }: { type: 'success' | 'cancel' }) 
 
     void process();
     return () => { cancelled = true; };
-  }, [type, clearCart, searchParams]);
+  }, [type, clearCart, awardPurchase, searchParams]);
 
   // ── Pending ──
   if (resolution === 'pending') {
