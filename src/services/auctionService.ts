@@ -2,6 +2,7 @@ import {
   addDoc,
   collection,
   doc,
+  type DocumentSnapshot,
   getDoc,
   getDocs,
   limit,
@@ -17,7 +18,7 @@ import {
 import { auth, db, isFirebaseConfigured } from '../firebase';
 import type { Auction, Bid, LiveSession, Product } from '../types';
 
-function fromSnapshot<T>(snapshot: any) {
+function fromSnapshot<T>(snapshot: DocumentSnapshot) {
   return { id: snapshot.id, ...snapshot.data() } as T;
 }
 

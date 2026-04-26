@@ -226,8 +226,8 @@ export default function ResourceMonitor() {
             { name: 'Yoco Checkout', status: 'Active', description: 'Hosted payment page + webhooks' },
             { name: 'TCG Shipping', status: 'Active', description: 'Live rate quotes & tracking' },
             { name: 'Email Notifications', status: 'Active', description: 'Paid, shipped & delivered emails via Resend' },
-            { name: 'Social Integration', status: 'Coming Soon', description: 'TikTok & WhatsApp direct orders' },
-            { name: 'Live Streaming', status: 'Coming Soon', description: 'WebRTC broadcast rooms' },
+            { name: 'Social Integration', status: 'Beta', description: 'Webhook endpoint live — TikTok & WhatsApp API connection pending' },
+            { name: 'Live Streaming', status: 'Beta', description: 'Firestore session management active — WebRTC camera feed pending' },
           ].map((feature) => (
             <div key={feature.name} className="flex items-center justify-between">
               <div>
@@ -238,6 +238,8 @@ export default function ResourceMonitor() {
                 'text-xs font-semibold px-2.5 py-1 rounded-full',
                 feature.status === 'Active'
                   ? 'bg-green-100 text-green-700'
+                  : feature.status === 'Beta'
+                  ? 'bg-blue-50 text-blue-600'
                   : 'bg-gray-100 text-gray-500'
               )}>
                 {feature.status}

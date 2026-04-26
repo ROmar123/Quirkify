@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { MessageCircle, Send, CreditCard, Truck, CheckCircle2, Zap, Sparkles } from 'lucide-react';
+import { MessageCircle, Send, CreditCard, Truck, CheckCircle2, Zap, Sparkles, RotateCcw, ExternalLink, Webhook } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface Message {
@@ -11,37 +11,41 @@ interface Message {
   type?: 'text' | 'payment' | 'delivery';
 }
 
+const DEMO_STEPS = [
+  { label: 'Confirm Availability', response: 'Great! I want to buy it.' },
+  { label: 'Send Payment Link', response: 'Payment received. R1,250.00' },
+  { label: 'Select Delivery', response: 'Delivery set to: Cape Town City Bowl' },
+  { label: 'Complete Order', response: 'Order #AURA-9921 confirmed.' },
+] as const;
+
+const INITIAL_MESSAGES: Message[] = [
+  { id: '1', text: 'TikTok Sale Detected: "Vintage Leather Jacket" via @AuraStyle', sender: 'system', timestamp: new Date().toLocaleTimeString() },
+  { id: '2', text: 'Routing to WhatsApp…', sender: 'system', timestamp: new Date().toLocaleTimeString() },
+  { id: '3', text: 'Hi! I saw your jacket on TikTok. Is it still available?', sender: 'user', timestamp: new Date().toLocaleTimeString() },
+  { id: '4', text: 'Hi there! Yes, it is. Aura AI has verified the condition. Would you like to proceed with the purchase?', sender: 'aura', timestamp: new Date().toLocaleTimeString() },
+];
+
 export default function SocialIntegration() {
-  const [messages, setMessages] = useState<Message[]>([
-    { id: '1', text: 'TikTok Sale Detected: "Vintage Leather Jacket" via @AuraStyle', sender: 'system', timestamp: new Date().toLocaleTimeString() },
-    { id: '2', text: 'Routing to WhatsApp...', sender: 'system', timestamp: new Date().toLocaleTimeString() },
-    { id: '3', text: 'Hi! I saw your jacket on TikTok. Is it still available?', sender: 'user', timestamp: new Date().toLocaleTimeString() },
-    { id: '4', text: 'Hi there! Yes, it is. Aura AI has verified the condition. Would you like to proceed with the purchase?', sender: 'aura', timestamp: new Date().toLocaleTimeString() },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
-
-  const steps = [
-    { text: 'Confirm Availability', response: 'Great! I want to buy it.' },
-    { text: 'Send Payment Link', response: 'Payment received. R1,250.00' },
-    { text: 'Select Delivery', response: 'Delivery set to: Cape Town City Bowl' },
-    { text: 'Complete Order', response: 'Order #AURA-9921 confirmed.' }
-  ];
+  const [completed, setCompleted] = useState(false);
 
   const handleNextStep = () => {
-    if (step >= steps.length) return;
+    if (step >= DEMO_STEPS.length || loading) return;
     setLoading(true);
 
     setTimeout(() => {
       const userMsg: Message = {
         id: Math.random().toString(),
-        text: steps[step].response,
+        text: DEMO_STEPS[step].response,
         sender: 'user',
-        timestamp: new Date().toLocaleTimeString()
+        timestamp: new Date().toLocaleTimeString(),
       };
 
       setMessages(prev => [...prev, userMsg]);
-      setStep(prev => prev + 1);
+      const nextStep = step + 1;
+      setStep(nextStep);
       setLoading(false);
 
       setTimeout(() => {
@@ -51,6 +55,10 @@ export default function SocialIntegration() {
         if (step === 0) { auraText = 'Perfect. I am sending a secure payment link now.'; type = 'payment'; }
         else if (step === 1) { auraText = 'Payment confirmed! Please select your delivery option.'; type = 'delivery'; }
         else if (step === 2) { auraText = 'All set. Your order is being processed for delivery tomorrow.'; }
+        else if (step === 3) {
+          auraText = 'Order complete! Thank you for shopping with Quirkify. Your tracking number will arrive shortly.';
+          setCompleted(true);
+        }
 
         if (auraText) {
           setMessages(prev => [...prev, {
@@ -58,11 +66,18 @@ export default function SocialIntegration() {
             text: auraText,
             sender: 'aura',
             timestamp: new Date().toLocaleTimeString(),
-            type
+            type,
           }]);
         }
       }, 1000);
     }, 800);
+  };
+
+  const handleReset = () => {
+    setMessages(INITIAL_MESSAGES);
+    setStep(0);
+    setLoading(false);
+    setCompleted(false);
   };
 
   return (
@@ -70,12 +85,15 @@ export default function SocialIntegration() {
       <div className="mb-6 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
         <Sparkles className="w-4 h-4 text-amber-500 flex-shrink-0" />
         <p className="text-xs text-amber-800 font-medium">
-          <span className="font-bold">Coming Soon —</span> TikTok and WhatsApp APIs are not yet connected. This is an interactive preview of the planned Social Commerce flow.
+          <span className="font-bold">Coming Soon —</span> TikTok and WhatsApp APIs are not yet connected. The webhook endpoint is live at <code className="font-mono bg-amber-100 px-1 rounded">/api/social/webhook</code>. This is an interactive preview of the planned flow.
         </p>
       </div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Social Commerce</h1>
-        <p className="text-gray-400 text-sm mt-0.5">TikTok sales routed to WhatsApp with automated Aura AI.</p>
+
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Social Commerce</h1>
+          <p className="text-gray-400 text-sm mt-0.5">TikTok sales routed to WhatsApp with automated Aura AI.</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -93,9 +111,20 @@ export default function SocialIntegration() {
                   <p className="text-xs text-gray-400">Aura AI Active</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-100 rounded-full">
-                <div className="live-dot" />
-                <span className="text-xs font-medium text-gray-500">Live Session</span>
+              <div className="flex items-center gap-2">
+                {completed && (
+                  <button
+                    onClick={handleReset}
+                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 px-2.5 py-1.5 border border-gray-200 rounded-lg transition-colors"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Reset
+                  </button>
+                )}
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-100 rounded-full">
+                  <div className={cn('w-1.5 h-1.5 rounded-full', completed ? 'bg-green-500' : 'bg-blue-400 animate-pulse')} />
+                  <span className="text-xs font-medium text-gray-500">{completed ? 'Order Complete' : 'Live Session'}</span>
+                </div>
               </div>
             </div>
 
@@ -142,7 +171,7 @@ export default function SocialIntegration() {
             <div className="p-4 bg-gray-50 border-t border-gray-100">
               <div className="flex gap-3">
                 <div className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-400 flex items-center">
-                  Aura AI is responding...
+                  {completed ? 'Order completed — reset to replay' : 'Aura AI is responding…'}
                 </div>
                 <button className="btn-primary px-4">
                   <Send className="w-4 h-4" />
@@ -155,36 +184,84 @@ export default function SocialIntegration() {
         <div className="space-y-4">
           {/* Simulation controls */}
           <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-            <p className="section-label mb-4">Simulation Controls</p>
+            <p className="section-label mb-4">Demo Flow Controls</p>
             <div className="space-y-2">
-              {steps.map((s, i) => (
+              {DEMO_STEPS.map((s, i) => (
                 <button
                   key={i}
                   onClick={handleNextStep}
-                  disabled={step !== i || loading}
+                  disabled={step !== i || loading || completed}
                   className={cn(
                     'w-full p-4 rounded-xl border text-left flex items-center justify-between transition-all text-sm font-medium',
-                    step === i
+                    step === i && !completed
                       ? 'text-white border-transparent'
-                      : step > i
+                      : step > i || completed
                       ? 'bg-gray-50 border-gray-100 text-gray-400'
                       : 'bg-white border-gray-100 text-gray-600 hover:border-gray-200'
                   )}
-                  style={step === i ? { background: 'var(--gradient-primary)' } : {}}
+                  style={(step === i && !completed) ? { background: 'var(--gradient-primary)' } : {}}
                 >
-                  <span>{s.text}</span>
-                  {step > i
+                  <span>{s.label}</span>
+                  {step > i || completed
                     ? <CheckCircle2 className="w-4 h-4 text-green-500" />
                     : <Zap className={cn('w-4 h-4', step === i ? 'text-white' : 'text-gray-300')} />}
                 </button>
               ))}
+            </div>
+            {completed && (
+              <button
+                onClick={handleReset}
+                className="w-full mt-3 flex items-center justify-center gap-2 text-xs text-gray-500 hover:text-gray-700 py-2 border border-gray-200 rounded-xl transition-colors"
+              >
+                <RotateCcw className="w-3 h-3" />
+                Replay Demo
+              </button>
+            )}
+          </div>
+
+          {/* Webhook status */}
+          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+            <p className="section-label mb-4 flex items-center gap-1.5">
+              <Webhook className="w-3 h-3" /> Webhook Endpoints
+            </p>
+            <div className="space-y-3">
+              {[
+                { name: 'TikTok Events', path: '/api/social/webhook', status: 'ready' },
+                { name: 'WhatsApp Messages', path: '/api/social/webhook', status: 'ready' },
+              ].map(({ name, path, status }) => (
+                <div key={name} className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-800">{name}</p>
+                    <p className="text-[10px] font-mono text-gray-400">{path}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className={cn(
+                      'text-[10px] font-semibold px-2 py-0.5 rounded-full',
+                      status === 'ready' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-400'
+                    )}>
+                      {status === 'ready' ? 'Endpoint Ready' : 'Pending'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              <div className="pt-2 border-t border-gray-50">
+                <p className="text-[10px] text-gray-400 leading-relaxed">
+                  Configure <code className="font-mono">TIKTOK_WEBHOOK_SECRET</code> and <code className="font-mono">WHATSAPP_APP_SECRET</code> in Vercel env vars to enable signature verification.
+                </p>
+              </div>
             </div>
           </div>
 
           {/* TikTok feed preview */}
           <div className="p-4 rounded-2xl relative overflow-hidden noise"
             style={{ background: 'var(--gradient-primary)' }}>
-            <p className="section-label text-white/70 mb-3 relative z-10">TikTok Feed</p>
+            <div className="flex items-center justify-between mb-3 relative z-10">
+              <p className="section-label text-white/70">TikTok Feed</p>
+              <button className="flex items-center gap-1 text-[10px] text-white/50 hover:text-white/80 transition-colors">
+                <ExternalLink className="w-3 h-3" />
+                Connect
+              </button>
+            </div>
             <div className="relative z-10">
               <div className="aspect-[9/16] bg-black/30 rounded-xl relative overflow-hidden">
                 <img
