@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { requireVerifiedUser, sendAuthError } from '../_lib/auth.js';
 import { normalizeEnvValue } from '../_lib/env.js';
 import { expireStalePendingOrders, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 
@@ -9,6 +10,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    const verifiedUser = await requireVerifiedUser(req);
     const { orderId, reason, action } = req.body ?? {};
 
     if (!orderId) {
@@ -21,7 +23,7 @@ export default async function handler(req: any, res: any) {
     if (action === 'resume') {
       const { data: order, error: orderError } = await supabase
         .from('orders')
-        .select('id, order_number, status, total, source_ref, channel')
+        .select('id, order_number, status, total, source_ref, channel, profile_id')
         .eq('id', String(orderId))
         .single();
 
@@ -31,6 +33,10 @@ export default async function handler(req: any, res: any) {
 
       if (order.channel !== 'store' || order.source_ref === 'wallet_topup') {
         return res.status(400).json({ error: 'Only active store checkouts can be resumed' });
+      }
+
+      if (!verifiedUser.isAdmin && order.profile_id !== verifiedUser.profileId) {
+        return res.status(403).json({ error: 'Order access denied' });
       }
 
       if (order.status !== 'pending') {
@@ -109,6 +115,20 @@ export default async function handler(req: any, res: any) {
       });
     }
 
+    const { data: currentOrder, error: currentOrderError } = await supabase
+      .from('orders')
+      .select('id, profile_id')
+      .eq('id', String(orderId))
+      .single();
+
+    if (currentOrderError || !currentOrder) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (!verifiedUser.isAdmin && currentOrder.profile_id !== verifiedUser.profileId) {
+      return res.status(403).json({ error: 'Order access denied' });
+    }
+
     const { data, error } = await supabase.rpc('cancel_pending_order', {
       p_order_id: String(orderId),
       p_note: reason ? String(reason) : 'customer_cancelled_from_orders',
@@ -120,6 +140,9 @@ export default async function handler(req: any, res: any) {
 
     return res.status(200).json({ order: Array.isArray(data) ? data[0] : data });
   } catch (error: any) {
+    if (error?.statusCode === 401) {
+      return sendAuthError(res, error);
+    }
     const message = error?.message || 'Failed to cancel order';
     console.error('Cancel order error:', message);
     return res.status(500).json({ error: message });

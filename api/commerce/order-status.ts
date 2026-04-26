@@ -1,8 +1,10 @@
+import { requireVerifiedUser, sendAuthError } from '../_lib/auth.js';
 import { expireStalePendingOrders, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method === 'GET') {
     try {
+      const verifiedUser = await requireVerifiedUser(req);
       const orderId = String(req.query?.orderId || '').trim();
       const includeEvents = req.query?.includeEvents === '1';
 
@@ -18,7 +20,13 @@ export default async function handler(req: any, res: any) {
         const limit = Number.isFinite(limitRaw) && limitRaw && limitRaw > 0 ? Math.min(limitRaw, 200) : null;
 
         let query = supabase.from('orders').select('*').order('created_at', { ascending: false });
-        if (profileId) query = query.eq('profile_id', profileId);
+        if (verifiedUser.isAdmin) {
+          if (profileId) query = query.eq('profile_id', profileId);
+        } else if (verifiedUser.profileId) {
+          query = query.eq('profile_id', verifiedUser.profileId);
+        } else {
+          return res.status(200).json({ orders: [], itemsByOrder: {} });
+        }
         if (status) query = query.eq('status', status);
         if (channel) query = query.eq('channel', channel);
         if (excludeSourceRef) query = query.or(`source_ref.is.null,source_ref.neq.${excludeSourceRef}`);
@@ -53,7 +61,7 @@ export default async function handler(req: any, res: any) {
 
       const { data, error } = await supabase
         .from('orders')
-        .select(includeEvents ? '*' : 'id, order_number, status, payment_status, total, checkout_session_id, reservation_expires_at, created_at, updated_at, source_ref, channel')
+        .select('*')
         .eq('id', orderId)
         .maybeSingle();
 
@@ -63,6 +71,10 @@ export default async function handler(req: any, res: any) {
 
       if (!data) {
         return res.status(404).json({ error: 'Order not found' });
+      }
+
+      if (!verifiedUser.isAdmin && data.profile_id !== verifiedUser.profileId) {
+        return res.status(403).json({ error: 'Order access denied' });
       }
 
       if (!includeEvents) {
@@ -76,6 +88,9 @@ export default async function handler(req: any, res: any) {
 
       return res.status(200).json({ order: data, items: items || [], events: events || [] });
     } catch (error: any) {
+      if (error?.statusCode === 401) {
+        return sendAuthError(res, error);
+      }
       const message = error?.message || 'Failed to load order status';
       console.error('Order status error:', message);
       return res.status(500).json({ error: message });
@@ -84,6 +99,10 @@ export default async function handler(req: any, res: any) {
 
   if (req.method === 'PATCH') {
     try {
+      const verifiedUser = await requireVerifiedUser(req);
+      if (!verifiedUser.isAdmin) {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
       const orderId = String(req.body?.orderId || '').trim();
       const nextStatus = String(req.body?.status || '').trim();
       const nextPaymentStatus = typeof req.body?.paymentStatus === 'string' ? req.body.paymentStatus.trim() : '';
@@ -218,6 +237,9 @@ export default async function handler(req: any, res: any) {
 
       return res.status(200).json({ order: updatedOrder, items: items || [], events: events || [] });
     } catch (error: any) {
+      if (error?.statusCode === 401) {
+        return sendAuthError(res, error);
+      }
       const message = error?.message || 'Failed to update order';
       console.error('Order update error:', message);
       return res.status(500).json({ error: message });

@@ -19,6 +19,11 @@ async function startServer() {
   const { default: healthHandler } = await import('./api/health');
   const { default: aiHandler } = await import('./api/ai/[action]');
   const { default: shippingHandler } = await import('./api/shipping/[action]');
+  const { default: storeCheckoutHandler } = await import('./api/commerce/store-checkout');
+  const { default: cancelOrderHandler } = await import('./api/commerce/cancel-order');
+  const { default: orderStatusHandler } = await import('./api/commerce/order-status');
+  const { default: yocoInitiateHandler } = await import('./api/payments/yoco/initiate');
+  const { default: yocoWebhookHandler } = await import('./api/payments/yoco/webhook');
 
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
@@ -27,6 +32,11 @@ async function startServer() {
 
   app.get('/api/health', (req, res) => void healthHandler(req, res));
   app.post('/api/ai/:action', (req, res) => void aiHandler({ ...req, query: { ...req.query, action: req.params.action } }, res));
+  app.all('/api/commerce/store-checkout', (req, res) => void storeCheckoutHandler(req, res));
+  app.all('/api/commerce/cancel-order', (req, res) => void cancelOrderHandler(req, res));
+  app.all('/api/commerce/order-status', (req, res) => void orderStatusHandler(req, res));
+  app.all('/api/payments/yoco/initiate', (req, res) => void yocoInitiateHandler(req, res));
+  app.all('/api/payments/yoco/webhook', (req, res) => void yocoWebhookHandler(req, res));
 
   app.post('/api/commerce/store-checkout', async (req, res) => {
     let createdOrderId: string | null = null;

@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { auth } from '../firebase';
 
 export type OrderStatus = 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded' | 'payment_failed';
 export type OrderChannel = 'store' | 'auction' | 'pack' | 'whatsapp' | 'tiktok' | 'manual';
@@ -108,6 +109,16 @@ function rowToOrder(row: DbRow, items: DbRow[] = []): Order {
       lineTotal: Number(i.line_total),
       packContents: i.pack_contents,
     })),
+  };
+}
+
+async function authHeaders() {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error('You need to sign in before continuing.');
+  return {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    Authorization: `Bearer ${token}`,
   };
 }
 
@@ -277,10 +288,7 @@ export async function updateOrderStatus(id: string, status: OrderStatus, extras?
 }): Promise<OrderDetail> {
   const response = await fetch('/api/commerce/order-status', {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
+    headers: await authHeaders(),
     body: JSON.stringify({
       orderId: id,
       status,

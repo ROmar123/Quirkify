@@ -372,9 +372,18 @@ export interface CollectionItem {
 export interface CartItem {
   kind: 'product' | 'pack';
   productId: string;
+  id?: string;
   title: string;
+  name?: string;
+  category?: string;
   image?: string;
+  imageUrl?: string;
   unitPrice: number;
+  retailPrice?: number;
+  priceRange?: {
+    min: number;
+    max: number;
+  };
   quantity: number;
   maxStock?: number;
 }

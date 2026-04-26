@@ -1,4 +1,5 @@
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { normalizeEnvValue } from './env.js';
 
@@ -19,7 +20,7 @@ function getServiceAccount() {
   return parsed;
 }
 
-export function getAdminDb() {
+function ensureAdminApp() {
   if (!getApps().length) {
     const serviceAccount = getServiceAccount();
     if (serviceAccount) {
@@ -28,5 +29,14 @@ export function getAdminDb() {
       initializeApp();
     }
   }
+}
+
+export function getAdminDb() {
+  ensureAdminApp();
   return getFirestore();
+}
+
+export function getAdminAuth() {
+  ensureAdminApp();
+  return getAuth();
 }

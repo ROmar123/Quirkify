@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { requireVerifiedUser, sendAuthError } from '../_lib/auth.js';
 import { normalizeEnvValue } from '../_lib/env.js';
 import { ensureProfileByIdentity, expireStalePendingOrders, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 import { getShippingQuote } from '../_lib/shipping.js';
@@ -17,18 +18,10 @@ export default async function handler(req: any, res: any) {
   let createdOrderId: string | null = null;
 
   try {
-    const {
-      firebaseUid,
-      email,
-      displayName,
-      phone,
-      address,
-      city,
-      zip,
-      items,
-    } = req.body ?? {};
+    const verifiedUser = await requireVerifiedUser(req);
+    const { phone, address, city, zip, items } = req.body ?? {};
 
-    if (!firebaseUid || !email || !Array.isArray(items) || items.length === 0) {
+    if (!verifiedUser.email || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Missing required checkout fields' });
     }
 
@@ -43,9 +36,9 @@ export default async function handler(req: any, res: any) {
 
     await expireStalePendingOrders();
     const profile = await ensureProfileByIdentity({
-      firebaseUid: String(firebaseUid),
-      email: String(email),
-      displayName: displayName ? String(displayName) : null,
+      firebaseUid: verifiedUser.uid,
+      email: verifiedUser.email,
+      displayName: verifiedUser.name,
     });
 
     const shippingQuote = await getShippingQuote({
@@ -56,8 +49,8 @@ export default async function handler(req: any, res: any) {
     const supabase = getSupabaseAdmin();
     const { data: checkoutData, error: checkoutError } = await supabase.rpc('create_store_checkout_order', {
       p_profile_id: profile.id,
-      p_customer_email: String(email),
-      p_customer_name: displayName ? String(displayName) : String(email),
+      p_customer_email: verifiedUser.email,
+      p_customer_name: profile.display_name || verifiedUser.name || verifiedUser.email,
       p_customer_phone: phone ? String(phone) : null,
       p_shipping_address: address ? String(address) : null,
       p_shipping_city: city ? String(city) : null,
@@ -136,6 +129,9 @@ export default async function handler(req: any, res: any) {
       reservationExpiresAt: checkoutRow.reservation_expires_at,
     });
   } catch (error: any) {
+    if (error?.statusCode === 401) {
+      return sendAuthError(res, error);
+    }
     const message = error?.response?.data?.message || error?.response?.data?.error || error?.message || 'Failed to start checkout';
     console.error('Store checkout error:', message);
     try {

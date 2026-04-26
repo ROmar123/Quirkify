@@ -139,6 +139,16 @@ function mapOrder(row: RawOrder, items: RawOrderItem[] = []): Order {
   };
 }
 
+async function authHeaders() {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error('You need to sign in before continuing.');
+  return {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+}
+
 export async function createCheckoutOrder(payload: {
   customerId: string;
   customerEmail: string;
@@ -156,10 +166,7 @@ export async function createCheckoutOrder(payload: {
 
   const response = await fetch('/api/commerce/store-checkout', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
+    headers: await authHeaders(),
     body: JSON.stringify({
       firebaseUid,
       email: payload.customerEmail,
@@ -192,10 +199,7 @@ export async function createCheckoutOrder(payload: {
 export async function cancelOrder(orderId: string) {
   const response = await fetch('/api/commerce/cancel-order', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
+    headers: await authHeaders(),
     body: JSON.stringify({ orderId }),
   });
   const data = await response.json();
@@ -229,10 +233,7 @@ export async function updateOrder(orderId: string, updates: Record<string, unkno
 
   const response = await fetch('/api/commerce/order-status', {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
+    headers: await authHeaders(),
     body: JSON.stringify(payload),
   });
   const data = await response.json();
@@ -257,7 +258,7 @@ export async function fetchOrdersForAdmin() {
 
 export async function getOrder(orderId: string) {
   const response = await fetch(`/api/commerce/order-status?orderId=${encodeURIComponent(orderId)}&includeEvents=1`, {
-    headers: { Accept: 'application/json' },
+    headers: await authHeaders(),
   });
   const data = await response.json();
   if (!response.ok) {

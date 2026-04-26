@@ -14,7 +14,7 @@ const AuctionList = lazy(() => import('./components/store/AuctionList'));
 const Checkout = lazy(() => import('./components/store/Checkout'));
 const PaymentResult = lazy(() => import('./components/store/PaymentResult'));
 const Orders = lazy(() => import('./components/profile/Orders'));
-const ProfileHub = lazy(() => import('./components/profile/ProfileHub'));
+const Collection = lazy(() => import('./components/profile/Collection'));
 const PublicProfile = lazy(() => import('./components/profile/PublicProfile'));
 const SellerOnboarding = lazy(() => import('./components/profile/SellerOnboarding'));
 const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard'));
@@ -77,8 +77,8 @@ function AppRoutes() {
             <Route path="/live/:sessionId" element={<LiveStreamRoom />} />
             <Route path="/checkout" element={<Guard allow={isAuthenticated} redirectTo="/auth"><Checkout /></Guard>} />
             <Route path="/orders" element={<Guard allow={isAuthenticated} redirectTo="/auth"><Orders /></Guard>} />
-            <Route path="/profile" element={<Guard allow={isAuthenticated} redirectTo="/auth"><ProfileHub /></Guard>} />
-            <Route path="/collection" element={<Guard allow={isAuthenticated} redirectTo="/auth"><ProfileHub /></Guard>} />
+            <Route path="/profile" element={<Guard allow={isAuthenticated} redirectTo="/auth"><Collection /></Guard>} />
+            <Route path="/collection" element={<Guard allow={isAuthenticated} redirectTo="/auth"><Collection /></Guard>} />
             <Route path="/profile/:uid" element={<PublicProfile />} />
             <Route path="/seller/onboarding" element={<Guard allow={isAuthenticated} redirectTo="/auth"><SellerOnboarding /></Guard>} />
             <Route path="/auth" element={<AuthPage />} />

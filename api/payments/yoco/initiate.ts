@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
+import { requireVerifiedUser, sendAuthError } from '../../_lib/auth.js';
 import { normalizeEnvValue } from '../../_lib/env.js';
 
 const supabaseUrl = normalizeEnvValue(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
@@ -22,12 +23,39 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    const verifiedUser = await requireVerifiedUser(req);
     const { amount, item_name, m_payment_id } = req.body;
 
     // Validate inputs
     if (!amount || !m_payment_id) {
       console.error('Missing required fields:', { amount, m_payment_id });
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    if (!supabase) {
+      return res.status(500).json({ error: 'Payment system not configured. Contact support.' });
+    }
+
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('id, profile_id, total, source_ref, channel, status')
+      .eq('id', String(m_payment_id))
+      .single();
+
+    if (orderError || !order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (!verifiedUser.isAdmin && order.profile_id !== verifiedUser.profileId) {
+      return res.status(403).json({ error: 'Order access denied' });
+    }
+
+    if (order.source_ref !== 'wallet_topup') {
+      return res.status(400).json({ error: 'This payment route is only available for wallet top-ups' });
+    }
+
+    if (Math.round(Number(order.total) * 100) !== Math.round(Number(amount) * 100)) {
+      return res.status(400).json({ error: 'Payment amount does not match the order total' });
     }
 
     const yocoSecretKey = normalizeEnvValue(process.env.YOCO_SECRET_KEY);
@@ -74,6 +102,9 @@ export default async function handler(req: any, res: any) {
     console.log('Yoco checkout created successfully:', response.data.id);
     res.json({ redirectUrl: response.data.redirectUrl });
   } catch (error: any) {
+    if (error?.statusCode === 401) {
+      return sendAuthError(res, error);
+    }
     const status = error.response?.status;
     const errorData = error.response?.data;
 

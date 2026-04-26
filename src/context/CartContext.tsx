@@ -4,7 +4,7 @@ import { availableUnits } from '../lib/quirkify';
 
 interface CartContextValue {
   items: CartItem[];
-  addToCart: (product: Product, quantity?: number) => void;
+  addToCart: (product: Product, quantity?: number) => { ok: boolean; message?: string };
   addPackToCart: (pack: Pack, quantity?: number) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
@@ -37,6 +37,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     items,
     addToCart(product, quantity = 1) {
       const maxStock = availableUnits(product, 'store');
+      const title = product.title || product.name || 'Product';
+      const image = product.media?.[0]?.url || product.imageUrl || product.imageUrls?.[0];
+      const unitPrice = Number(
+        product.pricing?.salePrice ??
+        product.discountPrice ??
+        product.priceRange?.min ??
+        product.retailPrice ??
+        0
+      );
       setItems((current) => {
         const existing = current.find((item) => item.productId === product.id && item.kind === 'product');
         if (existing) {
@@ -53,14 +62,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
           {
             kind: 'product',
             productId: product.id,
-            title: product.title,
-            image: product.media[0]?.url,
-            unitPrice: product.pricing.salePrice,
+            id: product.id,
+            title,
+            name: title,
+            category: product.category,
+            image,
+            imageUrl: image,
+            unitPrice,
+            retailPrice: product.retailPrice ?? unitPrice,
+            priceRange: product.priceRange,
             quantity: cappedQty,
             maxStock,
           },
         ];
       });
+      return { ok: true };
     },
     addPackToCart(pack, quantity = 1) {
       setItems((current) => {

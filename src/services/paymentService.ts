@@ -1,3 +1,5 @@
+import { auth } from '../firebase';
+
 interface StoreCheckoutPayload {
   firebaseUid: string;
   email: string;
@@ -10,12 +12,20 @@ interface StoreCheckoutPayload {
   shippingCost?: number;
 }
 
+async function authHeaders() {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error('You need to sign in before continuing.');
+  return {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+}
+
 export const startStoreCheckout = async (payload: StoreCheckoutPayload) => {
   const response = await fetch('/api/commerce/store-checkout', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: await authHeaders(),
     body: JSON.stringify(payload),
   });
 
@@ -35,9 +45,7 @@ export const startStoreCheckout = async (payload: StoreCheckoutPayload) => {
 export const cancelStoreCheckout = async (orderId: string, reason?: string) => {
   const response = await fetch('/api/commerce/cancel-order', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: await authHeaders(),
     body: JSON.stringify({ orderId, reason }),
   });
 
@@ -53,10 +61,7 @@ export const cancelStoreCheckout = async (orderId: string, reason?: string) => {
 export const resumeStoreCheckout = async (orderId: string) => {
   const response = await fetch('/api/commerce/cancel-order', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
+    headers: await authHeaders(),
     body: JSON.stringify({ orderId, action: 'resume' }),
   });
 
@@ -75,9 +80,7 @@ export const resumeStoreCheckout = async (orderId: string) => {
 
 export const getStoreCheckoutStatus = async (orderId: string) => {
   const response = await fetch(`/api/commerce/order-status?orderId=${encodeURIComponent(orderId)}`, {
-    headers: {
-      Accept: 'application/json',
-    },
+    headers: await authHeaders(),
   });
 
   const data = await response.json();
@@ -105,9 +108,7 @@ export const initiateYocoCheckout = async (amount: number, itemName: string, mPa
   try {
     const response = await fetch('/api/payments/yoco/initiate', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await authHeaders(),
       body: JSON.stringify({ amount, item_name: itemName, m_payment_id: mPaymentId }),
     });
 
