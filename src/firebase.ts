@@ -58,8 +58,8 @@ function emitAuthState(user: AuthUser | null) {
   listeners.forEach((listener) => listener(user));
 }
 
-void supabase.auth.getUser().then(({ data }) => {
-  emitAuthState(mapSupabaseUser(data?.user ?? null));
+void supabase.auth.getSession().then(({ data }) => {
+  emitAuthState(mapSupabaseUser(data.session?.user ?? null));
 });
 
 supabase.auth.onAuthStateChange((_event, session) => {

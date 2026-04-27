@@ -1,5 +1,5 @@
 import { supabase } from '../supabase';
-import type { AuthUser } from '../firebase';
+import type { AuthUser, AuthUserWithToken } from '../firebase';
 
 export type UserRole = 'customer' | 'seller' | 'admin';
 const ADMIN_EMAILS = new Set([
@@ -94,62 +94,32 @@ export function isAdminEmail(email: string) {
 }
 
 /**
- * Sync authenticated user to Supabase profile.
- * Creates profile on first sign-in, updates on subsequent sign-ins.
+ * Sync authenticated user to Supabase profile via server-side API.
+ * Uses the service-role key so RLS never blocks profile creation.
  */
 export async function syncProfile(authUser: AuthUser): Promise<Profile> {
-  const { data: existingByUid } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('firebase_uid', authUser.uid)
-    .maybeSingle();
+  const token = await (authUser as AuthUserWithToken).getIdToken?.();
+  if (!token) throw new Error('No auth token available');
 
-  let existing = existingByUid;
+  const response = await fetch('/api/auth/sync-profile', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      displayName: authUser.displayName,
+      photoURL: authUser.photoURL,
+    }),
+  });
 
-  if (!existing && authUser.email) {
-    const { data: existingByEmail } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('email', normalizeEmail(authUser.email))
-      .maybeSingle();
-
-    existing = existingByEmail;
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || `Profile sync failed (${response.status})`);
   }
 
-  if (existing) {
-    const resolvedRole = resolveRole(authUser.email, existing.role);
-    const { data, error } = await supabase
-      .from('profiles')
-      .update({
-        firebase_uid: authUser.uid,
-        email: authUser.email || existing.email,
-        display_name: authUser.displayName || existing.display_name,
-        photo_url: authUser.photoURL || existing.photo_url,
-        role: resolvedRole,
-        last_active_at: new Date().toISOString(),
-      })
-      .eq('id', existing.id)
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return rowToProfile(data);
-  }
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .insert({
-      firebase_uid: authUser.uid,
-      email: authUser.email || '',
-      display_name: authUser.displayName || authUser.email?.split('@')[0] || '',
-      photo_url: authUser.photoURL || null,
-      role: resolveRole(authUser.email),
-    })
-    .select()
-    .single();
-
-  if (error) throw new Error(error.message);
-  return rowToProfile(data);
+  const { profile: row } = await response.json();
+  return rowToProfile(row);
 }
 
 // Alias so any code still calling ensureProfile keeps working
