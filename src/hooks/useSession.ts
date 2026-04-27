@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { auth, onAuthStateChanged } from '../firebase';
-import { ensureProfile, isAdminEmail, type SessionProfile } from '../services/profileService';
+import { syncProfile, isAdminEmail, type Profile as SessionProfile } from '../services/profileService';
 import { useMode } from '../context/ModeContext';
+
+export { type SessionProfile };
 
 export function useSession() {
   const [loading, setLoading] = useState(true);
@@ -18,7 +20,7 @@ export function useSession() {
       }
 
       try {
-        const nextProfile = await ensureProfile(user);
+        const nextProfile = await syncProfile(user);
         setProfile(nextProfile);
         setIsAdmin(nextProfile.role === 'admin' || isAdminEmail(user.email || ''));
       } catch {

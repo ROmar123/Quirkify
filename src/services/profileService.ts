@@ -1,85 +1,68 @@
-import type { User } from 'firebase/auth';
-import { normalizeEnvValue } from '../lib/env';
 import { supabase } from '../supabase';
-import type { Profile as SessionProfileBase } from '../types';
+import type { AuthUser } from '../firebase';
 
-const ADMIN_EMAILS = new Set(
-  normalizeEnvValue(import.meta.env.VITE_ADMIN_EMAILS)
-    .split(',')
-    .map((email: string) => email.trim().toLowerCase())
-    .filter(Boolean)
-);
+export type UserRole = 'customer' | 'seller' | 'admin';
+const ADMIN_EMAILS = new Set([
+  'patengel85@gmail.com',
+  ...((import.meta.env.VITE_ADMIN_EMAILS || '').split(',').map((e: string) => e.trim().toLowerCase()).filter(Boolean)),
+]);
 
-export interface Profile extends SessionProfileBase {
-  firebaseUid: string;
-  photoUrl?: string;
-  isSeller?: boolean;
-  storeName?: string;
-  bio?: string;
-  location?: string;
-  phone?: string;
-  socialLinks?: Record<string, string>;
-  level?: number;
-  balance?: number;
-  badges?: string[];
-  itemsCollected?: number;
-  auctionsWon?: number;
-  totalBids?: number;
-  totalOrders?: number;
-  totalSpent?: number;
-  lastActiveAt?: string;
-}
-
-export type SessionProfile = Profile;
-
-type ProfileRow = {
+export interface Profile {
   id: string;
-  firebase_uid: string;
+  firebaseUid: string;
   email: string;
-  display_name: string;
-  photo_url: string | null;
-  role: 'customer' | 'seller' | 'admin';
-  is_seller: boolean;
-  store_name: string | null;
+  displayName: string;
+  photoUrl: string | null;
+  role: UserRole;
+  isSeller: boolean;
+  sellerApprovedAt: string | null;
+  storeName: string | null;
   bio: string | null;
   location: string | null;
   phone: string | null;
-  social_links: Record<string, string> | null;
+  socialLinks: Record<string, string>;
   xp: number;
   level: number;
-  balance: number | string;
-  badges: string[] | null;
-  items_collected: number;
-  auctions_won: number;
-  total_bids: number;
-  total_orders: number;
-  total_spent: number | string;
-  created_at: string;
-  updated_at: string;
-  last_active_at: string | null;
-};
-
-function normalizeRole(role: ProfileRow['role']): SessionProfileBase['role'] {
-  return role === 'admin' ? 'admin' : 'customer';
+  balance: number;
+  badges: string[];
+  itemsCollected: number;
+  auctionsWon: number;
+  totalBids: number;
+  totalOrders: number;
+  totalSpent: number;
+  createdAt: string;
+  updatedAt: string;
+  lastActiveAt: string | null;
+  // extra fields used elsewhere
+  streak?: number;
+  wins?: number;
+  ordersCount?: number;
+  avatarUrl?: string;
+  totalBids?: number;
 }
 
-function mapProfile(row: ProfileRow): Profile {
+// SessionProfile alias for useSession compatibility
+export type SessionProfile = Profile;
+
+type DbRow = Record<string, any>;
+
+function rowToProfile(row: DbRow): Profile {
   return {
     id: row.id,
     firebaseUid: row.firebase_uid,
     email: row.email,
-    displayName: row.display_name || row.email.split('@')[0] || 'Quirkify member',
-    role: normalizeRole(row.role),
-    photoUrl: row.photo_url || undefined,
-    avatarUrl: row.photo_url || undefined,
-    isSeller: row.is_seller,
-    storeName: row.store_name || undefined,
-    bio: row.bio || undefined,
-    location: row.location || undefined,
-    phone: row.phone || undefined,
+    displayName: row.display_name || row.email?.split('@')[0] || 'Quirkify member',
+    photoUrl: row.photo_url,
+    avatarUrl: row.photo_url,
+    role: row.role || 'customer',
+    isSeller: row.is_seller || false,
+    sellerApprovedAt: row.seller_approved_at,
+    storeName: row.store_name,
+    bio: row.bio,
+    location: row.location,
+    phone: row.phone,
     socialLinks: row.social_links || {},
     xp: row.xp || 0,
-    streak: 0,
     level: row.level || 1,
     balance: Number(row.balance || 0),
     badges: row.badges || [],
@@ -88,170 +71,171 @@ function mapProfile(row: ProfileRow): Profile {
     totalBids: row.total_bids || 0,
     totalOrders: row.total_orders || 0,
     totalSpent: Number(row.total_spent || 0),
+    streak: 0,
     wins: row.auctions_won || 0,
     ordersCount: row.total_orders || 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    lastActiveAt: row.last_active_at || undefined,
+    lastActiveAt: row.last_active_at,
   };
 }
 
-async function findProfile(firebaseUid: string, email?: string | null) {
-  const { data: existingByUid, error: uidError } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('firebase_uid', firebaseUid)
-    .maybeSingle();
+function normalizeEmail(email: string | null | undefined) {
+  return email?.trim().toLowerCase() ?? '';
+}
 
-  if (uidError) {
-    throw new Error(uidError.message);
-  }
-
-  if (existingByUid) {
-    return existingByUid as ProfileRow;
-  }
-
-  const normalizedEmail = email?.trim().toLowerCase();
-  if (!normalizedEmail) {
-    return null;
-  }
-
-  const { data: existingByEmail, error: emailError } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('email', normalizedEmail)
-    .maybeSingle();
-
-  if (emailError) {
-    throw new Error(emailError.message);
-  }
-
-  return (existingByEmail as ProfileRow | null) || null;
+function resolveRole(email: string | null | undefined, existingRole?: UserRole): UserRole {
+  if (ADMIN_EMAILS.has(normalizeEmail(email))) return 'admin';
+  if (existingRole === 'seller') return 'seller';
+  return 'customer';
 }
 
 export function isAdminEmail(email: string) {
   return ADMIN_EMAILS.has(email.trim().toLowerCase());
 }
 
-export async function ensureProfile(user: User): Promise<SessionProfile> {
-  if (!user.uid || !user.email) {
-    throw new Error('Authenticated user is missing identity details');
+/**
+ * Sync authenticated user to Supabase profile.
+ * Creates profile on first sign-in, updates on subsequent sign-ins.
+ */
+export async function syncProfile(authUser: AuthUser): Promise<Profile> {
+  const { data: existingByUid } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('firebase_uid', authUser.uid)
+    .maybeSingle();
+
+  let existing = existingByUid;
+
+  if (!existing && authUser.email) {
+    const { data: existingByEmail } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', normalizeEmail(authUser.email))
+      .maybeSingle();
+
+    existing = existingByEmail;
   }
 
-  const normalizedEmail = user.email.trim().toLowerCase();
-  const existing = await findProfile(user.uid, normalizedEmail);
-  const basePayload = {
-    firebase_uid: user.uid,
-    email: normalizedEmail,
-    display_name: user.displayName || normalizedEmail.split('@')[0] || 'Quirkify member',
-    photo_url: user.photoURL || null,
-    role: isAdminEmail(normalizedEmail) ? 'admin' : undefined,
-    last_active_at: new Date().toISOString(),
-  };
-
-  if (!existing) {
+  if (existing) {
+    const resolvedRole = resolveRole(authUser.email, existing.role);
     const { data, error } = await supabase
       .from('profiles')
-      .insert(basePayload)
-      .select('*')
+      .update({
+        firebase_uid: authUser.uid,
+        email: authUser.email || existing.email,
+        display_name: authUser.displayName || existing.display_name,
+        photo_url: authUser.photoURL || existing.photo_url,
+        role: resolvedRole,
+        last_active_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id)
+      .select()
       .single();
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return mapProfile(data as ProfileRow);
+    if (error) throw new Error(error.message);
+    return rowToProfile(data);
   }
 
   const { data, error } = await supabase
     .from('profiles')
-    .update(basePayload)
-    .eq('id', existing.id)
-    .select('*')
+    .insert({
+      firebase_uid: authUser.uid,
+      email: authUser.email || '',
+      display_name: authUser.displayName || authUser.email?.split('@')[0] || '',
+      photo_url: authUser.photoURL || null,
+      role: resolveRole(authUser.email),
+    })
+    .select()
     .single();
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return mapProfile(data as ProfileRow);
+  if (error) throw new Error(error.message);
+  return rowToProfile(data);
 }
 
-export async function getProfileByUid(uid: string): Promise<Profile | null> {
+// Alias so any code still calling ensureProfile keeps working
+export const ensureProfile = syncProfile;
+
+/** Fetch profile by Firebase/Supabase UID */
+export async function getProfileByUid(firebaseUid: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
-    .or(`firebase_uid.eq.${uid},id.eq.${uid}`)
-    .limit(1)
+    .eq('firebase_uid', firebaseUid)
     .maybeSingle();
 
   if (error) {
+    if (error.code === 'PGRST116') return null;
     throw new Error(error.message);
   }
-
-  return data ? mapProfile(data as ProfileRow) : null;
+  return data ? rowToProfile(data) : null;
 }
 
+/** Fetch profile by Supabase row ID */
+export async function getProfile(id: string): Promise<Profile | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    throw new Error(error.message);
+  }
+  return data ? rowToProfile(data) : null;
+}
+
+/** Update profile fields */
 export async function updateProfile(
-  uid: string,
-  updates: {
-    displayName?: string;
-    bio?: string;
-    location?: string;
-    phone?: string;
-    storeName?: string;
-    socialLinks?: Record<string, string>;
-    photoUrl?: string | null;
-  }
+  firebaseUid: string,
+  updates: Partial<Pick<Profile, 'displayName' | 'bio' | 'location' | 'phone' | 'socialLinks' | 'storeName'>>
 ): Promise<Profile> {
-  const existing = await getProfileByUid(uid);
-  if (!existing) {
-    throw new Error('Profile not found');
-  }
+  const row: Record<string, any> = {};
+  if (updates.displayName !== undefined) row.display_name = updates.displayName;
+  if (updates.bio !== undefined) row.bio = updates.bio;
+  if (updates.location !== undefined) row.location = updates.location;
+  if (updates.phone !== undefined) row.phone = updates.phone;
+  if (updates.socialLinks !== undefined) row.social_links = updates.socialLinks;
+  if (updates.storeName !== undefined) row.store_name = updates.storeName;
 
   const { data, error } = await supabase
     .from('profiles')
-    .update({
-      display_name: updates.displayName ?? existing.displayName,
-      bio: updates.bio ?? existing.bio ?? null,
-      location: updates.location ?? existing.location ?? null,
-      phone: updates.phone ?? existing.phone ?? null,
-      store_name: updates.storeName ?? existing.storeName ?? null,
-      social_links: updates.socialLinks ?? existing.socialLinks ?? {},
-      photo_url: updates.photoUrl === undefined ? existing.photoUrl ?? null : updates.photoUrl,
-      last_active_at: new Date().toISOString(),
-    })
-    .eq('id', existing.id)
-    .select('*')
+    .update(row)
+    .eq('firebase_uid', firebaseUid)
+    .select()
     .single();
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return mapProfile(data as ProfileRow);
+  if (error) throw new Error(error.message);
+  return rowToProfile(data);
 }
 
-export async function setUserRole(uid: string, role: 'customer' | 'seller' | 'admin'): Promise<Profile> {
-  const existing = await getProfileByUid(uid);
-  if (!existing) {
-    throw new Error('Profile not found');
+/** Set user role (admin only) */
+export async function setUserRole(firebaseUid: string, role: UserRole): Promise<Profile> {
+  const updates: Record<string, any> = { role };
+  if (role === 'seller') {
+    updates.is_seller = true;
+    updates.seller_approved_at = new Date().toISOString();
   }
 
   const { data, error } = await supabase
     .from('profiles')
-    .update({
-      role,
-      is_seller: role === 'seller' || existing.isSeller,
-      last_active_at: new Date().toISOString(),
-    })
-    .eq('id', existing.id)
-    .select('*')
+    .update(updates)
+    .eq('firebase_uid', firebaseUid)
+    .select()
     .single();
 
-  if (error) {
-    throw new Error(error.message);
-  }
+  if (error) throw new Error(error.message);
+  return rowToProfile(data);
+}
 
-  return mapProfile(data as ProfileRow);
+/** Fetch all profiles (admin) */
+export async function fetchAllProfiles(): Promise<Profile[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data || []).map(rowToProfile);
 }
