@@ -325,10 +325,10 @@ export default function Inventory() {
   }
 
   return (
-    <section className="bg-[linear-gradient(180deg,#091019,#101823_28%,#f4efe6_28%,#f4efe6)] px-4 py-10">
+    <section className="hero-bg px-4 py-10">
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 text-white">
-          <p className="text-[11px] uppercase tracking-[0.35em] text-[#f6c971]">Admin View</p>
+          <p className="text-[11px] uppercase tracking-[0.35em] text-purple-400">Admin View</p>
           <h1 className="mt-4 text-4xl font-black">Inventory, intake, review, packs, and live selling</h1>
           {message ? <div className="mt-4 rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm text-white/80">{message}</div> : null}
         </div>
@@ -338,7 +338,7 @@ export default function Inventory() {
             <button
               key={item}
               onClick={() => setTab(item)}
-              className={`rounded-full px-4 py-2 text-sm font-bold ${tab === item ? 'bg-[#f6c971] text-[#10151e]' : 'border border-white/10 bg-white/5 text-white/75'}`}
+              className={`rounded-full px-4 py-2 text-sm font-bold ${tab === item ? 'bg-purple-500 text-white' : 'border border-white/10 bg-white/5 text-white/75'}`}
             >
               {item}
             </button>
@@ -350,43 +350,43 @@ export default function Inventory() {
             <div className="rounded-[2rem] border border-black/8 bg-white p-8">
               <h2 className="text-2xl font-black">Manual intake</h2>
               <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <input value={manualForm.title} onChange={(e) => setManualForm((current) => ({ ...current, title: e.target.value }))} className="input bg-[#f8f4ec] md:col-span-2" placeholder="Title" />
-                <textarea value={manualForm.description} onChange={(e) => setManualForm((current) => ({ ...current, description: e.target.value }))} className="input h-28 bg-[#f8f4ec] md:col-span-2" placeholder="Description" />
-                <input value={manualForm.category} onChange={(e) => setManualForm((current) => ({ ...current, category: e.target.value }))} className="input bg-[#f8f4ec]" placeholder="Category" />
-                <input value={manualForm.tags} onChange={(e) => setManualForm((current) => ({ ...current, tags: e.target.value }))} className="input bg-[#f8f4ec]" placeholder="Tags, comma separated" />
-                <input type="number" value={manualForm.price} onChange={(e) => setManualForm((current) => ({ ...current, price: Number(e.target.value) }))} className="input bg-[#f8f4ec]" placeholder="Price" />
-                <input type="number" value={manualForm.quantity} onChange={(e) => setManualForm((current) => ({ ...current, quantity: Number(e.target.value) }))} className="input bg-[#f8f4ec]" placeholder="Quantity" />
-                <select value={manualForm.condition} onChange={(e) => setManualForm((current) => ({ ...current, condition: e.target.value as ProductCondition }))} className="input bg-[#f8f4ec]">
+                <input value={manualForm.title} onChange={(e) => setManualForm((current) => ({ ...current, title: e.target.value }))} className="input bg-gray-50 md:col-span-2" placeholder="Title" />
+                <textarea value={manualForm.description} onChange={(e) => setManualForm((current) => ({ ...current, description: e.target.value }))} className="input h-28 bg-gray-50 md:col-span-2" placeholder="Description" />
+                <input value={manualForm.category} onChange={(e) => setManualForm((current) => ({ ...current, category: e.target.value }))} className="input bg-gray-50" placeholder="Category" />
+                <input value={manualForm.tags} onChange={(e) => setManualForm((current) => ({ ...current, tags: e.target.value }))} className="input bg-gray-50" placeholder="Tags, comma separated" />
+                <input type="number" value={manualForm.price} onChange={(e) => setManualForm((current) => ({ ...current, price: Number(e.target.value) }))} className="input bg-gray-50" placeholder="Price" />
+                <input type="number" value={manualForm.quantity} onChange={(e) => setManualForm((current) => ({ ...current, quantity: Number(e.target.value) }))} className="input bg-gray-50" placeholder="Quantity" />
+                <select value={manualForm.condition} onChange={(e) => setManualForm((current) => ({ ...current, condition: e.target.value as ProductCondition }))} className="input bg-gray-50">
                   <option value="New">New</option>
                   <option value="Like New">Like new</option>
                   <option value="Pre-owned">Pre-owned</option>
                   <option value="Refurbished">Refurbished</option>
                 </select>
-                <select value={manualForm.channel} onChange={(e) => setManualForm((current) => ({ ...current, channel: e.target.value as SalesChannel }))} className="input bg-[#f8f4ec]">
+                <select value={manualForm.channel} onChange={(e) => setManualForm((current) => ({ ...current, channel: e.target.value as SalesChannel }))} className="input bg-gray-50">
                   <option value="store">Store</option>
                   <option value="auction">Auction</option>
                   <option value="pack">Pack component</option>
                 </select>
                 {manualForm.channel === 'auction' && (
                   <>
-                    <input type="datetime-local" value={manualForm.auctionStartsAt} onChange={(e) => setManualForm((current) => ({ ...current, auctionStartsAt: e.target.value }))} className="input bg-[#f8f4ec]" />
-                    <input type="datetime-local" value={manualForm.auctionEndsAt} onChange={(e) => setManualForm((current) => ({ ...current, auctionEndsAt: e.target.value }))} className="input bg-[#f8f4ec]" />
+                    <input type="datetime-local" value={manualForm.auctionStartsAt} onChange={(e) => setManualForm((current) => ({ ...current, auctionStartsAt: e.target.value }))} className="input bg-gray-50" />
+                    <input type="datetime-local" value={manualForm.auctionEndsAt} onChange={(e) => setManualForm((current) => ({ ...current, auctionEndsAt: e.target.value }))} className="input bg-gray-50" />
                   </>
                 )}
-                <input type="file" multiple accept="image/*" onChange={(e) => setManualFiles(Array.from(e.target.files || []))} className="input bg-[#f8f4ec] md:col-span-2" />
+                <input type="file" multiple accept="image/*" onChange={(e) => setManualFiles(Array.from(e.target.files || []))} className="input bg-gray-50 md:col-span-2" />
               </div>
-              <button onClick={() => void handleManualSubmit()} className="mt-6 rounded-full bg-[#10151e] px-5 py-3 text-sm font-bold text-white">Create manual listing</button>
+              <button onClick={() => void handleManualSubmit()} className="mt-6 rounded-full bg-purple-900 px-5 py-3 text-sm font-bold text-white">Create manual listing</button>
             </div>
             <div className="rounded-[2rem] border border-black/8 bg-white p-8">
               <h2 className="text-2xl font-black">Inventory snapshot</h2>
               <div className="mt-6 space-y-3">
                 {products.slice(0, 8).map((product) => (
-                  <div key={product.id} className="rounded-2xl bg-[#f8f4ec] p-4 text-sm">
+                  <div key={product.id} className="rounded-2xl bg-gray-50 p-4 text-sm">
                     <div className="flex items-center justify-between">
                       <span className="font-bold">{product.title || product.name}</span>
                       <span>{currency(product.pricing?.salePrice || product.discountPrice || 0)}</span>
                     </div>
-                    <div className="mt-2 text-[#10151e]/60">
+                    <div className="mt-2 text-gray-500">
                       On hand {product.inventory?.onHand || product.stock || 0} · Store {product.inventory?.allocated.store || 0} · Auction {product.inventory?.allocated.auction || 0} · Packs {product.inventory?.allocated.packs || 0}
                     </div>
                   </div>
@@ -400,29 +400,29 @@ export default function Inventory() {
           <div className="grid gap-6 lg:grid-cols-[1fr_0.95fr]">
             <div className="rounded-[2rem] border border-black/8 bg-white p-8">
               <h2 className="text-2xl font-black">AI intake</h2>
-              <p className="mt-3 text-sm leading-6 text-[#10151e]/65">
+              <p className="mt-3 text-sm leading-6 text-gray-500">
                 Upload rough imagery and notes. Gemini drafts the title, description, category, pricing guidance, tags, rarity cues, and suggested channel, then routes the item into review.
               </p>
               <div className="mt-6 grid gap-4">
-                <textarea value={aiForm.notes} onChange={(e) => setAiForm((current) => ({ ...current, notes: e.target.value }))} className="input h-32 bg-[#f8f4ec]" placeholder="Rough notes, provenance, defects, special context" />
-                <input value={aiForm.categoryHint} onChange={(e) => setAiForm((current) => ({ ...current, categoryHint: e.target.value }))} className="input bg-[#f8f4ec]" placeholder="Category hint (optional)" />
-                <select value={aiForm.channelHint} onChange={(e) => setAiForm((current) => ({ ...current, channelHint: e.target.value as SalesChannel }))} className="input bg-[#f8f4ec]">
+                <textarea value={aiForm.notes} onChange={(e) => setAiForm((current) => ({ ...current, notes: e.target.value }))} className="input h-32 bg-gray-50" placeholder="Rough notes, provenance, defects, special context" />
+                <input value={aiForm.categoryHint} onChange={(e) => setAiForm((current) => ({ ...current, categoryHint: e.target.value }))} className="input bg-gray-50" placeholder="Category hint (optional)" />
+                <select value={aiForm.channelHint} onChange={(e) => setAiForm((current) => ({ ...current, channelHint: e.target.value as SalesChannel }))} className="input bg-gray-50">
                   <option value="store">Store hint</option>
                   <option value="auction">Auction hint</option>
                   <option value="pack">Pack hint</option>
                 </select>
-                <input type="file" multiple accept="image/*" onChange={(e) => setAiFiles(Array.from(e.target.files || []))} className="input bg-[#f8f4ec]" />
+                <input type="file" multiple accept="image/*" onChange={(e) => setAiFiles(Array.from(e.target.files || []))} className="input bg-gray-50" />
               </div>
-              <button onClick={() => void handleAiSubmit()} className="mt-6 rounded-full bg-[#10151e] px-5 py-3 text-sm font-bold text-white">Submit to review queue</button>
+              <button onClick={() => void handleAiSubmit()} className="mt-6 rounded-full bg-purple-900 px-5 py-3 text-sm font-bold text-white">Submit to review queue</button>
             </div>
             <div className="rounded-[2rem] border border-black/8 bg-white p-8">
               <h2 className="text-2xl font-black">Pending review queue</h2>
               <div className="mt-6 space-y-3">
                 {reviewQueue.filter((item) => item.status === 'pending').slice(0, 8).map((entry) => (
-                  <button key={entry.id} onClick={() => setSelectedReview(entry)} className="block w-full rounded-2xl bg-[#f8f4ec] p-4 text-left">
-                    <p className="text-xs uppercase tracking-[0.25em] text-[#725d34]">{entry.generatedDraft.suggestedChannel}</p>
+                  <button key={entry.id} onClick={() => setSelectedReview(entry)} className="block w-full rounded-2xl bg-gray-50 p-4 text-left">
+                    <p className="text-xs uppercase tracking-[0.25em] text-purple-600">{entry.generatedDraft.suggestedChannel}</p>
                     <p className="mt-2 text-lg font-black">{entry.generatedDraft.title}</p>
-                    <p className="mt-2 text-sm text-[#10151e]/60">Confidence {Math.round(entry.confidenceScore * 100)}%</p>
+                    <p className="mt-2 text-sm text-gray-500">Confidence {Math.round(entry.confidenceScore * 100)}%</p>
                   </button>
                 ))}
               </div>
@@ -436,7 +436,7 @@ export default function Inventory() {
               <h2 className="text-2xl font-black">Review queue</h2>
               <div className="mt-6 space-y-3">
                 {reviewQueue.map((entry) => (
-                  <button key={entry.id} onClick={() => setSelectedReview(entry)} className={`block w-full rounded-2xl p-4 text-left ${selectedReview?.id === entry.id ? 'bg-[#10151e] text-white' : 'bg-[#f8f4ec]'}`}>
+                  <button key={entry.id} onClick={() => setSelectedReview(entry)} className={`block w-full rounded-2xl p-4 text-left ${selectedReview?.id === entry.id ? 'btn-primary' : 'bg-gray-50'}`}>
                     <p className="text-xs uppercase tracking-[0.25em]">{entry.status}</p>
                     <p className="mt-2 text-lg font-black">{entry.generatedDraft.title}</p>
                     <p className="mt-2 text-sm opacity-70">{entry.generatedDraft.category}</p>
@@ -446,35 +446,35 @@ export default function Inventory() {
             </div>
             <div className="rounded-[2rem] border border-black/8 bg-white p-8">
               {!selectedReview || !reviewDraft ? (
-                <p className="text-sm text-[#10151e]/60">Select a queued AI submission to inspect, edit, approve, or reject.</p>
+                <p className="text-sm text-gray-500">Select a queued AI submission to inspect, edit, approve, or reject.</p>
               ) : (
                 <>
                   <h2 className="text-2xl font-black">Review decision</h2>
                   <div className="mt-6 grid gap-4 md:grid-cols-2">
-                    <input value={reviewDraft.title} onChange={(e) => setReviewDraft((current: any) => ({ ...current, title: e.target.value }))} className="input bg-[#f8f4ec] md:col-span-2" />
-                    <textarea value={reviewDraft.description} onChange={(e) => setReviewDraft((current: any) => ({ ...current, description: e.target.value }))} className="input h-28 bg-[#f8f4ec] md:col-span-2" />
-                    <input value={reviewDraft.category} onChange={(e) => setReviewDraft((current: any) => ({ ...current, category: e.target.value }))} className="input bg-[#f8f4ec]" />
-                    <input value={reviewDraft.tags} onChange={(e) => setReviewDraft((current: any) => ({ ...current, tags: e.target.value }))} className="input bg-[#f8f4ec]" />
-                    <select value={reviewDraft.condition} onChange={(e) => setReviewDraft((current: any) => ({ ...current, condition: e.target.value }))} className="input bg-[#f8f4ec]">
+                    <input value={reviewDraft.title} onChange={(e) => setReviewDraft((current: any) => ({ ...current, title: e.target.value }))} className="input bg-gray-50 md:col-span-2" />
+                    <textarea value={reviewDraft.description} onChange={(e) => setReviewDraft((current: any) => ({ ...current, description: e.target.value }))} className="input h-28 bg-gray-50 md:col-span-2" />
+                    <input value={reviewDraft.category} onChange={(e) => setReviewDraft((current: any) => ({ ...current, category: e.target.value }))} className="input bg-gray-50" />
+                    <input value={reviewDraft.tags} onChange={(e) => setReviewDraft((current: any) => ({ ...current, tags: e.target.value }))} className="input bg-gray-50" />
+                    <select value={reviewDraft.condition} onChange={(e) => setReviewDraft((current: any) => ({ ...current, condition: e.target.value }))} className="input bg-gray-50">
                       <option value="New">New</option>
                       <option value="Like New">Like new</option>
                       <option value="Pre-owned">Pre-owned</option>
                       <option value="Refurbished">Refurbished</option>
                     </select>
-                    <select value={reviewDraft.suggestedChannel} onChange={(e) => setReviewDraft((current: any) => ({ ...current, suggestedChannel: e.target.value as SalesChannel }))} className="input bg-[#f8f4ec]">
+                    <select value={reviewDraft.suggestedChannel} onChange={(e) => setReviewDraft((current: any) => ({ ...current, suggestedChannel: e.target.value as SalesChannel }))} className="input bg-gray-50">
                       <option value="store">Store</option>
                       <option value="auction">Auction</option>
                       <option value="pack">Pack component</option>
                     </select>
-                    <input type="number" value={reviewDraft.pricing.salePrice} onChange={(e) => setReviewDraft((current: any) => ({ ...current, pricing: { ...current.pricing, salePrice: Number(e.target.value), listPrice: Number(e.target.value) } }))} className="input bg-[#f8f4ec]" />
-                    <input type="number" value={reviewDraft.inventory.onHand} onChange={(e) => setReviewDraft((current: any) => ({ ...current, inventory: { ...current.inventory, onHand: Number(e.target.value) } }))} className="input bg-[#f8f4ec]" />
+                    <input type="number" value={reviewDraft.pricing.salePrice} onChange={(e) => setReviewDraft((current: any) => ({ ...current, pricing: { ...current.pricing, salePrice: Number(e.target.value), listPrice: Number(e.target.value) } }))} className="input bg-gray-50" />
+                    <input type="number" value={reviewDraft.inventory.onHand} onChange={(e) => setReviewDraft((current: any) => ({ ...current, inventory: { ...current.inventory, onHand: Number(e.target.value) } }))} className="input bg-gray-50" />
                   </div>
-                  <div className="mt-6 rounded-2xl bg-[#f8f4ec] p-4 text-sm text-[#10151e]/65">
+                  <div className="mt-6 rounded-2xl bg-gray-50 p-4 text-sm text-gray-500">
                     <p><strong>AI notes:</strong> {selectedReview.aiNotes.join(' · ') || 'No notes returned.'}</p>
                     <p className="mt-2"><strong>Confidence markers:</strong> {selectedReview.confidenceMarkers.join(' · ') || 'Confidence markers not stored separately in Postgres review mode.'}</p>
                   </div>
                   <div className="mt-6 flex flex-wrap gap-3">
-                    <button onClick={() => void approveReview()} className="rounded-full bg-[#10151e] px-5 py-3 text-sm font-bold text-white">Approve and publish</button>
+                    <button onClick={() => void approveReview()} className="rounded-full bg-purple-900 px-5 py-3 text-sm font-bold text-white">Approve and publish</button>
                     <button onClick={() => void rejectReview()} className="rounded-full border border-red-200 px-5 py-3 text-sm font-bold text-red-600">Reject</button>
                   </div>
                 </>
@@ -488,13 +488,13 @@ export default function Inventory() {
             <div className="rounded-[2rem] border border-black/8 bg-white p-8">
               <h2 className="text-2xl font-black">Pack builder</h2>
               <div className="mt-6 grid gap-4">
-                <input value={packForm.title} onChange={(e) => setPackForm((current) => ({ ...current, title: e.target.value }))} className="input bg-[#f8f4ec]" placeholder="Pack title" />
-                <textarea value={packForm.description} onChange={(e) => setPackForm((current) => ({ ...current, description: e.target.value }))} className="input h-28 bg-[#f8f4ec]" placeholder="Pack description" />
-                <input type="number" value={packForm.price} onChange={(e) => setPackForm((current) => ({ ...current, price: Number(e.target.value) }))} className="input bg-[#f8f4ec]" placeholder="Pack price" />
+                <input value={packForm.title} onChange={(e) => setPackForm((current) => ({ ...current, title: e.target.value }))} className="input bg-gray-50" placeholder="Pack title" />
+                <textarea value={packForm.description} onChange={(e) => setPackForm((current) => ({ ...current, description: e.target.value }))} className="input h-28 bg-gray-50" placeholder="Pack description" />
+                <input type="number" value={packForm.price} onChange={(e) => setPackForm((current) => ({ ...current, price: Number(e.target.value) }))} className="input bg-gray-50" placeholder="Pack price" />
               </div>
               <div className="mt-6 space-y-2">
                 {packEligible.map((product) => (
-                  <label key={product.id} className="flex items-center gap-3 rounded-2xl bg-[#f8f4ec] px-4 py-3">
+                  <label key={product.id} className="flex items-center gap-3 rounded-2xl bg-gray-50 px-4 py-3">
                     <input
                       type="checkbox"
                       checked={packForm.selectedProductIds.includes(product.id)}
@@ -511,18 +511,18 @@ export default function Inventory() {
                   </label>
                 ))}
               </div>
-              <button onClick={() => void createPackFromForm()} className="mt-6 rounded-full bg-[#10151e] px-5 py-3 text-sm font-bold text-white">Create pack</button>
+              <button onClick={() => void createPackFromForm()} className="mt-6 rounded-full bg-purple-900 px-5 py-3 text-sm font-bold text-white">Create pack</button>
             </div>
             <div className="rounded-[2rem] border border-black/8 bg-white p-8">
               <h2 className="text-2xl font-black">Pack-eligible inventory</h2>
               <div className="mt-6 space-y-3">
                 {packEligible.map((product) => (
-                  <div key={product.id} className="rounded-2xl bg-[#f8f4ec] p-4 text-sm">
+                  <div key={product.id} className="rounded-2xl bg-gray-50 p-4 text-sm">
                     <div className="flex items-center justify-between">
                       <span className="font-bold">{product.title || product.name}</span>
                       <span>{currency(product.pricing?.salePrice || product.discountPrice || 0)}</span>
                     </div>
-                    <p className="mt-2 text-[#10151e]/60">Pack allocation: {product.inventory?.allocated.packs || 0}</p>
+                    <p className="mt-2 text-gray-500">Pack allocation: {product.inventory?.allocated.packs || 0}</p>
                   </div>
                 ))}
               </div>
@@ -535,12 +535,12 @@ export default function Inventory() {
             <div className="rounded-[2rem] border border-black/8 bg-white p-8">
               <h2 className="text-2xl font-black">Live session planning</h2>
               <div className="mt-6 grid gap-4">
-                <input value={liveForm.title} onChange={(e) => setLiveForm((current) => ({ ...current, title: e.target.value }))} className="input bg-[#f8f4ec]" placeholder="Session title" />
-                <textarea value={liveForm.spotlightMessage} onChange={(e) => setLiveForm((current) => ({ ...current, spotlightMessage: e.target.value }))} className="input h-28 bg-[#f8f4ec]" placeholder="Spotlight message" />
+                <input value={liveForm.title} onChange={(e) => setLiveForm((current) => ({ ...current, title: e.target.value }))} className="input bg-gray-50" placeholder="Session title" />
+                <textarea value={liveForm.spotlightMessage} onChange={(e) => setLiveForm((current) => ({ ...current, spotlightMessage: e.target.value }))} className="input h-28 bg-gray-50" placeholder="Spotlight message" />
               </div>
               <div className="mt-6 space-y-2">
                 {auctions.map((auction) => (
-                  <label key={auction.id} className="flex items-center gap-3 rounded-2xl bg-[#f8f4ec] px-4 py-3">
+                  <label key={auction.id} className="flex items-center gap-3 rounded-2xl bg-gray-50 px-4 py-3">
                     <input
                       type="checkbox"
                       checked={liveForm.selectedAuctionIds.includes(auction.id)}
@@ -557,18 +557,18 @@ export default function Inventory() {
                   </label>
                 ))}
               </div>
-              <button onClick={() => void createLiveSessionFromForm()} className="mt-6 rounded-full bg-[#10151e] px-5 py-3 text-sm font-bold text-white">Create live session</button>
+              <button onClick={() => void createLiveSessionFromForm()} className="mt-6 rounded-full bg-purple-900 px-5 py-3 text-sm font-bold text-white">Create live session</button>
             </div>
             <div className="rounded-[2rem] border border-black/8 bg-white p-8">
               <h2 className="text-2xl font-black">Upcoming and live sessions</h2>
               <div className="mt-6 space-y-3">
                 {liveSessions.map((session) => (
-                  <div key={session.id} className="rounded-2xl bg-[#f8f4ec] p-4 text-sm">
+                  <div key={session.id} className="rounded-2xl bg-gray-50 p-4 text-sm">
                     <div className="flex items-center justify-between">
                       <span className="font-bold">{session.title}</span>
                       <span>{session.status}</span>
                     </div>
-                    <p className="mt-2 text-[#10151e]/60">{session.spotlightMessage || 'No spotlight message set.'}</p>
+                    <p className="mt-2 text-gray-500">{session.spotlightMessage || 'No spotlight message set.'}</p>
                   </div>
                 ))}
               </div>

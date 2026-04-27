@@ -47,10 +47,10 @@ export default function AdminDashboard() {
   }, []);
 
   return (
-    <section className="bg-[linear-gradient(180deg,#091019,#101823_32%,#f4efe6_32%,#f4efe6)] px-4 py-10">
+    <section className="hero-bg px-4 py-10">
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 text-white">
-          <p className="text-[11px] uppercase tracking-[0.35em] text-[#f6c971]">Admin View</p>
+          <p className="text-[11px] uppercase tracking-[0.35em] text-purple-400">Admin View</p>
           <h1 className="mt-4 text-5xl font-black">Daily operating dashboard</h1>
           <p className="mt-4 max-w-2xl text-white/65">
             Inventory, review queue, orders, auctions, live sessions, and AI-assisted growth decisions are managed from here.
@@ -65,8 +65,8 @@ export default function AdminDashboard() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {statCards.map(({ label, value, icon: Icon }) => (
             <div key={label} className="rounded-[1.75rem] border border-black/8 bg-white p-6 shadow-[0_10px_40px_rgba(15,21,30,0.08)]">
-              <Icon className="h-5 w-5 text-[#725d34]" />
-              <p className="mt-4 text-[11px] uppercase tracking-[0.25em] text-[#725d34]">{label}</p>
+              <Icon className="h-5 w-5 text-purple-600" />
+              <p className="mt-4 text-[11px] uppercase tracking-[0.25em] text-purple-600">{label}</p>
               <p className="mt-2 text-4xl font-black">{value}</p>
             </div>
           ))}
@@ -79,8 +79,8 @@ export default function AdminDashboard() {
             ['Growth', '/admin/growth', 'Gemini campaign planning with human approval and stored recommendations.'],
             ['Auction feed', '/auctions', 'Customer auction feed and live-room entry points for testing the public auction experience.'],
           ].map(([title, path, copy]) => (
-            <Link key={path as string} to={path as string} className="rounded-[1.75rem] border border-black/8 bg-[#10151e] p-6 text-white">
-              <p className="text-[11px] uppercase tracking-[0.25em] text-[#9fd3c7]">{title}</p>
+            <Link key={path as string} to={path as string} className="rounded-[1.75rem] border border-black/8 bg-purple-900 p-6 text-white">
+              <p className="text-[11px] uppercase tracking-[0.25em] text-purple-300">{title}</p>
               <p className="mt-3 text-lg font-black">{copy}</p>
             </Link>
           ))}

@@ -144,14 +144,14 @@ export default function GrowthPage() {
   }
 
   return (
-    <section className="bg-[linear-gradient(180deg,#091019,#101823_30%,#efe8dc_30%,#efe8dc)] px-4 py-10">
+    <section className="hero-bg px-4 py-10">
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {[
-            { label: 'Live auctions', value: snapshot.liveAuctions.length, tone: 'bg-[#10151e] text-white', icon: Radio },
-            { label: 'Pack offers', value: snapshot.availablePacks.length, tone: 'bg-[#f2deba] text-[#10151e]', icon: Package2 },
-            { label: 'Featured products', value: snapshot.siteFeatured.length, tone: 'bg-white text-[#10151e]', icon: Sparkles },
-            { label: 'Campaign drafts', value: campaigns.length, tone: 'bg-[#d7eadf] text-[#10151e]', icon: Megaphone },
+            { label: 'Live auctions', value: snapshot.liveAuctions.length, tone: 'btn-primary', icon: Radio },
+            { label: 'Pack offers', value: snapshot.availablePacks.length, tone: 'bg-purple-50 text-purple-900 text-gray-900', icon: Package2 },
+            { label: 'Featured products', value: snapshot.siteFeatured.length, tone: 'bg-white text-gray-900', icon: Sparkles },
+            { label: 'Campaign drafts', value: campaigns.length, tone: 'bg-emerald-50 text-emerald-900 text-gray-900', icon: Megaphone },
           ].map((card) => {
             const Icon = card.icon;
             return (
@@ -169,29 +169,29 @@ export default function GrowthPage() {
         <div className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
           <div className="space-y-6">
             <div className="rounded-[2rem] border border-black/8 bg-white p-8 shadow-[0_20px_70px_rgba(15,21,30,0.08)]">
-              <p className="text-[11px] uppercase tracking-[0.35em] text-[#725d34]">Growth</p>
+              <p className="text-[11px] uppercase tracking-[0.35em] text-purple-600">Growth</p>
               <h1 className="mt-4 text-4xl font-black">Campaign operating surface</h1>
-              <p className="mt-4 text-sm leading-6 text-[#10151e]/65">
+              <p className="mt-4 text-sm leading-6 text-gray-500">
                 Generate campaigns from live catalogue pressure, keep approval human, and align the site, auctions, and pack push to one commercial story.
               </p>
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <label className="block">
-                  <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.25em] text-[#725d34]">Goal</span>
-                  <textarea value={goal} onChange={(e) => setGoal(e.target.value)} className="input h-32 bg-[#f8f4ec]" />
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.25em] text-purple-600">Goal</span>
+                  <textarea value={goal} onChange={(e) => setGoal(e.target.value)} className="input h-32 bg-gray-50" />
                 </label>
                 <label className="block">
-                  <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.25em] text-[#725d34]">Constraints</span>
-                  <textarea value={constraints} onChange={(e) => setConstraints(e.target.value)} className="input h-32 bg-[#f8f4ec]" />
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.25em] text-purple-600">Constraints</span>
+                  <textarea value={constraints} onChange={(e) => setConstraints(e.target.value)} className="input h-32 bg-gray-50" />
                 </label>
               </div>
               <div className="mt-6 flex flex-wrap gap-3">
-                <button onClick={() => void generate()} disabled={busy} className="rounded-full bg-[#10151e] px-5 py-3 text-sm font-bold text-white">
+                <button onClick={() => void generate()} disabled={busy} className="rounded-full bg-purple-900 px-5 py-3 text-sm font-bold text-white">
                   {busy ? 'Generating...' : 'Generate campaign draft'}
                 </button>
-                <div className="rounded-full border border-black/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-[#10151e]/55">
+                <div className="rounded-full border border-black/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-gray-400">
                   Channels: site, WhatsApp, TikTok, live auctions
                 </div>
-                <div className="rounded-full border border-black/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-[#10151e]/55">
+                <div className="rounded-full border border-black/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-gray-400">
                   Approval gate: operator only
                 </div>
               </div>
@@ -205,26 +205,26 @@ export default function GrowthPage() {
             <div className="rounded-[2rem] border border-black/8 bg-white p-8 shadow-[0_20px_70px_rgba(15,21,30,0.08)]">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-black">Operator snapshot</h2>
-                <ArrowUpRight className="h-5 w-5 text-[#10151e]/40" />
+                <ArrowUpRight className="h-5 w-5 text-gray-900/40" />
               </div>
               {loading ? (
-                <p className="mt-4 text-sm text-[#10151e]/60">Loading growth context...</p>
+                <p className="mt-4 text-sm text-gray-500">Loading growth context...</p>
               ) : (
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
-                  <div className="rounded-[1.6rem] bg-[#f8f4ec] p-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#725d34]">Stale stock pressure</p>
+                  <div className="rounded-[1.6rem] bg-gray-50 p-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.25em] text-purple-600">Stale stock pressure</p>
                     <div className="mt-4 space-y-3">
                       {snapshot.staleProducts.length ? snapshot.staleProducts.map((product) => (
                         <div key={product.id} className="flex items-start justify-between gap-3 text-sm">
                           <div>
-                            <p className="font-bold text-[#10151e]">{product.title || product.name}</p>
-                            <p className="text-[#10151e]/60">{product.category}</p>
+                            <p className="font-bold text-gray-900">{product.title || product.name}</p>
+                            <p className="text-gray-500">{product.category}</p>
                           </div>
-                          <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#10151e]">
+                          <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-gray-900">
                             {availableUnits(product, 'store')} ready
                           </span>
                         </div>
-                      )) : <p className="text-sm text-[#10151e]/60">No immediate stale-stock pressure.</p>}
+                      )) : <p className="text-sm text-gray-500">No immediate stale-stock pressure.</p>}
                     </div>
                   </div>
                   <div className="rounded-[1.6rem] bg-[#eff5ff] p-5">
@@ -233,35 +233,35 @@ export default function GrowthPage() {
                       {snapshot.auctionCandidates.length ? snapshot.auctionCandidates.map((product) => (
                         <div key={product.id} className="flex items-start justify-between gap-3 text-sm">
                           <div>
-                            <p className="font-bold text-[#10151e]">{product.title || product.name}</p>
-                            <p className="text-[#10151e]/60">Potential premium lot</p>
+                            <p className="font-bold text-gray-900">{product.title || product.name}</p>
+                            <p className="text-gray-500">Potential premium lot</p>
                           </div>
-                          <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#10151e]">
+                          <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-gray-900">
                             {currency(product.priceRange?.max || product.retailPrice || 0)}
                           </span>
                         </div>
-                      )) : <p className="text-sm text-[#10151e]/60">No auction-allocated catalogue currently available.</p>}
+                      )) : <p className="text-sm text-gray-500">No auction-allocated catalogue currently available.</p>}
                     </div>
                   </div>
                   <div className="rounded-[1.6rem] bg-[#f3ede3] p-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#725d34]">Pack opportunities</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.25em] text-purple-600">Pack opportunities</p>
                     <div className="mt-4 space-y-3">
                       {snapshot.packCandidates.length ? snapshot.packCandidates.map((product) => (
                         <div key={product.id} className="flex items-start justify-between gap-3 text-sm">
                           <div>
-                            <p className="font-bold text-[#10151e]">{product.title || product.name}</p>
-                            <p className="text-[#10151e]/60">Allocated for bundle merchandising</p>
+                            <p className="font-bold text-gray-900">{product.title || product.name}</p>
+                            <p className="text-gray-500">Allocated for bundle merchandising</p>
                           </div>
-                          <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#10151e]">
+                          <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-gray-900">
                             {(product.allocations?.packs || product.inventory?.allocated.packs || 0)} units
                           </span>
                         </div>
-                      )) : <p className="text-sm text-[#10151e]/60">No pack allocations currently live.</p>}
+                      )) : <p className="text-sm text-gray-500">No pack allocations currently live.</p>}
                     </div>
                   </div>
                   <div className="rounded-[1.6rem] bg-[#e8f3eb] p-5">
                     <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#35664a]">Campaign runway</p>
-                    <div className="mt-4 space-y-3 text-sm text-[#10151e]/70">
+                    <div className="mt-4 space-y-3 text-sm text-gray-900/70">
                       <p>{snapshot.liveAuctions.length} live auctions and {snapshot.scheduledAuctions.length} scheduled lots are ready for promotional support.</p>
                       <p>{snapshot.availablePacks.length} active packs can be pushed through homepage placements and WhatsApp promotions.</p>
                       <p>{snapshot.siteFeatured.length} product candidates are ready for featured slots.</p>
@@ -273,7 +273,7 @@ export default function GrowthPage() {
 
             <div className="rounded-[2rem] border border-black/8 bg-white p-8 shadow-[0_20px_70px_rgba(15,21,30,0.08)]">
               <div className="flex items-center gap-3">
-                <Target className="h-5 w-5 text-[#725d34]" />
+                <Target className="h-5 w-5 text-purple-600" />
                 <h2 className="text-2xl font-black">Launch mix recommendations</h2>
               </div>
               <div className="mt-5 grid gap-4 md:grid-cols-3">
@@ -297,9 +297,9 @@ export default function GrowthPage() {
                       : 'No active pack offer yet. Keep the next campaign product-led.',
                   },
                 ].map((item) => (
-                  <div key={item.title} className="rounded-[1.5rem] bg-[#f8f4ec] p-5">
-                    <p className="text-sm font-black text-[#10151e]">{item.title}</p>
-                    <p className="mt-3 text-sm leading-6 text-[#10151e]/62">{item.copy}</p>
+                  <div key={item.title} className="rounded-[1.5rem] bg-gray-50 p-5">
+                    <p className="text-sm font-black text-gray-900">{item.title}</p>
+                    <p className="mt-3 text-sm leading-6 text-gray-900/62">{item.copy}</p>
                   </div>
                 ))}
               </div>
@@ -310,18 +310,18 @@ export default function GrowthPage() {
             <div className="rounded-[2rem] border border-black/8 bg-white p-8 shadow-[0_20px_70px_rgba(15,21,30,0.08)]">
               <h2 className="text-2xl font-black">Draft output</h2>
               {!draft ? (
-                <p className="mt-4 text-sm text-[#10151e]/60">No draft generated yet.</p>
+                <p className="mt-4 text-sm text-gray-500">No draft generated yet.</p>
               ) : (
                 <div className="mt-4 space-y-4">
-                  <p className="text-sm leading-6 text-[#10151e]/70">{draft.summary}</p>
+                  <p className="text-sm leading-6 text-gray-900/70">{draft.summary}</p>
                   <div className="grid gap-3">
                     {recommendationList(draft.recommendation).map((item) => (
-                      <div key={item.label} className="rounded-2xl bg-[#f8f4ec] p-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#725d34]">{item.label}</p>
-                        <p className="mt-2 text-sm font-bold text-[#10151e]">{item.value}</p>
+                      <div key={item.label} className="rounded-2xl bg-gray-50 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-purple-600">{item.label}</p>
+                        <p className="mt-2 text-sm font-bold text-gray-900">{item.value}</p>
                       </div>
                     ))}
-                    <div className="rounded-2xl bg-[#10151e] p-4 text-white">
+                    <div className="rounded-2xl bg-purple-900 p-4 text-white">
                       <p className="text-xs font-semibold uppercase tracking-[0.25em] text-white/60">Operational recommendations</p>
                       <ul className="mt-3 space-y-2 text-sm text-white/80">
                         {draft.recommendation.operationalRecommendations?.map((item, index) => (
@@ -331,8 +331,8 @@ export default function GrowthPage() {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-3">
-                    <button onClick={() => void save('approved')} className="rounded-full bg-[#10151e] px-4 py-2 text-sm font-bold text-white">Approve</button>
-                    <button onClick={() => void save('draft')} className="rounded-full border border-black/10 px-4 py-2 text-sm font-bold text-[#10151e]">Save draft</button>
+                    <button onClick={() => void save('approved')} className="rounded-full bg-purple-900 px-4 py-2 text-sm font-bold text-white">Approve</button>
+                    <button onClick={() => void save('draft')} className="rounded-full border border-black/10 px-4 py-2 text-sm font-bold text-gray-900">Save draft</button>
                     <button onClick={() => void save('rejected')} className="rounded-full border border-red-200 px-4 py-2 text-sm font-bold text-red-600">Reject</button>
                   </div>
                 </div>
@@ -346,13 +346,13 @@ export default function GrowthPage() {
                   <div key={campaign.id} className="rounded-2xl bg-[#eef5f1] p-4">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-xs uppercase tracking-[0.25em] text-[#35664a]">{campaign.status}</p>
-                      <p className="text-xs text-[#10151e]/55">{new Date(campaign.createdAt).toLocaleDateString('en-ZA')}</p>
+                      <p className="text-xs text-gray-400">{new Date(campaign.createdAt).toLocaleDateString('en-ZA')}</p>
                     </div>
                     <p className="mt-2 text-lg font-black">{campaign.recommendation.heroHeadline}</p>
-                    <p className="mt-2 text-sm text-[#10151e]/60">{campaign.aiSummary}</p>
+                    <p className="mt-2 text-sm text-gray-500">{campaign.aiSummary}</p>
                   </div>
                 )) : (
-                  <div className="rounded-2xl border border-dashed border-black/10 p-5 text-sm text-[#10151e]/55">
+                  <div className="rounded-2xl border border-dashed border-black/10 p-5 text-sm text-gray-400">
                     No approved campaigns yet.
                   </div>
                 )}
@@ -363,16 +363,16 @@ export default function GrowthPage() {
               <h2 className="text-2xl font-black">Saved campaigns</h2>
               <div className="mt-4 space-y-3">
                 {campaigns.length ? campaigns.map((campaign) => (
-                  <div key={campaign.id} className="rounded-2xl bg-[#f8f4ec] p-4">
+                  <div key={campaign.id} className="rounded-2xl bg-gray-50 p-4">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-xs uppercase tracking-[0.25em] text-[#725d34]">{campaign.status}</p>
-                      <p className="text-xs text-[#10151e]/55">{new Date(campaign.createdAt).toLocaleDateString('en-ZA')}</p>
+                      <p className="text-xs uppercase tracking-[0.25em] text-purple-600">{campaign.status}</p>
+                      <p className="text-xs text-gray-400">{new Date(campaign.createdAt).toLocaleDateString('en-ZA')}</p>
                     </div>
                     <p className="mt-2 text-lg font-black">{campaign.recommendation.heroHeadline}</p>
-                    <p className="mt-2 text-sm text-[#10151e]/60">{campaign.aiSummary}</p>
+                    <p className="mt-2 text-sm text-gray-500">{campaign.aiSummary}</p>
                   </div>
                 )) : (
-                  <div className="rounded-2xl border border-dashed border-black/10 p-5 text-sm text-[#10151e]/55">
+                  <div className="rounded-2xl border border-dashed border-black/10 p-5 text-sm text-gray-400">
                     No saved campaigns yet.
                   </div>
                 )}
