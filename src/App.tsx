@@ -47,10 +47,10 @@ function AppRoutes() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[var(--color-shell)] text-white flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-xs uppercase tracking-[0.4em] text-white/60">Quirkify</p>
-          <h1 className="mt-3 text-3xl font-black">Loading commerce OS</h1>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#F472B6,#A855F7)' }}>
+        <div className="text-center text-white">
+          <p className="text-xs uppercase tracking-[0.4em] text-white/70">Quirkify</p>
+          <div className="mt-4 w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
         </div>
       </div>
     );

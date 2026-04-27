@@ -22,9 +22,10 @@ export function useSession() {
         return;
       }
 
-      // Keep loading=true while profile syncs so the app never flashes
-      // a logged-out state mid-load.
-      if (!cancelled) setLoading(true);
+      // Auth state is known — unblock the app immediately.
+      // Profile sync happens in the background; components handle null profile.
+      if (!cancelled) setLoading(false);
+
       try {
         const nextProfile = await syncProfile(user);
         if (!cancelled) {
@@ -33,11 +34,8 @@ export function useSession() {
         }
       } catch {
         if (!cancelled) {
-          setProfile(null);
           setIsAdmin(isAdminEmail(user.email || ''));
         }
-      } finally {
-        if (!cancelled) setLoading(false);
       }
     });
   }, [setIsAdmin]);
