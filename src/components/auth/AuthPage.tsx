@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowRight, Mail, Lock, Sparkles } from 'lucide-react';
+import { ArrowRight, Mail, Lock, Sparkles, Shield, Zap, Trophy } from 'lucide-react';
+import { motion } from 'motion/react';
 import { auth, onAuthStateChanged, signIn, signInWithPassword, signUpWithPassword } from '../../firebase';
 
 export default function AuthPage() {
@@ -35,80 +36,231 @@ export default function AuthPage() {
   }
 
   return (
-    <section className="min-h-[calc(100vh-80px)] bg-[radial-gradient(circle_at_top,#19324a,transparent_35%),linear-gradient(180deg,#090d14,#101823)] px-4 py-10 text-white">
-      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-[2rem] border border-white/10 bg-white/5 p-8 shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
-          <p className="text-[11px] uppercase tracking-[0.35em] text-[#f6c971]">Quirkify Access</p>
-          <h1 className="mt-4 text-4xl font-black leading-tight md:text-5xl">
-            Sign in to buy, bid, manage stock, and approve AI workflows.
-          </h1>
-          <p className="mt-5 max-w-xl text-white/65">
-            Customer and admin surfaces share one system. Authentication unlocks checkout, order history, review queue approvals, and live auction operations.
-          </p>
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {[
-              'One account unlocks store checkout, profile, wallet, and bids',
-              'Gemini-assisted intake with human review before publishing',
-              'Commerce and customer records reconcile into the same operating backend',
-            ].map((item) => (
-              <div key={item} className="rounded-3xl border border-white/10 bg-black/15 p-4 text-sm text-white/70">
-                {item}
-              </div>
-            ))}
-          </div>
-        </div>
+    <div
+      style={{
+        minHeight: 'calc(100vh - 80px)',
+        background: 'var(--bg)',
+        padding: '40px 16px 80px',
+        display: 'flex',
+        alignItems: 'center',
+      }}
+    >
+      <div className="mx-auto grid max-w-6xl gap-8 w-full lg:grid-cols-[1.1fr_0.9fr] items-center">
 
-        <div className="rounded-[2rem] border border-white/10 bg-[#f6f1e8] p-6 text-[#10151e] shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
-          <div className="inline-flex rounded-full bg-[#10151e]/8 p-1">
+        {/* Left: brand pitch */}
+        <motion.div
+          initial={{ opacity: 0, x: -16 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div
+            style={{
+              borderRadius: 28,
+              background: 'linear-gradient(135deg, #1E1B4B 0%, #4C1D95 55%, #831843 100%)',
+              padding: '40px 36px',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Decorative blobs */}
+            <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'rgba(244,114,182,0.18)', filter: 'blur(50px)', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', bottom: -30, left: -30, width: 150, height: 150, borderRadius: '50%', background: 'rgba(99,102,241,0.18)', filter: 'blur(40px)', pointerEvents: 'none' }} />
+
+            <div style={{ position: 'relative' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.1)', borderRadius: 9999, padding: '4px 12px', marginBottom: 20 }}>
+                <Sparkles size={12} color="#F472B6" />
+                <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.8)' }}>
+                  Quirkify Access
+                </span>
+              </div>
+
+              <h1
+                style={{
+                  fontFamily: '"Nunito", sans-serif',
+                  fontSize: 'clamp(28px, 4vw, 44px)',
+                  fontWeight: 900,
+                  lineHeight: 1.1,
+                  color: '#fff',
+                  letterSpacing: '-0.02em',
+                  marginBottom: 16,
+                }}
+              >
+                Your quirky<br />
+                <span style={{ background: 'linear-gradient(90deg,#F472B6,#C084FC)', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                  universe awaits.
+                </span>
+              </h1>
+
+              <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.65)', lineHeight: 1.7, marginBottom: 32, maxWidth: 400 }}>
+                One account unlocks store checkout, live auctions, your profile &amp; wallet, and admin tools.
+              </p>
+
+              <div style={{ display: 'grid', gap: 12 }}>
+                {[
+                  { icon: Shield, text: 'AI-verified listings — every product reviewed before it goes live', color: '#34D399' },
+                  { icon: Zap, text: 'Earn XP on purchases and auction wins', color: '#FBBF24' },
+                  { icon: Trophy, text: 'Bid, win, and build your quirky collection', color: '#F472B6' },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <div
+                      key={item.text}
+                      style={{
+                        display: 'flex', alignItems: 'flex-start', gap: 12,
+                        background: 'rgba(255,255,255,0.07)',
+                        borderRadius: 14, padding: '12px 16px',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                      }}
+                    >
+                      <Icon size={16} color={item.color} style={{ flexShrink: 0, marginTop: 1 }} />
+                      <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5 }}>{item.text}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Right: auth form */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.08 }}
+          style={{
+            background: '#fff',
+            borderRadius: 28,
+            border: '1px solid #F3F4F6',
+            padding: '32px 28px',
+            boxShadow: '0 8px 40px rgba(168,85,247,0.1)',
+          }}
+        >
+          {/* Mode toggle */}
+          <div style={{ display: 'inline-flex', background: '#F3F4F6', borderRadius: 14, padding: 4, marginBottom: 28 }}>
             {(['signin', 'signup'] as const).map((item) => (
               <button
                 key={item}
                 onClick={() => setMode(item)}
-                className={`rounded-full px-4 py-2 text-sm font-bold ${mode === item ? 'bg-[#10151e] text-white' : 'text-[#10151e]/60'}`}
+                style={{
+                  borderRadius: 10, padding: '8px 18px',
+                  fontSize: 13, fontWeight: 700, border: 'none',
+                  background: mode === item ? 'var(--gradient-primary)' : 'transparent',
+                  color: mode === item ? '#fff' : '#6B7280',
+                  cursor: 'pointer',
+                  boxShadow: mode === item ? '0 2px 8px rgba(168,85,247,0.3)' : 'none',
+                  transition: 'all 0.2s',
+                }}
               >
                 {item === 'signin' ? 'Sign in' : 'Create account'}
               </button>
             ))}
           </div>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {mode === 'signup' && (
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.25em] text-[#10151e]/55">Name</span>
-                <input value={name} onChange={(e) => setName(e.target.value)} className="input bg-white" placeholder="Hamza’s biggest collector fan" />
+              <label style={{ display: 'block' }}>
+                <span style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9CA3AF', marginBottom: 6 }}>
+                  Display name
+                </span>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="input"
+                  style={{ background: '#F9FAFB', width: '100%' }}
+                  placeholder="Your name"
+                />
               </label>
             )}
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.25em] text-[#10151e]/55">Email</span>
-              <div className="relative">
-                <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#10151e]/35" />
-                <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" className="input bg-white pl-11" placeholder="you@example.com" />
+
+            <label style={{ display: 'block' }}>
+              <span style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9CA3AF', marginBottom: 6 }}>
+                Email
+              </span>
+              <div style={{ position: 'relative' }}>
+                <Mail size={14} color="#9CA3AF" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  type="email"
+                  className="input"
+                  style={{ background: '#F9FAFB', paddingLeft: 40, width: '100%' }}
+                  placeholder="you@example.com"
+                />
               </div>
             </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.25em] text-[#10151e]/55">Password</span>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#10151e]/35" />
-                <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" className="input bg-white pl-11" placeholder="••••••••" />
+
+            <label style={{ display: 'block' }}>
+              <span style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9CA3AF', marginBottom: 6 }}>
+                Password
+              </span>
+              <div style={{ position: 'relative' }}>
+                <Lock size={14} color="#9CA3AF" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                <input
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  type="password"
+                  className="input"
+                  style={{ background: '#F9FAFB', paddingLeft: 40, width: '100%' }}
+                  placeholder="••••••••"
+                />
               </div>
             </label>
-            {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
-            <button disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#10151e] px-4 py-3 text-sm font-bold text-white">
-              <ArrowRight className="h-4 w-4" />
+
+            {error && (
+              <div style={{ borderRadius: 12, background: '#FFF1F2', border: '1px solid #FECDD3', padding: '10px 14px', fontSize: 13, color: '#BE123C' }}>
+                {error}
+              </div>
+            )}
+
+            <button
+              disabled={busy}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                background: 'var(--gradient-primary)', color: '#fff',
+                border: 'none', borderRadius: 14,
+                padding: '14px 20px', fontSize: 14, fontWeight: 700,
+                cursor: busy ? 'not-allowed' : 'pointer',
+                opacity: busy ? 0.7 : 1,
+                boxShadow: '0 4px 16px rgba(168,85,247,0.35)',
+                transition: 'opacity 0.2s',
+              }}
+            >
+              <ArrowRight size={16} />
               {mode === 'signin' ? 'Continue with email' : 'Create Quirkify account'}
             </button>
           </form>
 
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '18px 0' }}>
+            <div style={{ flex: 1, height: 1, background: '#F3F4F6' }} />
+            <span style={{ fontSize: 12, color: '#9CA3AF', fontWeight: 600 }}>or</span>
+            <div style={{ flex: 1, height: 1, background: '#F3F4F6' }} />
+          </div>
+
           <button
             onClick={() => void signIn(next)}
             disabled={busy}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-full border border-[#10151e]/10 bg-white px-4 py-3 text-sm font-bold text-[#10151e]"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              width: '100%',
+              background: '#F9FAFB', color: '#374151',
+              border: '1.5px solid #E5E7EB', borderRadius: 14,
+              padding: '12px 20px', fontSize: 14, fontWeight: 700,
+              cursor: busy ? 'not-allowed' : 'pointer',
+              transition: 'border-color 0.15s',
+            }}
           >
-            <Sparkles className="h-4 w-4" />
+            <Sparkles size={15} color="#A855F7" />
             Continue with Google
           </button>
-        </div>
+
+          <p style={{ marginTop: 20, fontSize: 12, color: '#9CA3AF', textAlign: 'center', lineHeight: 1.6 }}>
+            By continuing you agree to our{' '}
+            <a href="/terms" style={{ color: '#7C3AED', textDecoration: 'none', fontWeight: 600 }}>Terms</a>
+            {' '}&amp;{' '}
+            <a href="/privacy" style={{ color: '#7C3AED', textDecoration: 'none', fontWeight: 600 }}>Privacy Policy</a>.
+          </p>
+        </motion.div>
       </div>
-    </section>
+    </div>
   );
 }
