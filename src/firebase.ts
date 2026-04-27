@@ -89,15 +89,17 @@ export function onAuthStateChanged(_authInstance: typeof auth, callback: AuthLis
   };
 }
 
-export async function signIn(nextPath?: string) {
-  const next =
+export async function signIn(_nextPath?: string) {
+  // Use a clean /auth URL — no query params — to match Supabase allowed redirect URLs exactly.
+  // After OAuth the onAuthStateChanged listener in AuthPage handles navigation.
+  const redirectTo =
     typeof window !== 'undefined'
-      ? `${window.location.origin}/auth?next=${encodeURIComponent(nextPath ?? window.location.pathname + window.location.search)}`
+      ? `${window.location.origin}/auth`
       : undefined;
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: next ? { redirectTo: next } : undefined,
+    options: redirectTo ? { redirectTo } : undefined,
   });
 
   if (error) throw error;

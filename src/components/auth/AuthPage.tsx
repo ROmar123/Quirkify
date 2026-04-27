@@ -35,6 +35,17 @@ export default function AuthPage() {
     }
   }
 
+  async function handleGoogle() {
+    setBusy(true);
+    setError(null);
+    try {
+      await signIn(next);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Google sign-in failed. Make sure Google OAuth is enabled in Supabase.');
+      setBusy(false);
+    }
+  }
+
   return (
     <div
       style={{
@@ -237,7 +248,7 @@ export default function AuthPage() {
           </div>
 
           <button
-            onClick={() => void signIn(next)}
+            onClick={() => void handleGoogle()}
             disabled={busy}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
