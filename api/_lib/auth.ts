@@ -1,4 +1,3 @@
-import { getAdminAuth } from './firebaseAdmin.js';
 import { getSupabaseAdmin } from './supabaseAdmin.js';
 
 const ADMIN_EMAILS = new Set(
@@ -22,30 +21,33 @@ export async function requireVerifiedUser(req: any): Promise<VerifiedRequestUser
     throw Object.assign(new Error('Authorization required'), { statusCode: 401 });
   }
 
-  const decoded = await getAdminAuth().verifyIdToken(token);
-  const email = typeof decoded.email === 'string' ? decoded.email.toLowerCase() : null;
+  // Verify Supabase JWT using the service-role admin client
   const supabase = getSupabaseAdmin();
-  let { data: profile, error } = await supabase
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+
+  if (error || !user) {
+    throw Object.assign(new Error('Invalid or expired token'), { statusCode: 401 });
+  }
+
+  const email = user.email?.toLowerCase() ?? null;
+
+  let { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('id, role, email, firebase_uid')
-    .eq('firebase_uid', decoded.uid)
+    .eq('firebase_uid', user.id)
     .maybeSingle();
 
-  if (error) {
-    throw Object.assign(new Error(error.message), { statusCode: 500 });
+  if (profileError) {
+    throw Object.assign(new Error(profileError.message), { statusCode: 500 });
   }
 
   if (!profile && email) {
-    const fallback = await supabase
+    const { data: fallback } = await supabase
       .from('profiles')
       .select('id, role, email, firebase_uid')
       .eq('email', email)
       .maybeSingle();
-
-    if (fallback.error) {
-      throw Object.assign(new Error(fallback.error.message), { statusCode: 500 });
-    }
-    profile = fallback.data;
+    profile = fallback;
   }
 
   const isAdmin = Boolean(
@@ -54,11 +56,15 @@ export async function requireVerifiedUser(req: any): Promise<VerifiedRequestUser
   );
 
   return {
-    uid: decoded.uid,
+    uid: user.id,
     email,
-    name: typeof decoded.name === 'string' ? decoded.name : null,
+    name:
+      user.user_metadata?.full_name ??
+      user.user_metadata?.display_name ??
+      user.user_metadata?.name ??
+      null,
     isAdmin,
-    profileId: profile?.id || null,
+    profileId: profile?.id ?? null,
   };
 }
 

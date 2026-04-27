@@ -3,29 +3,9 @@ import { sendOrderStatusEmail } from "../../_lib/orderNotifications";
 import { normalizeEnvValue } from "../../_lib/env.js";
 import { getSupabaseAdmin } from "../../_lib/supabaseAdmin.js";
 
-// In-memory idempotency cache with 24hr TTL
-// For production, replace with Redis or Firestore-based tracking
-const processedEvents = new Map<string, number>();
-const EVENT_TTL_MS = 24 * 60 * 60 * 1000;
-
-function cleanExpiredEvents(): void {
-  const now = Date.now();
-  for (const [eventId, timestamp] of processedEvents) {
-    if (now - timestamp > EVENT_TTL_MS) {
-      processedEvents.delete(eventId);
-    }
-  }
-}
-
-function markProcessed(eventId: string): void {
-  cleanExpiredEvents();
-  processedEvents.set(eventId, Date.now());
-}
-
-function isAlreadyProcessed(eventId: string): boolean {
-  cleanExpiredEvents();
-  return processedEvents.has(eventId);
-}
+// DB-level idempotency: check order status before processing.
+// The RPC mark_order_payment_succeeded is a no-op if already paid,
+// so duplicate webhook delivery is safe at the DB layer.
 
 function verifyYocoSignature(rawBody: Buffer, signature: string, secret: string): boolean {
   if (!secret) {
@@ -88,6 +68,12 @@ async function handlePaymentCompleted(event: YocoEvent): Promise<void> {
 
     if (orderReadError) {
       throw new Error(orderReadError.message);
+    }
+
+    // Idempotency: if already paid/delivered, skip without error
+    if (currentOrder && currentOrder.status !== "pending") {
+      console.log(`[${event.id}] Order ${orderId} already in status '${currentOrder.status}', skipping`);
+      return;
     }
 
     const shouldCreditWallet =
@@ -203,11 +189,6 @@ async function handlePaymentFailed(event: YocoEvent): Promise<void> {
 async function processEvent(event: YocoEvent): Promise<void> {
   const eventId = event.id;
 
-  if (isAlreadyProcessed(eventId)) {
-    console.log(`[${eventId}] Already processed, skipping`);
-    return;
-  }
-
   console.log(`[${eventId}] Processing event type=${event.type}`);
 
   try {
@@ -223,8 +204,6 @@ async function processEvent(event: YocoEvent): Promise<void> {
       default:
         console.log(`[${eventId}] Unknown event type: ${event.type}`);
     }
-
-    markProcessed(eventId);
   } catch (error) {
     console.error(`[${eventId}] Error processing event:`, error);
     throw error;

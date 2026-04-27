@@ -38,7 +38,6 @@ export interface Profile {
   wins?: number;
   ordersCount?: number;
   avatarUrl?: string;
-  totalBids?: number;
 }
 
 // SessionProfile alias for useSession compatibility

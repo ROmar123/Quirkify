@@ -27,6 +27,9 @@ export interface AuthUser {
 // Keep this alias for components that import `type AuthUser`
 export type { AuthUser as User };
 
+// Extended type with token method — returned by auth.currentUser
+export type AuthUserWithToken = AuthUser & { getIdToken: () => Promise<string | null> };
+
 type AuthListener = (user: AuthUser | null) => void;
 
 let currentUser: AuthUser | null = null;
@@ -64,8 +67,15 @@ supabase.auth.onAuthStateChange((_event, session) => {
 });
 
 export const auth = {
-  get currentUser() {
-    return currentUser;
+  get currentUser(): AuthUserWithToken | null {
+    if (!currentUser) return null;
+    return {
+      ...currentUser,
+      getIdToken: async () => {
+        const { data } = await supabase.auth.getSession();
+        return data.session?.access_token ?? null;
+      },
+    };
   },
 };
 
