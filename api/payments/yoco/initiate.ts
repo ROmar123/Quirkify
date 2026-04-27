@@ -67,7 +67,7 @@ export default async function handler(req: any, res: any) {
 
     // Validate API key format
     if (!yocoSecretKey.startsWith('sk_test_') && !yocoSecretKey.startsWith('sk_live_')) {
-      console.error('Invalid YOCO_SECRET_KEY format:', yocoSecretKey.substring(0, 10));
+      console.error('Invalid YOCO_SECRET_KEY format');
       return res.status(500).json({ error: 'Invalid payment key configuration' });
     }
 
@@ -79,7 +79,6 @@ export default async function handler(req: any, res: any) {
       amountCents,
       currency: 'ZAR',
       orderId: m_payment_id,
-      keyPrefix: yocoSecretKey.substring(0, 10)
     });
 
     const response = await axios.post('https://payments.yoco.com/api/checkouts', {

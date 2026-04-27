@@ -26,7 +26,6 @@ const VAT_RATE = 0.15;
 
 export default function Checkout() {
   const { items, total, removeFromCart, updateQuantity } = useCart();
-  const hasDemoItems = false;
   const [user, setUser] = useState<AuthUser | null>(auth.currentUser);
   const [step, setStep] = useState<CheckoutStep>('cart');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -148,8 +147,9 @@ export default function Checkout() {
 
   const shippingFee = shippingQuote?.price ?? 120;
   const subtotal = total;
-  const vat = Math.round(subtotal * VAT_RATE);
-  const orderTotal = subtotal + shippingFee + vat;
+  // SA retail prices are VAT-inclusive — extract the included VAT for display only
+  const vatIncluded = Math.round(subtotal * VAT_RATE / (1 + VAT_RATE));
+  const orderTotal = subtotal + shippingFee;
 
   const handleNext = async () => {
     if (step === 'cart') {
@@ -269,24 +269,6 @@ export default function Checkout() {
             {step === 'cart' && (
               <motion.div key="cart" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} className="space-y-3">
                 <h2 className="text-xl font-bold text-gray-900 mb-5">Your Cart</h2>
-
-                {hasDemoItems && (
-                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex gap-3 items-start">
-                    <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-semibold text-amber-800 mb-1">Demo items can't be purchased</p>
-                      <p className="text-xs text-amber-700">
-                        Your cart contains demo products. Browse the real store to add purchasable items.
-                      </p>
-                      <button
-                        onClick={() => navigate('/')}
-                        className="mt-2 text-xs font-semibold text-amber-800 underline hover:no-underline"
-                      >
-                        Browse the Store →
-                      </button>
-                    </div>
-                  </div>
-                )}
 
                 {stockErrors.length > 0 && (
                   <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex gap-3 items-start">
@@ -507,7 +489,7 @@ export default function Checkout() {
                 </span>
               </div>
               <div className="flex justify-between text-xs text-gray-500">
-                <span>VAT (15%)</span><span>R{vat}</span>
+                <span>VAT incl. (15%)</span><span>R{vatIncluded}</span>
               </div>
               <div className="flex justify-between font-bold text-gray-900 pt-2 border-t border-gray-100">
                 <span>Total</span>
@@ -518,7 +500,7 @@ export default function Checkout() {
             <div className="mt-5 space-y-2.5 hidden lg:block">
               <button
                 onClick={handleNext}
-                disabled={isProcessing || (step === 'cart' && (stockErrors.length > 0 || hasDemoItems))}
+                disabled={isProcessing || (step === 'cart' && stockErrors.length > 0)}
                 className="btn-primary w-full py-3 text-sm justify-center"
               >
                 {isProcessing ? (
@@ -558,7 +540,7 @@ export default function Checkout() {
           )}
           <button
             onClick={handleNext}
-            disabled={isProcessing || (step === 'cart' && (stockErrors.length > 0 || hasDemoItems))}
+            disabled={isProcessing || (step === 'cart' && stockErrors.length > 0)}
             className="btn-primary px-5 py-2.5 text-sm flex-shrink-0 disabled:opacity-50"
           >
             {isProcessing ? (

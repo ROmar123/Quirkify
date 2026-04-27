@@ -7,7 +7,7 @@ if (typeof (globalThis as any).WebSocket === 'undefined') {
   (globalThis as any).WebSocket = class {};
 }
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://mvoigokzsaybwiogjpvr.supabase.co';
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const ADMIN_EMAILS = new Set(
   (process.env.VITE_ADMIN_EMAILS || 'patengel85@gmail.com')
@@ -64,10 +64,11 @@ async function verifyAdmin(token: string): Promise<boolean> {
 
 async function tryCreateCampaignsTable(): Promise<boolean> {
   const pat = process.env.SUPABASE_ACCESS_TOKEN;
-  if (!pat) return false;
+  const projectRef = process.env.SUPABASE_PROJECT_REF;
+  if (!pat || !projectRef) return false;
   try {
     const r = await fetch(
-      `https://api.supabase.com/v1/projects/mvoigokzsaybwiogjpvr/database/query`,
+      `https://api.supabase.com/v1/projects/${projectRef}/database/query`,
       {
         method: 'POST',
         headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' },
