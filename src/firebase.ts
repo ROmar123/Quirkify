@@ -53,15 +53,24 @@ function mapSupabaseUser(user: SupabaseUser | null): AuthUser | null {
 }
 
 function emitAuthState(user: AuthUser | null) {
+  // Only notify listeners when the user actually changes — prevents double-emit
+  // from getSession() + onAuthStateChange both firing on init.
+  const prevUid = currentUser?.uid ?? null;
+  const nextUid = user?.uid ?? null;
   currentUser = user;
-  authReady = true;
-  listeners.forEach((listener) => listener(user));
+  if (!authReady || prevUid !== nextUid) {
+    authReady = true;
+    listeners.forEach((listener) => listener(user));
+  }
 }
 
+// getSession reads localStorage — fires before onAuthStateChange (which is async).
+// This means authReady is true immediately for returning users, eliminating the spinner.
 void supabase.auth.getSession().then(({ data }) => {
   emitAuthState(mapSupabaseUser(data.session?.user ?? null));
 });
 
+// Handles sign-in, sign-out, token refresh, and OAuth callback.
 supabase.auth.onAuthStateChange((_event, session) => {
   emitAuthState(mapSupabaseUser(session?.user ?? null));
 });

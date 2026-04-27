@@ -11,23 +11,33 @@ export function useSession() {
   const { setIsAdmin } = useMode();
 
   useEffect(() => {
+    let cancelled = false;
     return onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        setProfile(null);
-        setIsAdmin(false);
-        setLoading(false);
+        if (!cancelled) {
+          setProfile(null);
+          setIsAdmin(false);
+          setLoading(false);
+        }
         return;
       }
 
+      // Keep loading=true while profile syncs so the app never flashes
+      // a logged-out state mid-load.
+      if (!cancelled) setLoading(true);
       try {
         const nextProfile = await syncProfile(user);
-        setProfile(nextProfile);
-        setIsAdmin(nextProfile.role === 'admin' || isAdminEmail(user.email || ''));
+        if (!cancelled) {
+          setProfile(nextProfile);
+          setIsAdmin(nextProfile.role === 'admin' || isAdminEmail(user.email || ''));
+        }
       } catch {
-        setProfile(null);
-        setIsAdmin(isAdminEmail(user.email || ''));
+        if (!cancelled) {
+          setProfile(null);
+          setIsAdmin(isAdminEmail(user.email || ''));
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     });
   }, [setIsAdmin]);
