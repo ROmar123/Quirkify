@@ -145,7 +145,7 @@ export default function LiveStreamRoom() {
   }
 
   return (
-    <section className="min-h-[calc(100vh-80px)] bg-[linear-gradient(180deg,#090d14,#101823_38%,#0d1420_100%)] px-4 py-10 text-white">
+    <section className="min-h-[calc(100vh-80px)] bg-[linear-gradient(135deg,#F472B6,#A855F7)] px-4 py-10 text-white">
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {[
@@ -159,7 +159,7 @@ export default function LiveStreamRoom() {
               <div key={card.label} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5">
                 <div className="flex items-center justify-between">
                   <p className="text-[11px] uppercase tracking-[0.35em] text-white/55">{card.label}</p>
-                  <Icon className="h-4 w-4 text-[#f6c971]" />
+                  <Icon className="h-4 w-4 text-pink-200" />
                 </div>
                 <p className="mt-6 text-2xl font-black">{card.value}</p>
               </div>
@@ -183,7 +183,7 @@ export default function LiveStreamRoom() {
             <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/5">
               <div className="grid gap-6 p-8 lg:grid-cols-[1.05fr_0.95fr]">
                 <div>
-                  <div className="flex items-center gap-2 text-[#9fd3c7]">
+                  <div className="flex items-center gap-2 text-pink-100">
                     <Radio className="h-4 w-4" />
                     <p className="text-[11px] uppercase tracking-[0.35em]">Live auction room</p>
                   </div>
@@ -203,7 +203,7 @@ export default function LiveStreamRoom() {
 
                 <div className="rounded-[1.75rem] border border-white/10 bg-black/15 p-5">
                   <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-[#f6c971]" />
+                    <ShieldCheck className="h-4 w-4 text-pink-200" />
                     <p className="text-[11px] uppercase tracking-[0.28em] text-white/60">Settlement guardrails</p>
                   </div>
                   <div className="mt-4 space-y-4 text-sm text-white/75">
@@ -216,7 +216,7 @@ export default function LiveStreamRoom() {
 
               {auction ? (
                 <div className="grid gap-6 border-t border-white/10 bg-black/10 p-8 lg:grid-cols-[0.95fr_1.05fr]">
-                  <div className="overflow-hidden rounded-[1.75rem] bg-[#1b2533]">
+                  <div className="overflow-hidden rounded-[1.75rem] bg-purple-900/50">
                     {auction.heroImage ? (
                       <img src={auction.heroImage} alt={auction.title} className="h-full w-full object-cover" />
                     ) : (
@@ -227,7 +227,7 @@ export default function LiveStreamRoom() {
                   <div>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <p className="text-[11px] uppercase tracking-[0.25em] text-[#9fd3c7]">Current lot</p>
+                        <p className="text-[11px] uppercase tracking-[0.25em] text-pink-100">Current lot</p>
                         <h2 className="mt-3 text-3xl font-black">{auction.title}</h2>
                       </div>
                       <div className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-white/70">
@@ -275,7 +275,7 @@ export default function LiveStreamRoom() {
                             />
                             <button
                               onClick={() => void handleBid()}
-                              className="rounded-full bg-[#f6c971] px-4 py-2 text-sm font-bold text-[#10151e]"
+                              className="btn-primary px-4 py-2 text-sm"
                             >
                               Place bid
                             </button>
@@ -310,7 +310,7 @@ export default function LiveStreamRoom() {
 
           <div className="space-y-6">
             <div className="rounded-[2rem] border border-white/10 bg-white/5 p-8">
-              <p className="text-[11px] uppercase tracking-[0.35em] text-[#9fd3c7]">Bid ladder</p>
+              <p className="text-[11px] uppercase tracking-[0.35em] text-pink-100">Bid ladder</p>
               <div className="mt-5 space-y-3">
                 {bids.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-white/10 p-5 text-sm text-white/55">No bids yet.</div>
@@ -327,7 +327,7 @@ export default function LiveStreamRoom() {
             </div>
 
             <div className="rounded-[2rem] border border-white/10 bg-white/5 p-8">
-              <p className="text-[11px] uppercase tracking-[0.35em] text-[#f6c971]">Queue</p>
+              <p className="text-[11px] uppercase tracking-[0.35em] text-pink-100">Queue</p>
               <div className="mt-5 space-y-3">
                 {sessionQueue.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-white/10 p-5 text-sm text-white/55">No queued lots loaded yet.</div>

@@ -82,7 +82,7 @@ function CameraCapture({ onCapture, label }: { onCapture: (blob: Blob) => void, 
   }
 
   return (
-    <div className="relative aspect-video bg-gray-900 overflow-hidden rounded-xl border border-gray-200">
+    <div className="relative aspect-video bg-purple-900 overflow-hidden rounded-xl border border-purple-200">
       <video
         ref={videoRef}
         autoPlay

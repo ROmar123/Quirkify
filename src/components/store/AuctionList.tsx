@@ -304,10 +304,10 @@ function AuctionCard({
           className={cn(
             'absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-sm',
             ended
-              ? 'bg-gray-900/60 text-gray-300'
+              ? 'bg-black/50 text-white/70'
               : isUrgent
                 ? 'bg-red-500/90 text-white animate-pulse-glow'
-                : 'bg-gray-900/70 text-white'
+                : 'bg-black/50 text-white'
           )}
         >
           <Clock className="w-3 h-3" />

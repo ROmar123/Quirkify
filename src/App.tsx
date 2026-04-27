@@ -62,9 +62,9 @@ function AppRoutes() {
       <main className="min-h-screen pb-24 md:pb-10">
         <Suspense
           fallback={
-            <div className="flex min-h-[50dvh] items-center justify-center px-4 text-center text-[#10151e]">
+            <div className="flex min-h-[50dvh] items-center justify-center px-4 text-center text-gray-800">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.35em] text-[#725d34]">Quirkify</p>
+                <p className="text-[11px] uppercase tracking-[0.35em] text-purple-400">Quirkify</p>
                 <p className="mt-3 text-lg font-bold">Loading page…</p>
               </div>
             </div>
