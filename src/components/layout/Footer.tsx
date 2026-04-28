@@ -129,17 +129,21 @@ export default function Footer() {
           <div>
             <p className="section-label mb-4">Support</p>
             <ul className="space-y-2.5">
-              {[
-                { label: 'Returns & Refunds', to: '/returns' },
-                { label: 'Shipping Info', to: '/returns' },
-                { label: 'Contact Us', to: '/terms' },
-              ].map(({ label, to }) => (
-                <li key={label}>
-                  <Link to={to} className="text-sm text-gray-500 hover:text-gray-800 transition-colors">
-                    {label}
-                  </Link>
-                </li>
-              ))}
+              <li>
+                <Link to="/returns" className="text-sm text-gray-500 hover:text-gray-800 transition-colors">
+                  Returns &amp; Refunds
+                </Link>
+              </li>
+              <li>
+                <Link to="/returns" className="text-sm text-gray-500 hover:text-gray-800 transition-colors">
+                  Shipping Info
+                </Link>
+              </li>
+              <li>
+                <a href="mailto:support@quirkify.co.za" className="text-sm text-gray-500 hover:text-gray-800 transition-colors">
+                  Contact Us
+                </a>
+              </li>
             </ul>
           </div>
 

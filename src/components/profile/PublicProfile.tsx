@@ -1,21 +1,32 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { collection, getDocs, orderBy, query, limit } from 'firebase/firestore';
-import { db } from '../../firebase';
-import { supabase } from '../../supabase';
 import { getProfileByUid, type Profile } from '../../services/profileService';
+import { fetchCollectionItems, type CollectionItemRecord } from '../../services/collectionService';
 import { Star, MapPin, Twitter, Instagram, Package, Sparkles, ArrowLeft, AlertCircle } from 'lucide-react';
 
-interface CollectionItem {
+type CollectionItem = {
   id: string;
-  productId: string;
+  productId: string | null;
   acquiredAt: string;
   purchasePrice: number;
   productName?: string;
   productImage?: string;
   productCategory?: string;
   productRarity?: string;
+};
+
+function toDisplayItem(record: CollectionItemRecord): CollectionItem {
+  return {
+    id: record.id,
+    productId: record.productId,
+    acquiredAt: record.acquiredAt,
+    purchasePrice: record.purchasePrice,
+    productName: record.product?.name,
+    productImage: record.product?.imageUrl,
+    productCategory: record.product?.category,
+    productRarity: record.product?.rarity,
+  };
 }
 
 export default function PublicProfile() {
@@ -44,46 +55,15 @@ export default function PublicProfile() {
   }, [uid]);
 
   useEffect(() => {
-    if (!uid) return;
-    const loadCollection = async () => {
-      setCollectionLoading(true);
-      try {
-        const colRef = collection(db, 'users', uid, 'collection');
-        const snap = await getDocs(query(colRef, orderBy('acquiredAt', 'desc'), limit(24)));
-        const items: CollectionItem[] = snap.docs.map(d => ({
-          id: d.id,
-          productId: d.data().productId,
-          acquiredAt: d.data().acquiredAt?.toDate?.()?.toISOString?.() ?? '',
-          purchasePrice: d.data().purchasePrice ?? 0,
-        }));
-
-        if (items.length > 0) {
-          const productIds = [...new Set(items.map(i => i.productId))];
-          const { data: products } = await supabase
-            .from('products')
-            .select('id, name, image_url, category, rarity')
-            .in('id', productIds);
-
-          const productMap = new Map((products ?? []).map((p: { id: string; name: string; image_url: string; category: string; rarity: string }) => [p.id, p]));
-          items.forEach(item => {
-            const p = productMap.get(item.productId);
-            if (p) {
-              item.productName = p.name;
-              item.productImage = p.image_url;
-              item.productCategory = p.category;
-              item.productRarity = p.rarity;
-            }
-          });
-        }
-        setCollectionItems(items);
-      } catch {
-        setCollectionItems([]);
-      } finally {
-        setCollectionLoading(false);
-      }
-    };
-    loadCollection();
-  }, [uid]);
+    if (!profile?.id) return;
+    let active = true;
+    setCollectionLoading(true);
+    fetchCollectionItems(profile.id)
+      .then(records => { if (active) setCollectionItems(records.slice(0, 24).map(toDisplayItem)); })
+      .catch(() => { if (active) setCollectionItems([]); })
+      .finally(() => { if (active) setCollectionLoading(false); });
+    return () => { active = false; };
+  }, [profile?.id]);
 
   if (loading) {
     return (
