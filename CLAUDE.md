@@ -1,14 +1,14 @@
 # Quirkify — Project Memory
 
 ## Deployment
-- **Production**: `https://quirkify-1.vercel.app` ← branch `claude/quirkify-production-ready-xMVne`
-- **Secondary**: `https://quirkify-1-rhidaas-projects.vercel.app` ← branch `main`
-- Always push to **both** branches: `git push origin claude/quirkify-production-ready-xMVne` then `git push origin claude/quirkify-production-ready-xMVne:main`
+- **Production**: `https://quirkify-recover.vercel.app` ← branch `main`
+- Always push to `main`: `git push origin HEAD:main`
+- The other two projects (quirkify-1.vercel.app, quirky-live.vercel.app) are stale — ignore them
 
 ## Session Rules (enforce every run)
 - Max **one Agent** per session total
 - Small, targeted commits — do not batch unrelated changes
-- Push to `claude/quirkify-production-ready-xMVne` (never push to `main` directly unless syncing)
+- Always push to `main` branch — that is what `quirkify-recover.vercel.app` deploys from
 - Run `npm run build` before pushing to verify no TypeScript/Vite errors
 
 ## Architecture
