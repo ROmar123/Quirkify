@@ -185,42 +185,37 @@ export function subscribeToProducts(
   }
 
   const channelName = `products-changes:${status ?? 'all'}:${++productSubscriptionSequence}`;
-  const channel = supabase
-    .channel(channelName)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'products',
-        ...(status ? { filter: `status=eq.${status}` } : {}),
-      },
-      () => {
-        void refresh();
-      }
-    )
-    .subscribe((channelStatus, error) => {
-      if (disposed) return;
-
-      if (channelStatus === 'SUBSCRIBED') {
-        stopPolling();
-        return;
-      }
-
-      if (channelStatus === 'CHANNEL_ERROR' || channelStatus === 'TIMED_OUT' || channelStatus === 'CLOSED') {
-        console.warn('[Supabase] Product realtime unavailable, falling back to polling', {
-          status,
-          channelStatus,
-          error,
-        });
-        startPolling();
-        void refresh();
-      }
-    });
+  let channel: ReturnType<typeof supabase.channel> | null = null;
+  try {
+    channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'products',
+          ...(status ? { filter: `status=eq.${status}` } : {}),
+        },
+        () => { void refresh(); }
+      )
+      .subscribe((channelStatus, error) => {
+        if (disposed) return;
+        if (channelStatus === 'SUBSCRIBED') { stopPolling(); return; }
+        if (channelStatus === 'CHANNEL_ERROR' || channelStatus === 'TIMED_OUT' || channelStatus === 'CLOSED') {
+          console.warn('[Supabase] Product realtime unavailable, falling back to polling', { status, channelStatus, error });
+          startPolling();
+          void refresh();
+        }
+      });
+  } catch {
+    // WebSocket unavailable — polling fallback
+    startPolling();
+  }
 
   return () => {
     disposed = true;
     stopPolling();
-    void supabase.removeChannel(channel);
+    if (channel) void supabase.removeChannel(channel);
   };
 }

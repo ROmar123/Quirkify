@@ -63,22 +63,23 @@ export const subscribeToNotifications = (
 
   void fetchAll();
 
-  const channel = supabase
-    .channel(`notifications:${userId}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'notifications', filter: `firebase_uid=eq.${userId}` },
-      () => { void fetchAll(); }
-    )
-    .subscribe((status) => {
-      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        // Polling fallback: already fetched on mount, next fetch on unmount/remount
-      }
-    });
+  let channel: ReturnType<typeof supabase.channel> | null = null;
+  try {
+    channel = supabase
+      .channel(`notifications:${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications', filter: `firebase_uid=eq.${userId}` },
+        () => { void fetchAll(); }
+      )
+      .subscribe();
+  } catch {
+    // WebSocket unavailable — initial fetch on mount is sufficient
+  }
 
   return () => {
     disposed = true;
-    void supabase.removeChannel(channel);
+    if (channel) void supabase.removeChannel(channel);
   };
 };
 

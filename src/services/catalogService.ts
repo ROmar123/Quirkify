@@ -336,24 +336,25 @@ function subscribeToProductRows(statuses: string[] | undefined, callback: (produ
     };
   }
 
-  const channel = supabase
-    .channel(`catalog-products:${statuses?.join(',') || 'all'}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => void refresh())
-    .subscribe((state) => {
-      if (disposed) return;
-      if (state === 'SUBSCRIBED') {
-        stopPolling();
-        return;
-      }
-      if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT' || state === 'CLOSED') {
-        startPolling();
-      }
-    });
+  let channel: ReturnType<typeof supabase.channel> | null = null;
+  try {
+    channel = supabase
+      .channel(`catalog-products:${statuses?.join(',') || 'all'}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => void refresh())
+      .subscribe((state) => {
+        if (disposed) return;
+        if (state === 'SUBSCRIBED') { stopPolling(); return; }
+        if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT' || state === 'CLOSED') { startPolling(); }
+      });
+  } catch {
+    // WebSocket unavailable — polling fallback
+    startPolling();
+  }
 
   return () => {
     disposed = true;
     stopPolling();
-    void supabase.removeChannel(channel);
+    if (channel) void supabase.removeChannel(channel);
   };
 }
 

@@ -1,5 +1,12 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+// @supabase/realtime-js calls `new WebSocket()` inside RealtimeClient constructor.
+// In Safari private mode / hardened contexts this throws SecurityError synchronously.
+// Providing a no-op stub prevents the crash; realtime will degrade gracefully.
+if (typeof window !== 'undefined' && typeof (window as any).WebSocket === 'undefined') {
+  (window as any).WebSocket = class {};
+}
+
 // Hardcoded real project credentials — publishable/anon key is intentionally public,
 // identical pattern to the hardcoded Firebase config. Env vars only override when they
 // pass a basic format check so stale Vercel placeholders like

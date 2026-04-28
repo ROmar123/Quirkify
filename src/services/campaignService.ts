@@ -101,13 +101,18 @@ export function subscribeToCampaigns(
 
   void refresh();
 
-  const channel = supabase
-    .channel('campaigns-realtime')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'campaigns' }, () => void refresh())
-    .subscribe();
+  let channel: ReturnType<typeof supabase.channel> | null = null;
+  try {
+    channel = supabase
+      .channel('campaigns-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'campaigns' }, () => void refresh())
+      .subscribe();
+  } catch {
+    // WebSocket unavailable (Safari private mode) — polling via refresh() on mount suffices
+  }
 
   return () => {
     disposed = true;
-    void supabase.removeChannel(channel);
+    if (channel) void supabase.removeChannel(channel);
   };
 }
