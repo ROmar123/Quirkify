@@ -1,18 +1,24 @@
 import { useEffect, useState } from 'react';
-import { auth, onAuthStateChanged } from '../firebase';
+import { auth, onAuthStateChanged, isAuthReady } from '../firebase';
 import { syncProfile, isAdminEmail, type Profile as SessionProfile } from '../services/profileService';
 import { useMode } from '../context/ModeContext';
 
 export { type SessionProfile };
 
 export function useSession() {
-  const [loading, setLoading] = useState(true);
+  // Skip loading screen when auth state is already known (returning users, SPA navigations).
+  const [loading, setLoading] = useState(() => !isAuthReady());
   const [profile, setProfile] = useState<SessionProfile | null>(null);
   const { setIsAdmin } = useMode();
 
   useEffect(() => {
+    // Safety timeout — never block the UI for more than 3 seconds.
+    const timeout = setTimeout(() => setLoading(false), 3000);
     let cancelled = false;
-    return onAuthStateChanged(auth, async (user) => {
+
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      clearTimeout(timeout);
+
       if (!user) {
         if (!cancelled) {
           setProfile(null);
@@ -23,7 +29,6 @@ export function useSession() {
       }
 
       // Auth state is known — unblock the app immediately.
-      // Profile sync happens in the background; components handle null profile.
       if (!cancelled) setLoading(false);
 
       try {
@@ -38,6 +43,12 @@ export function useSession() {
         }
       }
     });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+      unsub();
+    };
   }, [setIsAdmin]);
 
   return {

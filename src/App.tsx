@@ -47,7 +47,15 @@ function AppRoutes() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#F472B6,#A855F7)' }}>
+      // Delayed fade-in prevents flash for fast (<150ms) localStorage auth reads
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{
+          background: 'linear-gradient(135deg,#F472B6,#A855F7)',
+          animation: 'fadeInSlow 0ms ease 150ms both',
+        }}
+      >
+        <style>{`@keyframes fadeInSlow{from{opacity:0}to{opacity:1}}`}</style>
         <div className="text-center text-white">
           <p className="text-xs uppercase tracking-[0.4em] text-white/70">Quirkify</p>
           <div className="mt-4 w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />

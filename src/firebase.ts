@@ -36,6 +36,8 @@ let currentUser: AuthUser | null = null;
 let authReady = false;
 const listeners = new Set<AuthListener>();
 
+export function isAuthReady(): boolean { return authReady; }
+
 function mapSupabaseUser(user: SupabaseUser | null): AuthUser | null {
   if (!user) return null;
   const metadata = user.user_metadata ?? {};

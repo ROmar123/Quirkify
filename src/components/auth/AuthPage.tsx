@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowRight, Mail, Lock, Sparkles, Shield, Zap, Trophy, CheckCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { auth, onAuthStateChanged, signIn, signInWithPassword, signUpWithPassword } from '../../firebase';
-import { supabase } from '../../supabase';
 
 export default function AuthPage() {
   const [searchParams] = useSearchParams();
@@ -16,20 +15,6 @@ export default function AuthPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-
-  // Handle Supabase OAuth callback — when ?code= is in URL after Google redirect
-  useEffect(() => {
-    const code = new URLSearchParams(window.location.search).get('code');
-    if (!code) return;
-    setBusy(true);
-    supabase.auth.exchangeCodeForSession(code).then(({ error: exchangeError }) => {
-      if (exchangeError) {
-        setError('Sign-in failed: ' + exchangeError.message);
-        setBusy(false);
-      }
-      // On success onAuthStateChange fires → useEffect below navigates
-    });
-  }, []);
 
   // Navigate away once logged in
   useEffect(() => onAuthStateChanged(auth, (user) => {
