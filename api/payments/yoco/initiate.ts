@@ -3,18 +3,20 @@ import { createClient } from '@supabase/supabase-js';
 import { requireVerifiedUser, sendAuthError } from '../../_lib/auth.js';
 import { normalizeEnvValue } from '../../_lib/env.js';
 
-const supabaseUrl = normalizeEnvValue(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
+const _rawYocoUrl = normalizeEnvValue(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
+const supabaseUrl = /^https:\/\/[a-z0-9]+\.supabase\.co/.test(_rawYocoUrl)
+  ? _rawYocoUrl
+  : 'https://mvoigokzsaybwiogjpvr.supabase.co';
 const supabaseKey =
   normalizeEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY) ||
   normalizeEnvValue(process.env.SUPABASE_ANON_KEY) ||
   normalizeEnvValue(process.env.VITE_SUPABASE_ANON_KEY);
 
-const supabase =
-  supabaseUrl && supabaseKey
-    ? createClient(supabaseUrl, supabaseKey, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      })
-    : null;
+const supabase = supabaseKey
+  ? createClient(supabaseUrl, supabaseKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+  : null;
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {

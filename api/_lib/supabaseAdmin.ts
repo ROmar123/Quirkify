@@ -1,16 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
 import { normalizeEnvValue } from './env.js';
 
-const supabaseUrl = normalizeEnvValue(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
+const _rawUrl = normalizeEnvValue(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
+const supabaseUrl = /^https:\/\/[a-z0-9]+\.supabase\.co/.test(_rawUrl)
+  ? _rawUrl
+  : 'https://mvoigokzsaybwiogjpvr.supabase.co';
 const supabaseServiceRoleKey = normalizeEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  console.warn('[Supabase Admin] Missing SUPABASE_URL/VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+if (!supabaseServiceRoleKey) {
+  console.warn('[Supabase Admin] Missing SUPABASE_SERVICE_ROLE_KEY — admin API routes will fail');
 }
 
 export function getSupabaseAdmin() {
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
-    throw new Error('Supabase admin environment is not configured');
+  if (!supabaseServiceRoleKey) {
+    throw new Error('Supabase admin environment is not configured (missing service role key)');
   }
 
   return createClient(supabaseUrl, supabaseServiceRoleKey, {

@@ -7,7 +7,10 @@ if (typeof (globalThis as any).WebSocket === 'undefined') {
   (globalThis as any).WebSocket = class {};
 }
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+const _rawAdminUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+const SUPABASE_URL = /^https:\/\/[a-z0-9]+\.supabase\.co/.test(_rawAdminUrl)
+  ? _rawAdminUrl
+  : 'https://mvoigokzsaybwiogjpvr.supabase.co';
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const ADMIN_EMAILS = new Set(
   (process.env.VITE_ADMIN_EMAILS || 'patengel85@gmail.com')

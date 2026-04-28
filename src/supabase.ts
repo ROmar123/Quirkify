@@ -1,14 +1,23 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { normalizeEnvValue } from './lib/env';
 
-// Fallbacks are the real project credentials — anon key is intentionally public (publishable),
-// same pattern as the hardcoded Firebase config. Env vars override when set.
-const supabaseUrl = normalizeEnvValue(import.meta.env.VITE_SUPABASE_URL) || 'https://mvoigokzsaybwiogjpvr.supabase.co';
-const supabaseAnonKey = normalizeEnvValue(import.meta.env.VITE_SUPABASE_ANON_KEY) || 'sb_publishable_PzK-Rd37B8yJaF8c9Wz9og_uJ6Q_CLS';
+// Hardcoded real project credentials — publishable/anon key is intentionally public,
+// identical pattern to the hardcoded Firebase config. Env vars only override when they
+// pass a basic format check so stale Vercel placeholders like
+// "https://missing-supabase-project.invalid" are silently ignored.
+const _url = (import.meta.env.VITE_SUPABASE_URL || '').trim();
+const _key = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
+
+const supabaseUrl = /^https:\/\/[a-z0-9]+\.supabase\.co/.test(_url)
+  ? _url
+  : 'https://mvoigokzsaybwiogjpvr.supabase.co';
+
+const supabaseAnonKey = /^(eyJ|sb_publishable_)/.test(_key)
+  ? _key
+  : 'sb_publishable_PzK-Rd37B8yJaF8c9Wz9og_uJ6Q_CLS';
+
 export const isSupabaseConfigured = true;
 
-// Safari private mode (and some hardened browsers) throw SecurityError: The operation
-// is insecure when any code touches localStorage. Wrap it so auth never crashes.
+// Safari private mode throws SecurityError on any localStorage access.
 const safeStorage = {
   getItem: (key: string): string | null => { try { return localStorage.getItem(key); } catch { return null; } },
   setItem: (key: string, value: string): void => { try { localStorage.setItem(key, value); } catch {} },
