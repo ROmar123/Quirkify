@@ -29,8 +29,16 @@ export function ModeProvider({ children }: { children: ReactNode }) {
   // Stable references prevent useSession's [setIsAdmin] effect dependency from
   // firing on every ModeContext re-render.
   const setIsAdmin = useCallback((val: boolean) => {
-    setIsAdminState(val);
-    setModeState(val ? 'employee' : 'customer');
+    setIsAdminState(prev => {
+      // Only change mode when the admin flag actually transitions:
+      //   false → true  (initial login): start in employee mode
+      //   * → false     (logout): always reset to customer
+      // If already admin and setIsAdmin(true) is called again (e.g. after
+      // syncProfile resolves), don't override a mode the user explicitly chose.
+      if (!val) setModeState('customer');
+      else if (!prev) setModeState('employee');
+      return val;
+    });
   }, []);
 
   const setMode = useCallback((nextMode: Mode) => {
