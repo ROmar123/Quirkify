@@ -54,6 +54,34 @@ function mapSupabaseUser(user: SupabaseUser | null): AuthUser | null {
   };
 }
 
+// ─── Synchronous localStorage bootstrap ──────────────────────────────────────
+// getSession() is async (Promise), so authReady is always false on first React
+// render — causing a spinner flash. Read the Supabase session directly from
+// localStorage right now (synchronous) so authReady=true before React renders.
+// The async getSession() + onAuthStateChange will still run and correct any
+// stale data (e.g. expired tokens get refreshed); emitAuthState's UID dedup
+// prevents unnecessary re-renders when the user hasn't changed.
+;(() => {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith('sb-') || !key.endsWith('-auth-token')) continue;
+      const data = JSON.parse(localStorage.getItem(key) ?? 'null');
+      // Map the stored user (may be null / expired — getSession will correct it)
+      const user = data?.user ?? null;
+      currentUser = user ? mapSupabaseUser(user) : null;
+      authReady = true;
+      return;
+    }
+    // No Supabase key at all → definitely logged out
+    currentUser = null;
+    authReady = true;
+  } catch {
+    // localStorage unavailable (Safari private mode) — fall through to async path
+  }
+})();
+// ─────────────────────────────────────────────────────────────────────────────
+
 function emitAuthState(user: AuthUser | null) {
   // Only notify listeners when the user actually changes — prevents double-emit
   // from getSession() + onAuthStateChange both firing on init.
@@ -66,8 +94,8 @@ function emitAuthState(user: AuthUser | null) {
   }
 }
 
-// getSession reads localStorage — fires before onAuthStateChange (which is async).
-// This means authReady is true immediately for returning users, eliminating the spinner.
+// Async getSession verifies / refreshes the token and corrects any stale state
+// from the sync bootstrap above (e.g. expired sessions, revoked tokens).
 void supabase.auth.getSession().then(({ data }) => {
   emitAuthState(mapSupabaseUser(data.session?.user ?? null));
 });
