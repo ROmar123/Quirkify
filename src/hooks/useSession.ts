@@ -1,46 +1,52 @@
 import { useEffect, useState } from 'react';
-import { auth, onAuthStateChanged, isAuthReady } from '../firebase';
+import { auth, onAuthStateChanged, isAuthReady, type AuthUser } from '../firebase';
 import { syncProfile, isAdminEmail, type Profile as SessionProfile } from '../services/profileService';
 import { useMode } from '../context/ModeContext';
 
 export { type SessionProfile };
 
 export function useSession() {
-  // Skip loading screen when auth state is already known (returning users, SPA navigations).
+  // user is React state so isAuthenticated/isAdmin are always reactive.
+  // Initialise from auth.currentUser (set synchronously by the localStorage
+  // bootstrap in firebase.ts) so returning users never see a loading flash.
   const [loading, setLoading] = useState(() => !isAuthReady());
+  const [user, setUser] = useState<AuthUser | null>(() => auth.currentUser);
   const [profile, setProfile] = useState<SessionProfile | null>(null);
   const { setIsAdmin } = useMode();
 
   useEffect(() => {
-    // Safety timeout — never block the UI for more than 3 seconds.
     const timeout = setTimeout(() => setLoading(false), 3000);
     let cancelled = false;
 
-    const unsub = onAuthStateChanged(auth, async (user) => {
+    const unsub = onAuthStateChanged(auth, async (nextUser) => {
       clearTimeout(timeout);
 
-      if (!user) {
+      if (!cancelled) {
+        setUser(nextUser);
+        setLoading(false);
+      }
+
+      if (!nextUser) {
         if (!cancelled) {
           setProfile(null);
           setIsAdmin(false);
-          setLoading(false);
         }
         return;
       }
 
-      // Auth state is known — unblock the app immediately.
-      if (!cancelled) setLoading(false);
+      // Set admin flag immediately from email so the header toggle appears
+      // before the async syncProfile round-trip completes.
+      if (!cancelled) setIsAdmin(isAdminEmail(nextUser.email || ''));
 
       try {
-        const nextProfile = await syncProfile(user);
+        const nextProfile = await syncProfile(nextUser);
         if (!cancelled) {
           setProfile(nextProfile);
-          setIsAdmin(nextProfile.role === 'admin' || isAdminEmail(user.email || ''));
+          setIsAdmin(nextProfile.role === 'admin' || isAdminEmail(nextUser.email || ''));
         }
       } catch {
-        if (!cancelled) {
-          setIsAdmin(isAdminEmail(user.email || ''));
-        }
+        // syncProfile unavailable (missing service-role key etc.) — email
+        // check already applied above.
       }
     });
 
@@ -53,9 +59,9 @@ export function useSession() {
 
   return {
     loading,
-    user: auth.currentUser,
+    user,
     profile,
-    isAuthenticated: !!auth.currentUser,
-    isAdmin: profile?.role === 'admin' || isAdminEmail(auth.currentUser?.email || ''),
+    isAuthenticated: !!user,
+    isAdmin: profile?.role === 'admin' || isAdminEmail(user?.email || ''),
   };
 }

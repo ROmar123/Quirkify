@@ -3,6 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowRight, Mail, Lock, Sparkles, Shield, Zap, Trophy, CheckCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { auth, onAuthStateChanged, signIn, signInWithPassword, signUpWithPassword } from '../../firebase';
+import { isAdminEmail } from '../../services/profileService';
+
+function destination(next: string, email: string | null | undefined): string {
+  // Admin users land on /admin unless they explicitly asked to go elsewhere.
+  if ((next === '/' || next === '') && isAdminEmail(email || '')) return '/admin';
+  return next || '/';
+}
 
 export default function AuthPage() {
   const [searchParams] = useSearchParams();
@@ -16,9 +23,11 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
-  // Navigate away once logged in
+  // Redirect once auth state is known — handles both returning sessions and
+  // the post-OAuth callback where the code is exchanged automatically by
+  // detectSessionInUrl before this effect even runs.
   useEffect(() => onAuthStateChanged(auth, (user) => {
-    if (user) navigate(next, { replace: true });
+    if (user) navigate(destination(next, user.email), { replace: true });
   }), [navigate, next]);
 
   async function handleSubmit(event: FormEvent) {
@@ -29,15 +38,16 @@ export default function AuthPage() {
     try {
       if (mode === 'signin') {
         await signInWithPassword(email, password);
-        navigate(next, { replace: true });
+        // onAuthStateChanged fires synchronously before signInWithPassword resolves,
+        // so the effect above will navigate. This is just a belt-and-suspenders fallback.
+        navigate(destination(next, email), { replace: true });
       } else {
         const result = await signUpWithPassword(email, password, name);
         if (!result.session) {
-          // Email confirmation required
           setInfo('Account created! Check your email and click the confirmation link, then sign in.');
           setMode('signin');
         } else {
-          navigate(next, { replace: true });
+          navigate(destination(next, email), { replace: true });
         }
       }
     } catch (err) {
@@ -63,7 +73,7 @@ export default function AuthPage() {
     setInfo(null);
     try {
       await signIn();
-      // Page will redirect to Google — no further action needed here
+      // Browser redirects to Google — onAuthStateChanged handles navigation on return.
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.toLowerCase().includes('provider') || msg.toLowerCase().includes('oauth')) {
@@ -129,7 +139,7 @@ export default function AuthPage() {
             ))}
           </div>
 
-          {/* Google button — at the top */}
+          {/* Google button */}
           <button onClick={() => void handleGoogle()} disabled={busy}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', background: '#F9FAFB', color: '#374151', border: '1.5px solid #E5E7EB', borderRadius: 14, padding: '12px 20px', fontSize: 14, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer', marginBottom: 18, transition: 'border-color 0.15s' }}>
             <Sparkles size={15} color="#A855F7" />
