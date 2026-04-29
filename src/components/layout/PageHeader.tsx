@@ -224,8 +224,8 @@ export default function PageHeader() {
   const employeeItems = [
     { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
     { label: 'Inventory', path: '/admin/inventory', icon: Boxes },
-    { label: 'Commerce', path: '/admin/orders', icon: ClipboardList },
-    { label: 'Growth', path: '/admin/campaigns', icon: Megaphone },
+    { label: 'Commerce', path: '/admin/commerce', icon: ClipboardList },
+    { label: 'Growth', path: '/admin/growth', icon: Megaphone },
   ];
 
   const navItems = isEmployee ? employeeItems : customerItems;

@@ -33,8 +33,8 @@ export default function MobileNav() {
   const employeeItems = [
     { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
     { label: 'Inventory', path: '/admin/inventory', icon: ShoppingBag },
-    { label: 'Commerce', path: '/admin/orders', icon: ClipboardList },
-    { label: 'Growth', path: '/admin/campaigns', icon: Megaphone },
+    { label: 'Commerce', path: '/admin/commerce', icon: ClipboardList },
+    { label: 'Growth', path: '/admin/growth', icon: Megaphone },
   ];
 
   const navItems = isAdmin && mode === 'employee' ? employeeItems : customerItems;
