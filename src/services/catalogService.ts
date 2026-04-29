@@ -247,7 +247,7 @@ function productToInsertRow(product: Partial<Product>, status: ProductStatus) {
 
 function mapPendingProductToReviewEntry(product: Product): ReviewEntry {
   const channel = inferChannel(product.inventory?.allocated || defaultAllocations('store', product.stock || 1));
-  return {
+  const entry: ReviewEntry = {
     id: product.id,
     status: product.status === 'pending' ? 'pending' : product.status === 'rejected' ? 'rejected' : 'approved',
     source: product.source || 'ai',
@@ -284,6 +284,9 @@ function mapPendingProductToReviewEntry(product: Product): ReviewEntry {
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
   };
+  // Carry listingType alongside the ReviewEntry so the review panel can restore the
+  // channel selection correctly (including 'both', which SalesChannel can't represent)
+  return { ...entry, listingType: product.listingType } as ReviewEntry;
 }
 
 async function fetchProductRows(statuses?: string[]) {

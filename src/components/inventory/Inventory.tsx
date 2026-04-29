@@ -61,15 +61,20 @@ function ReviewPanel() {
     const d = selected.generatedDraft;
     const lt = (selected as any).listingType || d.suggestedChannel || 'store';
     setListingType(lt);
+    const listP = d.pricing?.listPrice || 0;
+    const saleP = d.pricing?.salePrice || 0;
+    const markdownPct = listP > 0 && saleP > 0 && saleP < listP
+      ? Math.round((1 - saleP / listP) * 100)
+      : 0;
     setDraft({
       title: d.title,
       description: d.description,
       category: d.category,
       condition: d.condition,
       tags: (d.tags || []).join(', '),
-      retailPrice: d.pricing?.listPrice || d.pricing?.salePrice || 0,
-      markdownPct: 0,
-      salePrice: d.pricing?.salePrice || 0,
+      retailPrice: listP,
+      markdownPct,
+      salePrice: saleP,
       stock: d.inventory?.onHand || 1,
     });
     const qty = d.inventory?.onHand || 1;

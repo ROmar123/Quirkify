@@ -258,22 +258,13 @@ function ProductCard({ product, idx }: { product: Product; idx: number }) {
 }
 
 function PackCard({ pack }: { pack: Pack }) {
-  const { addToCart } = useCart();
+  const { addPackToCart } = useCart();
   const [added, setAdded] = useState(false);
   const name = pack.title || pack.name || 'Mystery Pack';
   const img = pack.heroImage || pack.imageUrl;
 
   const handleAdd = () => {
-    addToCart({
-      kind: 'pack',
-      productId: pack.id,
-      id: pack.id,
-      title: name,
-      image: img,
-      imageUrl: img,
-      unitPrice: pack.price,
-      quantity: 1,
-    });
+    addPackToCart(pack);
     setAdded(true);
     setTimeout(() => setAdded(false), 1800);
   };

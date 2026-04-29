@@ -283,11 +283,20 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                     <p className="section-label mb-1">Pricing</p>
-                    <div className="flex items-baseline gap-2">
-                      <p className="text-xl font-bold text-gray-900">R{product.discountPrice}</p>
-                      <p className="text-sm text-gray-400 line-through">R{product.retailPrice}</p>
-                      <p className="text-xs text-quirky font-semibold">-{product.markdownPercentage}%</p>
-                    </div>
+                    {(() => {
+                      const selling = product.discountPrice ?? product.retailPrice ?? 0;
+                      const retail = product.retailPrice ?? 0;
+                      const hasDiscount = selling > 0 && retail > 0 && selling < retail;
+                      return (
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                          <p className="text-xl font-bold text-gray-900">R{selling.toLocaleString()}</p>
+                          {hasDiscount && <>
+                            <p className="text-sm text-gray-400 line-through">R{retail.toLocaleString()}</p>
+                            <p className="text-xs text-quirky font-semibold">-{product.markdownPercentage}%</p>
+                          </>}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                     <p className="section-label mb-1">Stock</p>
@@ -304,7 +313,7 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
 
                 <div className="pt-5 border-t border-gray-100">
                   <h3 className="text-sm font-semibold text-gray-800 mb-4">Stock Allocation</h3>
-                  <AllocationEditor totalStock={product.stock} allocations={product.allocations} onChange={() => {}} disabled showPercentages />
+                  <AllocationEditor totalStock={product.stock ?? 0} allocations={product.allocations ?? { store: 0, auction: 0, packs: 0 }} onChange={() => {}} disabled showPercentages />
                 </div>
               </>
             )}
