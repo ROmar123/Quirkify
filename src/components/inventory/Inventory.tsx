@@ -641,10 +641,12 @@ export default function Inventory() {
     <section className="hero-bg px-4 py-10 min-h-screen">
       <div className="mx-auto max-w-7xl">
         {/* Header */}
-        <div className="mb-8 text-white">
-          <p className="text-[11px] uppercase tracking-[0.35em] text-purple-400">Admin · Inventory</p>
-          <h1 className="mt-2 text-3xl font-black">Product management</h1>
-          <p className="mt-1 text-sm text-white/50">Intake → Review → Approve → Live on Store &amp; Auction</p>
+        <div className="mb-8">
+          <p className="text-[11px] uppercase tracking-[0.35em] text-purple-500 font-bold mb-2">Admin · Inventory</p>
+          <h1 className="text-3xl font-black text-gray-900 tracking-tight" style={{ fontFamily: 'Nunito, sans-serif' }}>
+            Product management
+          </h1>
+          <p className="mt-1 text-sm text-gray-400 font-medium">Intake → Review → Approve → Live on Store &amp; Auction</p>
         </div>
 
         {/* Tabs */}
@@ -656,9 +658,10 @@ export default function Inventory() {
               className={cn(
                 'flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-all',
                 tab === key
-                  ? 'bg-white text-purple-700 shadow-sm'
-                  : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                  ? 'text-white shadow-md'
+                  : 'border border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:text-gray-700 shadow-sm'
               )}
+              style={tab === key ? { background: 'var(--gradient-primary)' } : undefined}
             >
               <Icon className="w-3.5 h-3.5" />
               {label}

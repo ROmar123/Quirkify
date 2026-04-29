@@ -211,44 +211,46 @@ function ProductCard({ product, idx }: { product: Product; idx: number }) {
       </Link>
 
       {/* Info */}
-      <div className="p-3.5 flex flex-col gap-2 flex-1">
+      <div className="p-3.5 flex flex-col gap-2.5 flex-1">
         <div className="flex-1">
           <Link to={`/product/${product.id}`}>
-            <p className="text-sm font-semibold leading-tight line-clamp-2 text-gray-900 hover:text-purple-700 transition-colors">
+            <p className="text-sm font-semibold leading-snug line-clamp-2 text-gray-900 hover:text-purple-700 transition-colors">
               {product.name}
             </p>
           </Link>
           {product.condition && (
-            <p className="text-[10px] text-gray-400 font-medium mt-0.5 uppercase tracking-wide">{product.condition}</p>
+            <p className="text-[10px] text-gray-400 font-semibold mt-0.5 uppercase tracking-widest">{product.condition}</p>
           )}
         </div>
 
-        <div className="flex items-center justify-between mt-auto">
-          {hasDiscount ? (
-            <div>
-              <p className="text-[10px] text-gray-400 line-through font-medium">R{basePrice}</p>
-              <p className="price text-base text-red-500">R{displayPrice}</p>
-            </div>
-          ) : (
-            <p className="price text-base gradient-text">R{displayPrice}</p>
-          )}
+        <div className="flex items-end justify-between mt-auto pt-2 border-t border-gray-50">
+          <div>
+            {hasDiscount ? (
+              <>
+                <p className="text-[10px] text-gray-400 line-through font-medium tabular-nums">R{basePrice.toLocaleString()}</p>
+                <p className="price text-base text-red-500 leading-none tabular-nums">R{displayPrice!.toLocaleString()}</p>
+              </>
+            ) : (
+              <p className="price text-base gradient-text leading-none tabular-nums">R{displayPrice.toLocaleString()}</p>
+            )}
+          </div>
 
           {!isSoldOut ? (
             <motion.button
               onClick={() => handleAddToCart()}
-              whileTap={{ scale: 0.93 }}
-              className="flex items-center justify-center w-9 h-9 rounded-full text-white shadow-sm lg:hidden flex-shrink-0"
+              whileTap={{ scale: 0.9 }}
+              className="flex items-center justify-center w-8 h-8 rounded-full text-white shadow-md flex-shrink-0 transition-all"
               style={{ background: 'var(--gradient-primary)' }}
               aria-label="Add to cart"
             >
-              <ShoppingBag className="w-4 h-4" />
+              <ShoppingBag className="w-3.5 h-3.5" />
             </motion.button>
           ) : (
             <Link
               to={`/product/${product.id}`}
               className="text-[10px] font-semibold text-gray-400 hover:text-purple-500 transition-colors"
             >
-              Details
+              Details →
             </Link>
           )}
         </div>
@@ -502,7 +504,7 @@ export default function StoreFront() {
         {!loading && products.length > 0 && (
           <section className="mb-6">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide">New Arrivals</h2>
+              <h2 className="section-label text-gray-700">New Arrivals</h2>
               <button
                 onClick={() => {
                   setActiveFilter(null);
@@ -748,7 +750,7 @@ export default function StoreFront() {
           <section className="mt-10">
             <div className="flex items-center gap-2 mb-4">
               <Package className="w-4 h-4 text-teal-500" />
-              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Mystery Packs</h2>
+              <h2 className="section-label text-teal-600">Mystery Packs</h2>
             </div>
             <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
               {packs.map(pack => (
@@ -768,7 +770,7 @@ export default function StoreFront() {
             >
               <div className="flex items-center gap-2 mb-4">
                 <Sparkles className="w-4 h-4 text-purple-500" />
-                <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Picked for You</h2>
+                <h2 className="section-label text-purple-600">Picked for You</h2>
               </div>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 {recommendations.map((product, idx) => (
