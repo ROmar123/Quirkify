@@ -62,7 +62,7 @@ async function handlePaymentCompleted(event: YocoEvent): Promise<void> {
     const supabase = getSupabaseAdmin();
     const { data: currentOrder, error: orderReadError } = await supabase
       .from("orders")
-      .select("id, status, source_ref, profile_id, total")
+      .select("id, status, source_ref, profile_id, total, channel")
       .eq("id", orderId)
       .maybeSingle();
 
@@ -119,8 +119,8 @@ async function handlePaymentCompleted(event: YocoEvent): Promise<void> {
       }
     }
 
-    // Add purchased products to buyer's collection vault
-    if (!shouldCreditWallet && currentOrder?.profile_id) {
+    // Add purchased products to buyer's collection vault (for store orders)
+    if (!shouldCreditWallet && currentOrder?.profile_id && currentOrder?.channel !== 'pack') {
       const { data: items } = await supabase
         .from("order_items")
         .select("product_id, unit_price, quantity")
@@ -136,6 +136,50 @@ async function handlePaymentCompleted(event: YocoEvent): Promise<void> {
           }))
         );
         await supabase.from("collection_items").insert(collectionRows);
+      }
+    }
+
+    // Reveal pack contents for pack orders
+    if (!shouldCreditWallet && currentOrder?.channel === 'pack' && currentOrder?.source_ref) {
+      try {
+        const { data: packItems } = await supabase
+          .from("order_items")
+          .select("quantity")
+          .eq("order_id", orderId)
+          .maybeSingle();
+        const qty = packItems?.quantity ?? 1;
+        await supabase.rpc("reveal_pack_items", {
+          p_order_id: orderId,
+          p_pack_id: currentOrder.source_ref,
+          p_quantity: qty,
+        });
+        console.log(`[${event.id}] Pack items revealed for order ${orderId}`);
+      } catch (revealError) {
+        console.error(`[${event.id}] Pack reveal failed for order ${orderId}:`, revealError);
+      }
+    }
+
+    // Award XP to buyer (1 XP per Rand spent, max 500)
+    if (currentOrder?.profile_id && currentOrder?.total) {
+      try {
+        const xpEarned = Math.min(500, Math.floor(Number(currentOrder.total)));
+        if (xpEarned > 0) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("xp")
+            .eq("id", currentOrder.profile_id)
+            .single();
+          if (profile) {
+            const newXP = (Number(profile.xp) || 0) + xpEarned;
+            const newLevel = Math.floor(Math.sqrt(newXP / 100)) + 1;
+            await supabase
+              .from("profiles")
+              .update({ xp: newXP, level: newLevel, last_active_at: new Date().toISOString() })
+              .eq("id", currentOrder.profile_id);
+          }
+        }
+      } catch (xpError) {
+        console.error(`[${event.id}] XP award failed for order ${orderId}:`, xpError);
       }
     }
 

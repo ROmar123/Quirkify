@@ -1,16 +1,110 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
-import { Clock3, Gavel, Radio, ShieldCheck, Trophy, Wallet } from 'lucide-react';
+import {
+  addDoc, collection, doc, getDoc, limit,
+  onSnapshot, orderBy, query, serverTimestamp,
+} from 'firebase/firestore';
+import { Clock3, Gavel, MessageCircle, Radio, Send, ShieldCheck, Trophy, Wallet } from 'lucide-react';
 import { db } from '../../firebase';
 import { closeAuction, placeBid, subscribeToBids } from '../../services/auctionService';
 import { useSession } from '../../hooks/useSession';
 import { auctionStatusLabel, currency, formatCountdown } from '../../lib/quirkify';
 import type { Auction, Bid, LiveSession } from '../../types';
 
+interface ChatMessage {
+  id: string;
+  text: string;
+  displayName: string;
+  uid: string;
+  createdAt: number;
+}
+
+function ChatPanel({ sessionId, uid, displayName }: { sessionId: string; uid: string | null; displayName: string | null }) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'liveSessions', sessionId, 'chat'),
+      orderBy('createdAt', 'asc'),
+      limit(100),
+    );
+    return onSnapshot(q, (snap) => {
+      setMessages(
+        snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as Omit<ChatMessage, 'id'>),
+        })),
+      );
+    });
+  }, [sessionId]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSend = async () => {
+    const trimmed = text.trim();
+    if (!trimmed || !uid || sending) return;
+    setSending(true);
+    setText('');
+    try {
+      await addDoc(collection(db, 'liveSessions', sessionId, 'chat'), {
+        text: trimmed,
+        uid,
+        displayName: displayName || 'Bidder',
+        createdAt: serverTimestamp(),
+      });
+    } catch {
+      setText(trimmed);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="rounded-[2rem] border border-white/10 bg-white/5 flex flex-col h-80">
+      <div className="p-5 pb-3 flex items-center gap-2 border-b border-white/10">
+        <MessageCircle className="h-4 w-4 text-pink-200" />
+        <p className="text-[11px] uppercase tracking-[0.35em] text-pink-100">Live Chat</p>
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+        {messages.length === 0 ? (
+          <p className="text-sm text-white/40 text-center mt-4">No messages yet. Say hi!</p>
+        ) : messages.map((msg) => (
+          <div key={msg.id} className="text-sm">
+            <span className="font-bold text-pink-200 mr-1.5">{msg.displayName}:</span>
+            <span className="text-white/80">{msg.text}</span>
+          </div>
+        ))}
+        <div ref={bottomRef} />
+      </div>
+      <div className="p-3 border-t border-white/10 flex gap-2">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSend(); } }}
+          placeholder={uid ? 'Say something…' : 'Sign in to chat'}
+          disabled={!uid}
+          className="flex-1 bg-white/10 text-white text-sm placeholder-white/30 rounded-full px-4 py-2 border border-white/10 focus:outline-none focus:border-white/30 disabled:opacity-40"
+        />
+        <button
+          onClick={() => void handleSend()}
+          disabled={!text.trim() || !uid || sending}
+          className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center disabled:opacity-40 transition-colors"
+        >
+          <Send className="h-4 w-4 text-white" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function LiveStreamRoom() {
   const { sessionId = '' } = useParams();
-  const { isAdmin, isAuthenticated } = useSession();
+  const { isAdmin, isAuthenticated, user } = useSession();
   const [session, setSession] = useState<LiveSession | null>(null);
   const [auction, setAuction] = useState<Auction | null>(null);
   const [bids, setBids] = useState<Bid[]>([]);
@@ -352,6 +446,12 @@ export default function LiveStreamRoom() {
                 ))}
               </div>
             </div>
+
+            <ChatPanel
+              sessionId={sessionId}
+              uid={isAuthenticated ? (user?.uid ?? null) : null}
+              displayName={user?.displayName ?? user?.email ?? null}
+            />
           </div>
         </div>
       </div>

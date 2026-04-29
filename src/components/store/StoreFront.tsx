@@ -16,6 +16,7 @@ import { useCart } from '../../context/CartContext';
 import { PRODUCT_CATEGORIES } from '../../lib/categories';
 import { sanitizeInput, searchRateLimiter } from '../../lib/security';
 import { ProductSkeleton, ErrorState } from '../ui/LoadingSpinner';
+import PackBuyModal from './PackBuyModal';
 
 const CONDITION_FILTERS = [
   { key: null,        label: 'All', emoji: '' },
@@ -258,56 +259,54 @@ function ProductCard({ product, idx }: { product: Product; idx: number }) {
 }
 
 function PackCard({ pack }: { pack: Pack }) {
-  const { addToCart } = useCart();
-  const [added, setAdded] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const name = pack.title || pack.name || 'Mystery Pack';
   const img = pack.heroImage || pack.imageUrl;
-
-  const handleAdd = () => {
-    addToCart({
-      kind: 'pack',
-      productId: pack.id,
-      id: pack.id,
-      title: name,
-      image: img,
-      imageUrl: img,
-      unitPrice: pack.price,
-      quantity: 1,
-    });
-    setAdded(true);
-    setTimeout(() => setAdded(false), 1800);
-  };
+  const remaining = typeof pack.packsRemaining === 'number'
+    ? pack.packsRemaining
+    : (pack.totalPacks ?? 0) - (pack.packsSold ?? 0);
+  const soldOut = remaining <= 0;
 
   return (
-    <motion.div
-      whileHover={{ y: -3 }}
-      className="flex-shrink-0 w-52 snap-start bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm group"
-    >
-      <div className="h-1 bg-gradient-to-r from-teal-400 to-cyan-500" />
-      {img ? (
-        <img src={img} alt={name} className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-300" />
-      ) : (
-        <div className="w-full h-32 bg-gradient-to-br from-teal-50 to-cyan-50 flex items-center justify-center">
-          <Package className="w-10 h-10 text-teal-200" />
+    <>
+      <motion.div
+        whileHover={{ y: -3 }}
+        className="flex-shrink-0 w-52 snap-start bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm group"
+      >
+        <div className="h-1 bg-gradient-to-r from-teal-400 to-cyan-500" />
+        {img ? (
+          <img src={img} alt={name} className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-300" />
+        ) : (
+          <div className="w-full h-32 bg-gradient-to-br from-teal-50 to-cyan-50 flex items-center justify-center">
+            <Package className="w-10 h-10 text-teal-200" />
+          </div>
+        )}
+        <div className="p-3.5">
+          <p className="text-sm font-bold text-gray-900 line-clamp-1">{name}</p>
+          {pack.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{pack.description}</p>}
+          <div className="flex items-center justify-between mt-2.5">
+            <div>
+              <p className="text-sm font-black text-teal-600">R{pack.price}</p>
+              {remaining > 0 && <p className="text-[10px] text-gray-400">{remaining} left</p>}
+            </div>
+            <button
+              onClick={() => setShowModal(true)}
+              disabled={soldOut}
+              className={cn(
+                'text-[10px] font-bold px-2.5 py-1 rounded-full transition-all',
+                soldOut
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-teal-500 text-white hover:bg-teal-600'
+              )}
+            >
+              {soldOut ? 'Sold Out' : 'Buy Now'}
+            </button>
+          </div>
         </div>
-      )}
-      <div className="p-3.5">
-        <p className="text-sm font-bold text-gray-900 line-clamp-1">{name}</p>
-        {pack.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{pack.description}</p>}
-        <div className="flex items-center justify-between mt-2.5">
-          <p className="text-sm font-black text-teal-600">R{pack.price}</p>
-          <button
-            onClick={handleAdd}
-            className={cn(
-              'text-[10px] font-bold px-2.5 py-1 rounded-full transition-all',
-              added ? 'bg-green-500 text-white' : 'bg-teal-500 text-white hover:bg-teal-600'
-            )}
-          >
-            {added ? '✓ Added' : 'Add'}
-          </button>
-        </div>
-      </div>
-    </motion.div>
+      </motion.div>
+
+      {showModal && <PackBuyModal pack={pack} onClose={() => setShowModal(false)} />}
+    </>
   );
 }
 

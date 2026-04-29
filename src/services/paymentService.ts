@@ -104,6 +104,38 @@ export const getStoreCheckoutStatus = async (orderId: string) => {
   };
 };
 
+interface PackCheckoutPayload {
+  firebaseUid: string;
+  email: string;
+  displayName?: string | null;
+  phone: string;
+  address: string;
+  city: string;
+  zip: string;
+  packId: string;
+  quantity?: number;
+}
+
+export const startPackCheckout = async (payload: PackCheckoutPayload) => {
+  const response = await fetch('/api/commerce/pack-checkout', {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to start pack checkout');
+  }
+
+  if (!data.redirectUrl) {
+    throw new Error('Payment redirect URL missing from pack checkout response');
+  }
+
+  window.location.href = data.redirectUrl;
+};
+
 export const initiateYocoCheckout = async (amount: number, itemName: string, mPaymentId: string) => {
   try {
     const response = await fetch('/api/payments/yoco/initiate', {

@@ -151,9 +151,13 @@ export default function Checkout() {
   const vatIncluded = Math.round(subtotal * VAT_RATE / (1 + VAT_RATE));
   const orderTotal = subtotal + shippingFee;
 
+  const hasPacks = items.some(i => i.kind === 'pack');
+  const productItems = items.filter(i => i.kind !== 'pack');
+
   const handleNext = async () => {
     if (step === 'cart') {
       if (stockErrors.length > 0) return;
+      if (hasPacks && productItems.length === 0) return;
       setValidationErrors({});
       setStep('shipping');
     } else if (step === 'shipping') {
@@ -169,6 +173,12 @@ export default function Checkout() {
       setIsProcessing(true);
       setPaymentError(null);
       try {
+        const productItems = items.filter(i => i.kind !== 'pack');
+        if (productItems.length === 0) {
+          setPaymentError('Your cart contains only mystery packs. Please use the "Buy Now" button on each pack to purchase it directly.');
+          setIsProcessing(false);
+          return;
+        }
         await startStoreCheckout({
           firebaseUid: user.uid,
           email: formData.email,
@@ -177,7 +187,7 @@ export default function Checkout() {
           address: formData.address,
           city: formData.city,
           zip: formData.zip,
-          items: items.map(i => ({ productId: i.id, quantity: i.quantity })),
+          items: productItems.map(i => ({ productId: i.id, quantity: i.quantity })),
           shippingCost: shippingFee,
         });
       } catch (err) {
@@ -278,6 +288,16 @@ export default function Checkout() {
                       {stockErrors.map((e, i) => (
                         <p key={i} className="text-xs text-red-600">{e}</p>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {items.some(i => i.kind === 'pack') && (
+                  <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex gap-3 items-start">
+                    <Package className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-amber-800 mb-1">Mystery packs need a separate checkout</p>
+                      <p className="text-xs text-amber-700">Remove the pack from your cart and use the <strong>"Buy Now"</strong> button on the pack card to purchase it directly.</p>
                     </div>
                   </div>
                 )}
@@ -500,7 +520,7 @@ export default function Checkout() {
             <div className="mt-5 space-y-2.5 hidden lg:block">
               <button
                 onClick={handleNext}
-                disabled={isProcessing || (step === 'cart' && stockErrors.length > 0)}
+                disabled={isProcessing || (step === 'cart' && (stockErrors.length > 0 || (hasPacks && productItems.length === 0)))}
                 className="btn-primary w-full py-3 text-sm justify-center"
               >
                 {isProcessing ? (
@@ -540,7 +560,7 @@ export default function Checkout() {
           )}
           <button
             onClick={handleNext}
-            disabled={isProcessing || (step === 'cart' && stockErrors.length > 0)}
+            disabled={isProcessing || (step === 'cart' && (stockErrors.length > 0 || (hasPacks && productItems.length === 0)))}
             className="btn-primary px-5 py-2.5 text-sm flex-shrink-0 disabled:opacity-50"
           >
             {isProcessing ? (
