@@ -8,11 +8,11 @@ export function slugify(value: string) {
     .replace(/(^-|-$)/g, '');
 }
 
-export function defaultAllocations(channel: SalesChannel, quantity: number): ChannelAllocations {
+export function defaultAllocations(channel: SalesChannel | 'both', quantity: number): ChannelAllocations {
   return {
-    store: channel === 'store' ? quantity : 0,
+    store:   (channel === 'store' || channel === 'both') ? quantity : 0,
     auction: channel === 'auction' ? quantity : 0,
-    packs: channel === 'pack' ? quantity : 0,
+    packs:   channel === 'pack'    ? quantity : 0,
   };
 }
 

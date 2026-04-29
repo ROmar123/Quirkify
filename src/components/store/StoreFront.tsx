@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Product, Campaign } from '../../types';
+import { Product, Campaign, Pack } from '../../types';
 import { fetchProducts } from '../../services/productService';
 import { fetchActiveCampaigns } from '../../services/campaignService';
+import { listPacks } from '../../services/catalogService';
 import { getPersonalizedRecommendations } from '../../services/aiClient';
 import { auth } from '../../firebase';
 import { motion, AnimatePresence } from 'motion/react';
@@ -256,9 +257,64 @@ function ProductCard({ product, idx }: { product: Product; idx: number }) {
   );
 }
 
+function PackCard({ pack }: { pack: Pack }) {
+  const { addToCart } = useCart();
+  const [added, setAdded] = useState(false);
+  const name = pack.title || pack.name || 'Mystery Pack';
+  const img = pack.heroImage || pack.imageUrl;
+
+  const handleAdd = () => {
+    addToCart({
+      kind: 'pack',
+      productId: pack.id,
+      id: pack.id,
+      title: name,
+      image: img,
+      imageUrl: img,
+      unitPrice: pack.price,
+      quantity: 1,
+    });
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1800);
+  };
+
+  return (
+    <motion.div
+      whileHover={{ y: -3 }}
+      className="flex-shrink-0 w-52 snap-start bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm group"
+    >
+      <div className="h-1 bg-gradient-to-r from-teal-400 to-cyan-500" />
+      {img ? (
+        <img src={img} alt={name} className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-300" />
+      ) : (
+        <div className="w-full h-32 bg-gradient-to-br from-teal-50 to-cyan-50 flex items-center justify-center">
+          <Package className="w-10 h-10 text-teal-200" />
+        </div>
+      )}
+      <div className="p-3.5">
+        <p className="text-sm font-bold text-gray-900 line-clamp-1">{name}</p>
+        {pack.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{pack.description}</p>}
+        <div className="flex items-center justify-between mt-2.5">
+          <p className="text-sm font-black text-teal-600">R{pack.price}</p>
+          <button
+            onClick={handleAdd}
+            className={cn(
+              'text-[10px] font-bold px-2.5 py-1 rounded-full transition-all',
+              added ? 'bg-green-500 text-white' : 'bg-teal-500 text-white hover:bg-teal-600'
+            )}
+          >
+            {added ? '✓ Added' : 'Add'}
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function StoreFront() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
+  const [packs, setPacks] = useState<Pack[]>([]);
   const [liveSessions] = useState<{ id: string; title: string; viewerCount: number }[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [recommendations, setRecommendations] = useState<Product[]>([]);
@@ -287,7 +343,8 @@ export default function StoreFront() {
     setError(null);
     try {
       const data = await fetchProducts('approved');
-      setProducts(data);
+      // Only show products listed in the store channel (or both). Backward compat: no listingType = store.
+      setProducts(data.filter(p => !p.listingType || p.listingType === 'store' || p.listingType === 'both'));
     } catch (err) {
       setError('Failed to load products. Please try again.');
     } finally {
@@ -298,6 +355,7 @@ export default function StoreFront() {
   useEffect(() => {
     loadProducts();
     fetchActiveCampaigns().then(setCampaigns).catch(() => {});
+    listPacks().then(all => setPacks(all.filter(pk => pk.active || pk.status === 'available'))).catch(() => {});
   }, []);
 
   // AI recommendations — fetch once after user has viewed 3+ products
@@ -693,6 +751,21 @@ export default function StoreFront() {
             </div>
           )}
         </section>
+
+        {/* ── Packs ── */}
+        {packs.length > 0 && (
+          <section className="mt-10">
+            <div className="flex items-center gap-2 mb-4">
+              <Package className="w-4 h-4 text-teal-500" />
+              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Mystery Packs</h2>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
+              {packs.map(pack => (
+                <PackCard key={pack.id} pack={pack} />
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ── AI Recommendations ── */}
         <AnimatePresence>

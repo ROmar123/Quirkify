@@ -91,6 +91,7 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
         condition: formData.condition,
         stock: formData.stock,
         allocations: formData.allocations,
+        listingType: formData.listingType,
       });
       setProduct(updated);
       setFormData(updated);
@@ -103,6 +104,14 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
   };
 
   const conditions: ProductCondition[] = ['New', 'Like New', 'Pre-owned', 'Refurbished'];
+
+  const CHANNEL_BADGE: Record<string, { label: string; bg: string; text: string }> = {
+    store:   { label: 'Store',           bg: 'bg-indigo-50',  text: 'text-indigo-700' },
+    auction: { label: 'Auction',         bg: 'bg-amber-50',   text: 'text-amber-700'  },
+    both:    { label: 'Store + Auction', bg: 'bg-purple-50',  text: 'text-purple-700' },
+    pack:    { label: 'Pack component',  bg: 'bg-teal-50',    text: 'text-teal-700'   },
+  };
+  const channelBadge = CHANNEL_BADGE[formData?.listingType || 'store'] || CHANNEL_BADGE.store;
 
   if (loading) {
     return (
@@ -174,12 +183,17 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
 
           {/* Status + meta */}
           <div className="flex items-center justify-between mb-6">
-            <span className={cn(
-              'text-xs font-semibold px-3 py-1 rounded-full',
-              product.status === 'approved' ? 'text-green-700 bg-green-50' : 'text-amber-700 bg-amber-50'
-            )}>
-              {product.status}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={cn(
+                'text-xs font-semibold px-3 py-1 rounded-full',
+                product.status === 'approved' ? 'text-green-700 bg-green-50' : 'text-amber-700 bg-amber-50'
+              )}>
+                {product.status}
+              </span>
+              <span className={cn('text-xs font-semibold px-3 py-1 rounded-full', channelBadge.bg, channelBadge.text)}>
+                {channelBadge.label}
+              </span>
+            </div>
             {product.updatedAt && (
               <p className="text-[11px] text-gray-400">
                 Updated {new Date(product.updatedAt).toLocaleDateString()}
@@ -216,6 +230,15 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
                         {conditions.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                     </div>
+                  </div>
+                  <div>
+                    <label className="section-label block mb-1.5">Listing type</label>
+                    <select value={formData.listingType || 'store'} onChange={e => handleFieldChange('listingType', e.target.value)} className="input">
+                      <option value="store">Store only</option>
+                      <option value="auction">Auction only</option>
+                      <option value="both">Store + Auction</option>
+                      <option value="pack">Pack component</option>
+                    </select>
                   </div>
                   <div className="grid grid-cols-3 gap-4">
                     <div>

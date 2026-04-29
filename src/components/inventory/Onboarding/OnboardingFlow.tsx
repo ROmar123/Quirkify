@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Check, ArrowLeft, Upload, AlertCircle } from 'lucide-react';
+import { Check, ArrowLeft, AlertCircle, ShoppingBag, Gavel, Package, Layers } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { auth } from '../../../firebase';
 import { Product, ProductCondition } from '../../../types';
@@ -9,6 +9,7 @@ import AIIntake, { AIIntakeResult } from './AIIntake';
 import ManualEntry from './ManualEntry';
 
 type Step = 'entry' | 'intake' | 'manual' | 'review' | 'confirmation';
+type ListingType = 'store' | 'auction' | 'both' | 'pack';
 
 interface OnboardingFlowProps {
   onComplete?: () => void;
@@ -24,9 +25,17 @@ const STEP_LABELS: Record<string, string> = {
   confirmation: 'Done',
 };
 
+const LISTING_TYPE_OPTIONS: Array<{ value: ListingType; label: string; sub: string; icon: typeof ShoppingBag; color: string }> = [
+  { value: 'store',   label: 'Store only',       sub: 'Buy-now in the store',           icon: ShoppingBag, color: '#6366f1' },
+  { value: 'auction', label: 'Auction only',      sub: 'Bid to win, not in store',       icon: Gavel,       color: '#f59e0b' },
+  { value: 'both',    label: 'Store + Auction',   sub: 'Available in both channels',     icon: Layers,      color: '#a855f7' },
+  { value: 'pack',    label: 'Pack component',    sub: 'Goes into mystery bundles only', icon: Package,     color: '#06b6d4' },
+];
+
 export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [currentStep, setCurrentStep] = useState<Step>('entry');
   const [productData, setProductData] = useState<Partial<Product> | null>(null);
+  const [listingType, setListingType] = useState<ListingType>('store');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [intakeMethod, setIntakeMethod] = useState<'intake' | 'manual'>('intake');
@@ -40,7 +49,6 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       ...data,
       allocations: { store: data.stock, auction: 0, packs: 0 },
       status: 'pending',
-      listingType: 'store',
     });
     setCurrentStep('review');
   };
@@ -56,11 +64,20 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     if (!finalData.category?.trim()) errors.push('Category is required');
     if (!finalData.condition) errors.push('Condition is required');
     if (!finalData.retailPrice || finalData.retailPrice <= 0) errors.push('Retail price must be greater than 0');
-    if (finalData.markdownPercentage === undefined && finalData.markdownPercentage !== 0) errors.push('Markdown % is required');
+    if (finalData.markdownPercentage === undefined) errors.push('Markdown % is required');
     if (!finalData.stock || finalData.stock <= 0) errors.push('Stock must be greater than 0');
     if (!finalData.imageUrl) errors.push('Product image is required');
-
     if (errors.length > 0) { setError(errors.join(' · ')); return; }
+
+    // Build allocations based on chosen listing type
+    const stock = finalData.stock!;
+    const allocations = listingType === 'auction'
+      ? { store: 0, auction: stock, packs: 0 }
+      : listingType === 'pack'
+      ? { store: 0, auction: 0, packs: stock }
+      : listingType === 'both'
+      ? { store: stock, auction: 0, packs: 0 }  // admin adjusts auction split in ProductEditor
+      : { store: stock, auction: 0, packs: 0 };
 
     setSaving(true);
     try {
@@ -71,12 +88,8 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         condition: finalData.condition!,
         retailPrice: finalData.retailPrice!,
         markdownPercentage: Math.max(0, Math.min(100, finalData.markdownPercentage!)),
-        stock: finalData.stock!,
-        allocations: {
-          store: Math.min(finalData.stock!, finalData.allocations?.store ?? finalData.stock!),
-          auction: finalData.allocations?.auction ?? 0,
-          packs: finalData.allocations?.packs ?? 0,
-        },
+        stock,
+        allocations,
         imageUrl: finalData.imageUrl!,
         imageUrls: finalData.imageUrls || [finalData.imageUrl!],
         confidenceScore: finalData.confidenceScore ?? 0,
@@ -84,7 +97,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         stats: finalData.stats,
         priceRange: finalData.priceRange,
         authorUid: auth.currentUser!.uid,
-        listingType: 'store',
+        listingType,
       });
       setCurrentStep('confirmation');
     } catch (err: any) {
@@ -94,6 +107,8 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       setSaving(false);
     }
   };
+
+  const listingTypeOption = LISTING_TYPE_OPTIONS.find(o => o.value === listingType)!;
 
   return (
     <div className="space-y-6">
@@ -107,7 +122,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               <div key={step} className="flex items-center gap-2 flex-1">
                 <div className={cn(
                   'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all',
-                  done ? 'bg-green-500 text-white' :
+                  done  ? 'bg-green-500 text-white' :
                   active ? 'bg-gradient-to-br from-pink-500 to-purple-600 text-white ring-2 ring-purple-200 ring-offset-1' :
                   'bg-gray-100 text-gray-400'
                 )}>
@@ -128,9 +143,8 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         </div>
       )}
 
-      {/* Step content */}
       <AnimatePresence mode="wait">
-        {/* Entry */}
+        {/* Entry — choose intake method */}
         {currentStep === 'entry' && (
           <motion.div key="entry" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.25 }}>
             <div className="space-y-6">
@@ -138,45 +152,38 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 <h2 className="text-xl font-bold text-gray-900">Add a product</h2>
                 <p className="text-gray-500 text-sm mt-1">Choose how to create your listing</p>
               </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* AI Option */}
                 <motion.button
                   whileHover={{ y: -3, boxShadow: '0 8px 24px rgba(168,85,247,0.12)' }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setCurrentStep('intake')}
-                  className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:border-gray-200 transition-all text-left shadow-sm group"
+                  className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:border-purple-200 transition-all text-left shadow-sm group"
                 >
                   <div className="h-1 bg-gradient-to-r from-pink-500 to-purple-600" />
                   <div className="p-6">
-                    <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-                      <Upload className="w-6 h-6 text-purple-500" />
+                    <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+                      <Layers className="w-6 h-6 text-purple-500" />
                     </div>
                     <h3 className="text-base font-bold text-gray-900 mb-1">AI Intake</h3>
                     <p className="text-gray-500 text-sm leading-relaxed">Upload photos and let AI analyse product details instantly</p>
-                    <div className="mt-4 inline-flex items-center text-sm font-semibold text-quirky">
-                      Get started →
-                    </div>
+                    <div className="mt-4 inline-flex items-center text-sm font-semibold text-purple-600">Get started →</div>
                   </div>
                 </motion.button>
 
-                {/* Manual Option */}
                 <motion.button
                   whileHover={{ y: -3, boxShadow: '0 8px 24px rgba(0,0,0,0.06)' }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setCurrentStep('manual')}
-                  className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:border-gray-200 transition-all text-left shadow-sm group"
+                  className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:border-amber-200 transition-all text-left shadow-sm group"
                 >
                   <div className="h-1 bg-gradient-to-r from-amber-400 to-orange-500" />
                   <div className="p-6">
-                    <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform border border-gray-100">
-                      <Upload className="w-5 h-5 text-amber-500" />
+                    <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+                      <ShoppingBag className="w-5 h-5 text-amber-500" />
                     </div>
                     <h3 className="text-base font-bold text-gray-900 mb-1">Manual Entry</h3>
                     <p className="text-gray-500 text-sm leading-relaxed">Enter product details, pricing and photos yourself</p>
-                    <div className="mt-4 inline-flex items-center text-sm font-semibold text-amber-600">
-                      Get started →
-                    </div>
+                    <div className="mt-4 inline-flex items-center text-sm font-semibold text-amber-600">Get started →</div>
                   </div>
                 </motion.button>
               </div>
@@ -198,7 +205,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           </motion.div>
         )}
 
-        {/* Review */}
+        {/* Review & confirm */}
         {currentStep === 'review' && productData && (
           <motion.div key="review" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.25 }}>
             <div className="space-y-5 max-w-2xl">
@@ -208,42 +215,40 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 </button>
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">Review &amp; confirm</h2>
-                  <p className="text-gray-400 text-sm">Make any last edits before saving</p>
+                  <p className="text-gray-400 text-sm">Make any last edits before saving to the review queue</p>
                 </div>
               </div>
 
+              {/* Product details card */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-pink-500 to-purple-600" />
                 <div className="p-6 space-y-5">
                   <div>
-                    <label className="section-label block mb-1.5">PRODUCT NAME *</label>
+                    <label className="section-label block mb-1.5">Product name *</label>
                     <input type="text" value={productData.name || ''} onChange={e => setProductData({ ...productData, name: e.target.value })} className="input" />
                   </div>
-
                   <div>
-                    <label className="section-label block mb-1.5">DESCRIPTION *</label>
+                    <label className="section-label block mb-1.5">Description *</label>
                     <textarea value={productData.description || ''} onChange={e => setProductData({ ...productData, description: e.target.value })} rows={3} className="input resize-none" />
                   </div>
-
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="section-label block mb-1.5">CATEGORY *</label>
+                      <label className="section-label block mb-1.5">Category *</label>
                       <select value={productData.category || ''} onChange={e => setProductData({ ...productData, category: e.target.value })} className="input">
                         <option value="">Select…</option>
                         {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className="section-label block mb-1.5">CONDITION *</label>
+                      <label className="section-label block mb-1.5">Condition *</label>
                       <select value={productData.condition || 'New'} onChange={e => setProductData({ ...productData, condition: e.target.value as ProductCondition })} className="input">
                         {['New', 'Like New', 'Pre-owned', 'Refurbished'].map(c => <option key={c}>{c}</option>)}
                       </select>
                     </div>
                   </div>
-
                   <div className="grid grid-cols-3 gap-4">
                     <div>
-                      <label className="section-label block mb-1.5">RETAIL PRICE *</label>
+                      <label className="section-label block mb-1.5">Retail / RRP *</label>
                       <input type="number" value={productData.retailPrice || ''} onChange={e => {
                         const retail = parseFloat(e.target.value) || 0;
                         const markdown = productData.markdownPercentage ?? 0;
@@ -251,7 +256,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                       }} className="input" placeholder="0" min="0" />
                     </div>
                     <div>
-                      <label className="section-label block mb-1.5">MARKDOWN %</label>
+                      <label className="section-label block mb-1.5">Markdown %</label>
                       <input type="number" value={productData.markdownPercentage ?? 0} onChange={e => {
                         const markdown = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
                         const retail = productData.retailPrice || 0;
@@ -259,35 +264,72 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                       }} className="input" placeholder="0" min="0" max="100" />
                     </div>
                     <div>
-                      <label className="section-label block mb-1.5">SALE PRICE</label>
+                      <label className="section-label block mb-1.5">Selling price</label>
                       <div className={`input font-bold flex items-center ${(productData.discountPrice || 0) > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'text-gray-400'}`}>
                         R{productData.discountPrice || 0}
                       </div>
                     </div>
                   </div>
-
                   <div>
-                    <label className="section-label block mb-1.5">TOTAL STOCK *</label>
+                    <label className="section-label block mb-1.5">Stock *</label>
                     <input type="number" min="1" value={productData.stock || ''} onChange={e => {
                       const stock = parseInt(e.target.value) || 1;
                       setProductData({ ...productData, stock, allocations: { store: stock, auction: 0, packs: 0 } });
                     }} className="input" />
                   </div>
+                </div>
+              </div>
 
-                  {error && (
-                    <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3">
-                      <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-                      <p className="text-red-700 text-sm">{error}</p>
-                    </div>
-                  )}
-
-                  <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
-                    <button onClick={() => setCurrentStep(intakeMethod)} className="btn-secondary flex-1">Back</button>
-                    <button onClick={() => handleSaveProduct(productData)} disabled={saving} className="btn-primary flex-1 disabled:opacity-60">
-                      {saving ? 'Saving…' : 'Save Product'}
-                    </button>
+              {/* Listing type card */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-600" />
+                <div className="p-6">
+                  <p className="section-label mb-3">Where will this product be sold?</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {LISTING_TYPE_OPTIONS.map(opt => {
+                      const Icon = opt.icon;
+                      const active = listingType === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setListingType(opt.value)}
+                          className={cn(
+                            'flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all',
+                            active
+                              ? 'border-purple-300 bg-purple-50 ring-1 ring-purple-300'
+                              : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+                          )}
+                        >
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: active ? opt.color : '#f3f4f6' }}>
+                            <Icon className="w-4 h-4" style={{ color: active ? '#fff' : '#9ca3af' }} />
+                          </div>
+                          <div>
+                            <p className={cn('text-xs font-bold', active ? 'text-gray-900' : 'text-gray-600')}>{opt.label}</p>
+                            <p className="text-[10px] text-gray-400 mt-0.5 leading-relaxed">{opt.sub}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
+              </div>
+
+              {error && (
+                <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3">
+                  <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-red-700 text-sm">{error}</p>
+                </div>
+              )}
+
+              <div className="flex flex-col-reverse sm:flex-row gap-3">
+                <button onClick={() => setCurrentStep(intakeMethod)} className="btn-secondary flex-1">Back</button>
+                <button onClick={() => handleSaveProduct(productData)} disabled={saving} className="btn-primary flex-1 disabled:opacity-60 justify-center">
+                  {saving ? (
+                    <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                      className="w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                  ) : 'Save to review queue'}
+                </button>
               </div>
             </div>
           </motion.div>
@@ -307,10 +349,16 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               </motion.div>
 
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Product saved!</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Queued for review!</h2>
                 <p className="text-gray-500 text-sm mt-2 leading-relaxed">
-                  <strong className="text-gray-800">{productData?.name}</strong> has been added to your inventory and queued for approval.
+                  <strong className="text-gray-800">{productData?.name}</strong> has been saved as pending. Head to the Review tab to approve it.
                 </p>
+                {listingTypeOption && (
+                  <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white" style={{ background: listingTypeOption.color }}>
+                    <listingTypeOption.icon className="w-3 h-3" />
+                    {listingTypeOption.label}
+                  </div>
+                )}
               </div>
 
               {productData?.imageUrl && (
@@ -324,8 +372,8 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               )}
 
               <div className="flex flex-col sm:flex-row gap-3">
-                <button onClick={() => onComplete?.()} className="btn-secondary flex-1">Done</button>
-                <button onClick={() => { setCurrentStep('entry'); setProductData(null); setError(null); }} className="btn-primary flex-1">
+                <button onClick={() => onComplete?.()} className="btn-secondary flex-1">Go to Review</button>
+                <button onClick={() => { setCurrentStep('entry'); setProductData(null); setListingType('store'); setError(null); }} className="btn-primary flex-1">
                   Add another
                 </button>
               </div>

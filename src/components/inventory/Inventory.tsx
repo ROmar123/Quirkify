@@ -1,580 +1,694 @@
 import { useEffect, useMemo, useState } from 'react';
-import { uploadProductImage } from '../../services/storageService';
-import { createAuctionFromProduct, createLiveSession, listAuctions, listLiveSessions } from '../../services/auctionService';
+import { motion, AnimatePresence } from 'motion/react';
 import {
-  createCatalogProduct,
+  Plus, ClipboardList, Package, Radio, LayoutGrid,
+  CheckCircle, XCircle, ShoppingBag, Gavel, Layers, AlertCircle,
+} from 'lucide-react';
+import {
+  createAuctionFromProduct,
+  createLiveSession,
+  listAuctions,
+  listLiveSessions,
+} from '../../services/auctionService';
+import {
   createPack,
   subscribeToInventory,
   subscribeToReviewQueue,
   updateProduct,
 } from '../../services/catalogService';
-import { requestAiIntake } from '../../services/gemini';
 import { useSession } from '../../hooks/useSession';
-import { currency, defaultAllocations, emptyReservations, slugify } from '../../lib/quirkify';
+import { currency, defaultAllocations, emptyReservations } from '../../lib/quirkify';
+import { cn } from '../../lib/utils';
 import type { LiveSession, Pack, Product, ProductCondition, ReviewEntry, SalesChannel } from '../../types';
+import OnboardingFlow from './Onboarding/OnboardingFlow';
+import ProductsView from './Management/ProductsView';
+import AllocationEditor from './Shared/AllocationEditor';
+import type { AllocationSnapshot } from '../../types';
 
-type Tab = 'manual' | 'ai' | 'review' | 'packs' | 'live';
+type Tab = 'intake' | 'review' | 'products' | 'packs' | 'live';
 
-const tabs: Tab[] = ['manual', 'ai', 'review', 'packs', 'live'];
+const TABS: Array<{ key: Tab; label: string; icon: typeof Plus }> = [
+  { key: 'intake',   label: 'Intake',    icon: Plus },
+  { key: 'review',   label: 'Review',    icon: ClipboardList },
+  { key: 'products', label: 'Products',  icon: LayoutGrid },
+  { key: 'packs',    label: 'Packs',     icon: Package },
+  { key: 'live',     label: 'Live',      icon: Radio },
+];
 
-async function fileToBase64(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
-    reader.onerror = () => reject(new Error('Failed to read image'));
-    reader.readAsDataURL(file);
-  });
+const CHANNEL_LABELS: Record<string, { label: string; color: string }> = {
+  store:   { label: 'Store',         color: '#6366f1' },
+  auction: { label: 'Auction',       color: '#f59e0b' },
+  both:    { label: 'Store + Auction', color: '#a855f7' },
+  pack:    { label: 'Pack',          color: '#06b6d4' },
+};
+
+// ─── Review Queue Panel ────────────────────────────────────────────────────────
+
+function ReviewPanel() {
+  const { profile } = useSession();
+  const [queue, setQueue] = useState<ReviewEntry[]>([]);
+  const [selected, setSelected] = useState<ReviewEntry | null>(null);
+  const [draft, setDraft] = useState<any>(null);
+  const [allocs, setAllocs] = useState<AllocationSnapshot>({ store: 0, auction: 0, packs: 0 });
+  const [listingType, setListingType] = useState<string>('store');
+  const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  useEffect(() => subscribeToReviewQueue(setQueue), []);
+
+  useEffect(() => {
+    if (!selected) { setDraft(null); return; }
+    const d = selected.generatedDraft;
+    const lt = (selected as any).listingType || d.suggestedChannel || 'store';
+    setListingType(lt);
+    setDraft({
+      title: d.title,
+      description: d.description,
+      category: d.category,
+      condition: d.condition,
+      tags: (d.tags || []).join(', '),
+      retailPrice: d.pricing?.listPrice || d.pricing?.salePrice || 0,
+      markdownPct: 0,
+      salePrice: d.pricing?.salePrice || 0,
+      stock: d.inventory?.onHand || 1,
+    });
+    const qty = d.inventory?.onHand || 1;
+    setAllocs(defaultAllocations(lt as SalesChannel | 'both', qty));
+  }, [selected]);
+
+  const showToast = (msg: string, ok = true) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  async function approve() {
+    if (!profile || !selected || !draft) return;
+    setBusy(true);
+    try {
+      const qty = Number(draft.stock) || 1;
+      const finalAllocs = allocs;
+      const updated = await updateProduct(selected.id, {
+        name: draft.title,
+        description: draft.description,
+        category: draft.category,
+        condition: draft.condition as ProductCondition,
+        status: 'approved',
+        listingType: listingType as any,
+        retailPrice: Number(draft.retailPrice) || 0,
+        markdownPercentage: Number(draft.markdownPct) || 0,
+        stock: qty,
+        allocations: finalAllocs,
+        tags: String(draft.tags || '').split(',').map((t: string) => t.trim()).filter(Boolean),
+      });
+      if (listingType === 'auction' || listingType === 'both') {
+        const start = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+        const end = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        await createAuctionFromProduct({
+          product: updated,
+          startsAt: start,
+          endsAt: end,
+          startPrice: Number(draft.retailPrice) || 0,
+          createdBy: profile.id,
+        });
+      }
+      setQueue(q => q.filter(e => e.id !== selected.id));
+      setSelected(null);
+      showToast(`Published to ${CHANNEL_LABELS[listingType]?.label || listingType}`);
+    } catch (err: any) {
+      showToast(err.message || 'Approval failed', false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reject() {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      await updateProduct(selected.id, { status: 'rejected' });
+      setQueue(q => q.filter(e => e.id !== selected.id));
+      setSelected(null);
+      showToast('Product rejected');
+    } catch (err: any) {
+      showToast(err.message || 'Failed', false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const pending = queue.filter(e => e.status === 'pending');
+  const ch = CHANNEL_LABELS[listingType] || CHANNEL_LABELS.store;
+
+  return (
+    <div className="relative">
+      {/* Toast */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            className={cn(
+              'absolute top-0 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold text-white shadow-lg',
+              toast.ok ? 'bg-green-500' : 'bg-red-500'
+            )}
+          >
+            {toast.ok ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+            {toast.msg}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
+        {/* Queue list */}
+        <div className="space-y-2">
+          <p className="section-label mb-3">
+            {pending.length} pending {pending.length === 1 ? 'item' : 'items'}
+          </p>
+          {pending.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center shadow-sm">
+              <CheckCircle className="w-10 h-10 text-green-300 mx-auto mb-3" />
+              <p className="text-sm font-semibold text-gray-600">Queue is clear</p>
+              <p className="text-xs text-gray-400 mt-1">New items appear here after intake</p>
+            </div>
+          ) : pending.map(entry => {
+            const img = entry.sourceInput?.media?.[0]?.url || (entry as any).image_url;
+            const active = selected?.id === entry.id;
+            const entryChannel = (entry as any).listingType || entry.generatedDraft.suggestedChannel || 'store';
+            const entryChLabel = CHANNEL_LABELS[entryChannel];
+            return (
+              <motion.button
+                key={entry.id}
+                onClick={() => setSelected(entry)}
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.99 }}
+                className={cn(
+                  'w-full text-left bg-white rounded-2xl border overflow-hidden shadow-sm transition-all',
+                  active ? 'border-purple-300 ring-1 ring-purple-300' : 'border-gray-100 hover:border-gray-200'
+                )}
+              >
+                {active && <div className="h-0.5 bg-gradient-to-r from-pink-500 to-purple-600" />}
+                <div className="flex items-center gap-3 p-3">
+                  {img ? (
+                    <img src={img} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
+                      <Package className="w-5 h-5 text-gray-300" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-gray-900 truncate">{entry.generatedDraft.title}</p>
+                    <p className="text-[11px] text-gray-400 uppercase tracking-wide mt-0.5">{entry.generatedDraft.category}</p>
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      {entryChLabel && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white" style={{ background: entryChLabel.color }}>
+                          {entryChLabel.label}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-gray-400 font-medium">
+                        {Math.round(entry.confidenceScore * 100)}% conf
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </motion.button>
+            );
+          })}
+        </div>
+
+        {/* Edit panel */}
+        <div>
+          {!selected || !draft ? (
+            <div className="bg-white rounded-2xl border border-gray-100 p-16 text-center shadow-sm h-full flex flex-col items-center justify-center">
+              <ClipboardList className="w-10 h-10 text-gray-200 mb-3" />
+              <p className="text-sm font-semibold text-gray-500">Select an item to review</p>
+              <p className="text-xs text-gray-400 mt-1">Edit fields and approve or reject</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Details card */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="h-1 bg-gradient-to-r from-pink-500 to-purple-600" />
+                <div className="p-6 space-y-4">
+                  <p className="section-label">Product details</p>
+                  <div>
+                    <label className="section-label block mb-1.5">Name</label>
+                    <input value={draft.title} onChange={e => setDraft((d: any) => ({ ...d, title: e.target.value }))} className="input" />
+                  </div>
+                  <div>
+                    <label className="section-label block mb-1.5">Description</label>
+                    <textarea value={draft.description} onChange={e => setDraft((d: any) => ({ ...d, description: e.target.value }))} rows={3} className="input resize-none" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="section-label block mb-1.5">Category</label>
+                      <select value={draft.category} onChange={e => setDraft((d: any) => ({ ...d, category: e.target.value }))} className="input">
+                        {['Sneakers', 'Clothing', 'Accessories', 'Electronics', 'Collectibles', 'Other'].map(c => (
+                          <option key={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="section-label block mb-1.5">Condition</label>
+                      <select value={draft.condition} onChange={e => setDraft((d: any) => ({ ...d, condition: e.target.value }))} className="input">
+                        {['New', 'Like New', 'Pre-owned', 'Refurbished'].map(c => <option key={c}>{c}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pricing card */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
+                <div className="p-6 space-y-4">
+                  <p className="section-label">Pricing &amp; stock</p>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="section-label block mb-1.5">Retail / RRP</label>
+                      <input type="number" value={draft.retailPrice} onChange={e => {
+                        const retail = parseFloat(e.target.value) || 0;
+                        const sale = Math.round(retail * (1 - (draft.markdownPct || 0) / 100));
+                        setDraft((d: any) => ({ ...d, retailPrice: retail, salePrice: sale }));
+                      }} className="input" min="0" />
+                    </div>
+                    <div>
+                      <label className="section-label block mb-1.5">Markdown %</label>
+                      <input type="number" value={draft.markdownPct} onChange={e => {
+                        const pct = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+                        const sale = Math.round((draft.retailPrice || 0) * (1 - pct / 100));
+                        setDraft((d: any) => ({ ...d, markdownPct: pct, salePrice: sale }));
+                      }} className="input" min="0" max="100" />
+                    </div>
+                    <div>
+                      <label className="section-label block mb-1.5">Selling price</label>
+                      <div className={cn('input font-bold flex items-center', draft.salePrice > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'text-gray-400')}>
+                        R{draft.salePrice || 0}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="section-label block mb-1.5">Stock</label>
+                    <input type="number" value={draft.stock} onChange={e => {
+                      const qty = parseInt(e.target.value) || 1;
+                      setDraft((d: any) => ({ ...d, stock: qty }));
+                      setAllocs(defaultAllocations(listingType as SalesChannel | 'both', qty));
+                    }} className="input" min="1" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Channel card */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-600" />
+                <div className="p-6 space-y-4">
+                  <p className="section-label">Listing type</p>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {[
+                      { value: 'store',   icon: ShoppingBag, label: 'Store only',       sub: 'Buy-now' },
+                      { value: 'auction', icon: Gavel,       label: 'Auction only',      sub: 'Bid to win' },
+                      { value: 'both',    icon: Layers,      label: 'Store + Auction',   sub: 'Both channels' },
+                      { value: 'pack',    icon: Package,     label: 'Pack component',    sub: 'Bundles only' },
+                    ].map(opt => {
+                      const Icon = opt.icon;
+                      const active = listingType === opt.value;
+                      const optCh = CHANNEL_LABELS[opt.value];
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => {
+                            setListingType(opt.value);
+                            setAllocs(defaultAllocations(opt.value as SalesChannel | 'both', Number(draft.stock) || 1));
+                          }}
+                          className={cn(
+                            'flex items-start gap-2.5 p-3 rounded-xl border text-left transition-all',
+                            active ? 'border-purple-300 bg-purple-50 ring-1 ring-purple-300' : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+                          )}
+                        >
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: active ? optCh.color : '#f3f4f6' }}>
+                            <Icon className="w-3.5 h-3.5" style={{ color: active ? '#fff' : '#9ca3af' }} />
+                          </div>
+                          <div>
+                            <p className={cn('text-xs font-bold', active ? 'text-gray-900' : 'text-gray-600')}>{opt.label}</p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">{opt.sub}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div>
+                    <p className="section-label mb-2">Stock allocation</p>
+                    <AllocationEditor
+                      totalStock={Number(draft.stock) || 1}
+                      allocations={allocs}
+                      onChange={setAllocs}
+                      showPercentages
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* AI notes */}
+              {selected.aiNotes?.length > 0 && (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="h-1 bg-gradient-to-r from-blue-400 to-indigo-500" />
+                  <div className="p-5">
+                    <p className="section-label mb-2">AI notes</p>
+                    <p className="text-sm text-gray-500 leading-relaxed">{selected.aiNotes.join(' · ')}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button onClick={reject} disabled={busy}
+                  className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-red-200 text-red-600 text-sm font-bold hover:bg-red-50 transition-colors disabled:opacity-50">
+                  <XCircle className="w-4 h-4" />
+                  Reject
+                </button>
+                <button onClick={approve} disabled={busy}
+                  className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-bold text-white disabled:opacity-50 transition-colors"
+                  style={{ background: busy ? '#9ca3af' : `linear-gradient(135deg, ${ch.color}, ${ch.color}cc)` }}>
+                  {busy ? (
+                    <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                      className="w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                  ) : <CheckCircle className="w-4 h-4" />}
+                  Approve → {ch.label}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
-export default function Inventory() {
+// ─── Pack Builder ─────────────────────────────────────────────────────────────
+
+function PacksPanel({ products }: { products: Product[] }) {
   const { profile } = useSession();
-  const [tab, setTab] = useState<Tab>('manual');
-  const [products, setProducts] = useState<Product[]>([]);
-  const [reviewQueue, setReviewQueue] = useState<ReviewEntry[]>([]);
-  const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
-  const [manualFiles, setManualFiles] = useState<File[]>([]);
-  const [aiFiles, setAiFiles] = useState<File[]>([]);
-  const [message, setMessage] = useState<string | null>(null);
+  const [form, setForm] = useState({ title: '', description: '', price: 0 });
+  const [selected, setSelected] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
 
-  const [manualForm, setManualForm] = useState({
-    title: '',
-    description: '',
-    category: '',
-    price: 0,
-    quantity: 1,
-    condition: 'New' as ProductCondition,
-    channel: 'store' as SalesChannel,
-    tags: '',
-    auctionStartsAt: '',
-    auctionEndsAt: '',
-  });
-
-  const [aiForm, setAiForm] = useState({
-    notes: '',
-    categoryHint: '',
-    channelHint: 'store' as SalesChannel,
-  });
-
-  const [packForm, setPackForm] = useState({
-    title: '',
-    description: '',
-    price: 0,
-    selectedProductIds: [] as string[],
-  });
-
-  const [liveForm, setLiveForm] = useState({
-    title: '',
-    spotlightMessage: '',
-    selectedAuctionIds: [] as string[],
-  });
-
-  const [auctions, setAuctions] = useState<any[]>([]);
-  const [selectedReview, setSelectedReview] = useState<ReviewEntry | null>(null);
-  const [reviewDraft, setReviewDraft] = useState<any>(null);
-
-  useEffect(() => subscribeToInventory(setProducts), []);
-  useEffect(() => subscribeToReviewQueue(setReviewQueue), []);
-
-  useEffect(() => {
-    void Promise.all([listLiveSessions(), listAuctions()]).then(([sessions, auctionRows]) => {
-      setLiveSessions(sessions);
-      setAuctions(auctionRows);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!selectedReview) {
-      setReviewDraft(null);
-      return;
-    }
-
-    setReviewDraft({
-      ...selectedReview.generatedDraft,
-      tags: selectedReview.generatedDraft.tags.join(', '),
-    });
-  }, [selectedReview]);
-
-  const packEligible = useMemo(
-    () =>
-      products.filter(
-        (item) =>
-          (item.status === 'approved' || item.status === 'active') &&
-          (item.inventory?.allocated.packs || item.allocations?.packs || 0) > 0
-      ),
+  const eligible = useMemo(
+    () => products.filter(p =>
+      (p.status === 'approved' || p.status === 'active') &&
+      (p.inventory?.allocated.packs || p.allocations?.packs || 0) > 0
+    ),
     [products]
   );
 
-  async function handleManualSubmit() {
-    if (!profile) return;
-
-    const productId = crypto.randomUUID();
-    const media = await Promise.all(
-      manualFiles.map(async (file) => ({ url: await uploadProductImage(productId, file) }))
-    );
-
-    const product = await createCatalogProduct(
-      {
-        id: productId,
-        slug: slugify(manualForm.title),
-        title: manualForm.title,
-        name: manualForm.title,
-        description: manualForm.description,
-        category: manualForm.category,
-        condition: manualForm.condition,
-        source: 'manual',
-        listingType: manualForm.channel === 'auction' ? 'auction' : 'store',
-        pricing: {
-          listPrice: manualForm.price,
-          salePrice: manualForm.price,
-          auctionStartPrice: manualForm.channel === 'auction' ? manualForm.price : undefined,
-        },
-        inventory: {
-          onHand: manualForm.quantity,
-          allocated: defaultAllocations(manualForm.channel, manualForm.quantity),
-          reserved: emptyReservations(),
-          sold: emptyReservations(),
-        },
-        media,
-        tags: manualForm.tags.split(',').map((item) => item.trim()).filter(Boolean),
+  async function createPackHandler() {
+    if (!profile || !form.title || selected.length === 0) return;
+    setSaving(true);
+    try {
+      const pack: Pack = {
+        id: crypto.randomUUID(),
+        title: form.title,
+        name: form.title,
+        description: form.description,
+        price: form.price,
+        componentCount: selected.length,
+        components: selected.map(id => ({ productId: id, quantity: 1 })),
+        active: true,
         createdBy: profile.id,
-        authorUid: profile.firebaseUid,
-      },
-      'approved'
-    );
-
-    if (manualForm.channel === 'auction' && manualForm.auctionStartsAt && manualForm.auctionEndsAt) {
-      await createAuctionFromProduct({
-        product,
-        startsAt: manualForm.auctionStartsAt,
-        endsAt: manualForm.auctionEndsAt,
-        startPrice: manualForm.price,
-        createdBy: profile.id,
-      });
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      await createPack(pack);
+      setForm({ title: '', description: '', price: 0 });
+      setSelected([]);
+      setMsg('Pack created successfully.');
+      setTimeout(() => setMsg(null), 3000);
+    } finally {
+      setSaving(false);
     }
-
-    setManualForm({
-      title: '',
-      description: '',
-      category: '',
-      price: 0,
-      quantity: 1,
-      condition: 'New',
-      channel: 'store',
-      tags: '',
-      auctionStartsAt: '',
-      auctionEndsAt: '',
-    });
-    setManualFiles([]);
-    setMessage('Manual intake item created in the catalog database.');
-  }
-
-  async function handleAiSubmit() {
-    if (!profile || aiFiles.length === 0) return;
-
-    const base64Image = await fileToBase64(aiFiles[0]);
-    const aiResult = await requestAiIntake({ ...aiForm, base64Image });
-    const productId = crypto.randomUUID();
-    const media = await Promise.all(aiFiles.map(async (file) => ({ url: await uploadProductImage(productId, file) })));
-    const quantity = Number(aiResult.generatedDraft.inventory?.onHand || 1);
-
-    await createCatalogProduct(
-      {
-        id: productId,
-        slug: slugify(aiResult.generatedDraft.title),
-        title: aiResult.generatedDraft.title,
-        name: aiResult.generatedDraft.title,
-        description: aiResult.generatedDraft.description,
-        category: aiResult.generatedDraft.category,
-        condition:
-          aiResult.generatedDraft.condition === 'like_new'
-            ? 'Like New'
-            : aiResult.generatedDraft.condition === 'pre_owned'
-              ? 'Pre-owned'
-              : aiResult.generatedDraft.condition === 'refurbished'
-                ? 'Refurbished'
-                : 'New',
-        source: 'ai',
-        listingType: aiResult.generatedDraft.suggestedChannel === 'auction' ? 'auction' : 'store',
-        pricing: aiResult.generatedDraft.pricing,
-        inventory: {
-          onHand: quantity,
-          allocated: aiResult.generatedDraft.inventory?.allocated || defaultAllocations(aiResult.generatedDraft.suggestedChannel, quantity),
-          reserved: emptyReservations(),
-          sold: emptyReservations(),
-        },
-        media,
-        tags: aiResult.generatedDraft.tags || [],
-        merchandisingNotes: aiResult.generatedDraft.merchandisingNotes || [],
-        rarityNotes: aiResult.generatedDraft.rarityNotes || [],
-        aiConfidence: aiResult.confidenceScore,
-        confidenceScore: aiResult.confidenceScore,
-        aiNotes: aiResult.aiNotes,
-        createdBy: profile.id,
-        authorUid: profile.firebaseUid,
-      },
-      'pending'
-    );
-
-    setAiForm({ notes: '', categoryHint: '', channelHint: 'store' });
-    setAiFiles([]);
-    setMessage('AI intake submitted into the Postgres review queue.');
-  }
-
-  async function approveReview() {
-    if (!profile || !selectedReview || !reviewDraft) return;
-
-    const quantity = Number(reviewDraft.inventory.onHand || 1);
-    const route = reviewDraft.suggestedChannel as SalesChannel;
-    const updatedProduct = await updateProduct(selectedReview.id, {
-      title: reviewDraft.title,
-      name: reviewDraft.title,
-      slug: slugify(reviewDraft.title),
-      description: reviewDraft.description,
-      category: reviewDraft.category,
-      condition:
-        reviewDraft.condition === 'like_new'
-          ? 'Like New'
-          : reviewDraft.condition === 'pre_owned'
-            ? 'Pre-owned'
-            : reviewDraft.condition === 'refurbished'
-              ? 'Refurbished'
-              : reviewDraft.condition,
-      status: 'approved',
-      pricing: {
-        listPrice: Number(reviewDraft.pricing.listPrice || reviewDraft.pricing.salePrice || 0),
-        salePrice: Number(reviewDraft.pricing.salePrice || 0),
-        auctionStartPrice: Number(reviewDraft.pricing.auctionStartPrice || reviewDraft.pricing.salePrice || 0),
-        auctionReservePrice: Number(reviewDraft.pricing.auctionReservePrice || reviewDraft.pricing.listPrice || 0),
-      },
-      inventory: {
-        onHand: quantity,
-        allocated: defaultAllocations(route, quantity),
-        reserved: emptyReservations(),
-        sold: emptyReservations(),
-      },
-      listingType: route === 'auction' ? 'auction' : 'store',
-      tags: String(reviewDraft.tags || '')
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean),
-    });
-
-    if (route === 'auction') {
-      const start = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-      const end = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      await createAuctionFromProduct({
-        product: updatedProduct,
-        startsAt: start,
-        endsAt: end,
-        startPrice: Number(reviewDraft.pricing.auctionStartPrice || reviewDraft.pricing.salePrice || 0),
-        createdBy: profile.id,
-      });
-    }
-
-    setSelectedReview(null);
-    setReviewDraft(null);
-    setMessage('Review item approved and published from Postgres inventory.');
-  }
-
-  async function rejectReview() {
-    if (!profile || !selectedReview) return;
-    await updateProduct(selectedReview.id, { status: 'rejected' });
-    setSelectedReview(null);
-    setReviewDraft(null);
-    setMessage('Review item rejected.');
-  }
-
-  async function createPackFromForm() {
-    if (!profile) return;
-    const pack: Pack = {
-      id: crypto.randomUUID(),
-      title: packForm.title,
-      name: packForm.title,
-      description: packForm.description,
-      price: packForm.price,
-      componentCount: packForm.selectedProductIds.length,
-      components: packForm.selectedProductIds.map((productId) => ({ productId, quantity: 1 })),
-      active: true,
-      createdBy: profile.id,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    await createPack(pack);
-    setPackForm({ title: '', description: '', price: 0, selectedProductIds: [] });
-    setMessage('Pack created from allocated inventory.');
-  }
-
-  async function createLiveSessionFromForm() {
-    if (!profile) return;
-    const session: LiveSession = {
-      id: crypto.randomUUID(),
-      title: liveForm.title,
-      status: 'scheduled',
-      hostId: profile.id,
-      hostName: profile.displayName,
-      auctionQueue: liveForm.selectedAuctionIds,
-      currentAuctionId: liveForm.selectedAuctionIds[0] || null,
-      spotlightMessage: liveForm.spotlightMessage,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    await createLiveSession(session);
-    setLiveSessions((current) => [session, ...current]);
-    setLiveForm({ title: '', spotlightMessage: '', selectedAuctionIds: [] });
-    setMessage('Live session created.');
   }
 
   return (
-    <section className="hero-bg px-4 py-10">
+    <div className="grid gap-5 lg:grid-cols-[1fr_0.9fr]">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="h-1 bg-gradient-to-r from-teal-400 to-cyan-500" />
+        <div className="p-6 space-y-4">
+          <p className="text-lg font-bold text-gray-900">Pack builder</p>
+          <p className="text-sm text-gray-400">Bundle pack-allocated products into a mystery pack for the store.</p>
+          <div>
+            <label className="section-label block mb-1.5">Pack title *</label>
+            <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="input" placeholder="e.g. Sneaker Mystery Box" />
+          </div>
+          <div>
+            <label className="section-label block mb-1.5">Description</label>
+            <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="input resize-none" placeholder="What's inside?" />
+          </div>
+          <div>
+            <label className="section-label block mb-1.5">Pack price (R)</label>
+            <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: Number(e.target.value) }))} className="input" min="0" />
+          </div>
+          {msg && (
+            <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-100 rounded-xl text-sm text-green-700 font-medium">
+              <CheckCircle className="w-4 h-4 flex-shrink-0" />
+              {msg}
+            </div>
+          )}
+          <button onClick={createPackHandler} disabled={saving || !form.title || selected.length === 0}
+            className="btn-primary w-full justify-center disabled:opacity-50">
+            {saving ? 'Creating…' : `Create pack with ${selected.length} product${selected.length !== 1 ? 's' : ''}`}
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="h-1 bg-gradient-to-r from-purple-400 to-indigo-500" />
+        <div className="p-6">
+          <p className="section-label mb-3">Pack-eligible inventory ({eligible.length})</p>
+          {eligible.length === 0 ? (
+            <div className="py-10 text-center">
+              <Package className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+              <p className="text-sm text-gray-500 font-medium">No pack-allocated stock</p>
+              <p className="text-xs text-gray-400 mt-1">Set alloc_packs &gt; 0 in a product to make it eligible</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {eligible.map(p => {
+                const checked = selected.includes(p.id);
+                return (
+                  <label key={p.id} className={cn(
+                    'flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all',
+                    checked ? 'border-teal-200 bg-teal-50' : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+                  )}>
+                    <input type="checkbox" checked={checked}
+                      onChange={e => setSelected(s => e.target.checked ? [...s, p.id] : s.filter(id => id !== p.id))}
+                      className="rounded accent-teal-500" />
+                    {p.imageUrl && <img src={p.imageUrl} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{p.name}</p>
+                      <p className="text-xs text-gray-400">
+                        Pack alloc: {p.inventory?.allocated.packs || p.allocations?.packs || 0} · {currency(p.discountPrice || p.retailPrice || 0)}
+                      </p>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Live Panel ────────────────────────────────────────────────────────────────
+
+function LivePanel() {
+  const { profile } = useSession();
+  const [auctions, setAuctions] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<LiveSession[]>([]);
+  const [form, setForm] = useState({ title: '', spotlightMessage: '', selectedAuctionIds: [] as string[] });
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    void Promise.all([listLiveSessions(), listAuctions()]).then(([s, a]) => { setSessions(s); setAuctions(a); });
+  }, []);
+
+  async function createSession() {
+    if (!profile || !form.title) return;
+    setSaving(true);
+    try {
+      const session: LiveSession = {
+        id: crypto.randomUUID(),
+        title: form.title,
+        status: 'scheduled',
+        hostId: profile.id,
+        hostName: profile.displayName,
+        auctionQueue: form.selectedAuctionIds,
+        currentAuctionId: form.selectedAuctionIds[0] || null,
+        spotlightMessage: form.spotlightMessage,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      await createLiveSession(session);
+      setSessions(s => [session, ...s]);
+      setForm({ title: '', spotlightMessage: '', selectedAuctionIds: [] });
+      setMsg('Live session created.');
+      setTimeout(() => setMsg(null), 3000);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[1fr_0.9fr]">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="h-1 bg-gradient-to-r from-rose-400 to-orange-500" />
+        <div className="p-6 space-y-4">
+          <p className="text-lg font-bold text-gray-900">Plan a live session</p>
+          <div>
+            <label className="section-label block mb-1.5">Session title *</label>
+            <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="input" placeholder="e.g. Sunday Drop Live" />
+          </div>
+          <div>
+            <label className="section-label block mb-1.5">Spotlight message</label>
+            <textarea value={form.spotlightMessage} onChange={e => setForm(f => ({ ...f, spotlightMessage: e.target.value }))} rows={2} className="input resize-none" placeholder="Shown to viewers during stream" />
+          </div>
+          <div>
+            <label className="section-label block mb-3">Auction queue</label>
+            <div className="space-y-2">
+              {auctions.map(a => {
+                const checked = form.selectedAuctionIds.includes(a.id);
+                return (
+                  <label key={a.id} className={cn(
+                    'flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all',
+                    checked ? 'border-rose-200 bg-rose-50' : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+                  )}>
+                    <input type="checkbox" checked={checked}
+                      onChange={e => setForm(f => ({
+                        ...f,
+                        selectedAuctionIds: e.target.checked
+                          ? [...f.selectedAuctionIds, a.id]
+                          : f.selectedAuctionIds.filter((id: string) => id !== a.id),
+                      }))}
+                      className="rounded accent-rose-500" />
+                    <span className="text-sm font-semibold text-gray-900">{a.title}</span>
+                  </label>
+                );
+              })}
+              {auctions.length === 0 && <p className="text-sm text-gray-400">No auctions available yet</p>}
+            </div>
+          </div>
+          {msg && (
+            <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-100 rounded-xl text-sm text-green-700 font-medium">
+              <CheckCircle className="w-4 h-4 flex-shrink-0" />
+              {msg}
+            </div>
+          )}
+          <button onClick={createSession} disabled={saving || !form.title} className="btn-primary w-full justify-center disabled:opacity-50">
+            {saving ? 'Creating…' : 'Create live session'}
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="h-1 bg-gradient-to-r from-amber-400 to-yellow-500" />
+        <div className="p-6">
+          <p className="section-label mb-3">Sessions ({sessions.length})</p>
+          {sessions.length === 0 ? (
+            <div className="py-10 text-center">
+              <Radio className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+              <p className="text-sm text-gray-500 font-medium">No sessions yet</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {sessions.map(s => (
+                <div key={s.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">{s.title}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{s.spotlightMessage || 'No spotlight message'}</p>
+                  </div>
+                  <span className={cn(
+                    'text-[10px] font-bold px-2 py-1 rounded-full',
+                    s.status === 'live' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-600'
+                  )}>
+                    {s.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Inventory Component ──────────────────────────────────────────────────
+
+export default function Inventory() {
+  const [tab, setTab] = useState<Tab>('intake');
+  const [products, setProducts] = useState<Product[]>([]);
+
+  useEffect(() => subscribeToInventory(setProducts), []);
+
+  return (
+    <section className="hero-bg px-4 py-10 min-h-screen">
       <div className="mx-auto max-w-7xl">
+        {/* Header */}
         <div className="mb-8 text-white">
-          <p className="text-[11px] uppercase tracking-[0.35em] text-purple-400">Admin View</p>
-          <h1 className="mt-4 text-4xl font-black">Inventory, intake, review, packs, and live selling</h1>
-          {message ? <div className="mt-4 rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm text-white/80">{message}</div> : null}
+          <p className="text-[11px] uppercase tracking-[0.35em] text-purple-400">Admin · Inventory</p>
+          <h1 className="mt-2 text-3xl font-black">Product management</h1>
+          <p className="mt-1 text-sm text-white/50">Intake → Review → Approve → Live on Store &amp; Auction</p>
         </div>
 
+        {/* Tabs */}
         <div className="mb-6 flex flex-wrap gap-2">
-          {tabs.map((item) => (
+          {TABS.map(({ key, label, icon: Icon }) => (
             <button
-              key={item}
-              onClick={() => setTab(item)}
-              className={`rounded-full px-4 py-2 text-sm font-bold ${tab === item ? 'bg-purple-500 text-white' : 'border border-white/10 bg-white/5 text-white/75'}`}
+              key={key}
+              onClick={() => setTab(key)}
+              className={cn(
+                'flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-all',
+                tab === key
+                  ? 'bg-white text-purple-700 shadow-sm'
+                  : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+              )}
             >
-              {item}
+              <Icon className="w-3.5 h-3.5" />
+              {label}
             </button>
           ))}
         </div>
 
-        {tab === 'manual' && (
-          <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
-            <div className="rounded-[2rem] border border-black/8 bg-white p-8">
-              <h2 className="text-2xl font-black">Manual intake</h2>
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <input value={manualForm.title} onChange={(e) => setManualForm((current) => ({ ...current, title: e.target.value }))} className="input bg-gray-50 md:col-span-2" placeholder="Title" />
-                <textarea value={manualForm.description} onChange={(e) => setManualForm((current) => ({ ...current, description: e.target.value }))} className="input h-28 bg-gray-50 md:col-span-2" placeholder="Description" />
-                <input value={manualForm.category} onChange={(e) => setManualForm((current) => ({ ...current, category: e.target.value }))} className="input bg-gray-50" placeholder="Category" />
-                <input value={manualForm.tags} onChange={(e) => setManualForm((current) => ({ ...current, tags: e.target.value }))} className="input bg-gray-50" placeholder="Tags, comma separated" />
-                <input type="number" value={manualForm.price} onChange={(e) => setManualForm((current) => ({ ...current, price: Number(e.target.value) }))} className="input bg-gray-50" placeholder="Price" />
-                <input type="number" value={manualForm.quantity} onChange={(e) => setManualForm((current) => ({ ...current, quantity: Number(e.target.value) }))} className="input bg-gray-50" placeholder="Quantity" />
-                <select value={manualForm.condition} onChange={(e) => setManualForm((current) => ({ ...current, condition: e.target.value as ProductCondition }))} className="input bg-gray-50">
-                  <option value="New">New</option>
-                  <option value="Like New">Like new</option>
-                  <option value="Pre-owned">Pre-owned</option>
-                  <option value="Refurbished">Refurbished</option>
-                </select>
-                <select value={manualForm.channel} onChange={(e) => setManualForm((current) => ({ ...current, channel: e.target.value as SalesChannel }))} className="input bg-gray-50">
-                  <option value="store">Store</option>
-                  <option value="auction">Auction</option>
-                  <option value="pack">Pack component</option>
-                </select>
-                {manualForm.channel === 'auction' && (
-                  <>
-                    <input type="datetime-local" value={manualForm.auctionStartsAt} onChange={(e) => setManualForm((current) => ({ ...current, auctionStartsAt: e.target.value }))} className="input bg-gray-50" />
-                    <input type="datetime-local" value={manualForm.auctionEndsAt} onChange={(e) => setManualForm((current) => ({ ...current, auctionEndsAt: e.target.value }))} className="input bg-gray-50" />
-                  </>
-                )}
-                <input type="file" multiple accept="image/*" onChange={(e) => setManualFiles(Array.from(e.target.files || []))} className="input bg-gray-50 md:col-span-2" />
+        {/* Tab content */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={tab}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+          >
+            {tab === 'intake' && (
+              <div className="bg-white rounded-[2rem] border border-black/8 p-8">
+                <OnboardingFlow onComplete={() => setTab('review')} />
               </div>
-              <button onClick={() => void handleManualSubmit()} className="mt-6 rounded-full bg-purple-900 px-5 py-3 text-sm font-bold text-white">Create manual listing</button>
-            </div>
-            <div className="rounded-[2rem] border border-black/8 bg-white p-8">
-              <h2 className="text-2xl font-black">Inventory snapshot</h2>
-              <div className="mt-6 space-y-3">
-                {products.slice(0, 8).map((product) => (
-                  <div key={product.id} className="rounded-2xl bg-gray-50 p-4 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold">{product.title || product.name}</span>
-                      <span>{currency(product.pricing?.salePrice || product.discountPrice || 0)}</span>
-                    </div>
-                    <div className="mt-2 text-gray-500">
-                      On hand {product.inventory?.onHand || product.stock || 0} · Store {product.inventory?.allocated.store || 0} · Auction {product.inventory?.allocated.auction || 0} · Packs {product.inventory?.allocated.packs || 0}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {tab === 'ai' && (
-          <div className="grid gap-6 lg:grid-cols-[1fr_0.95fr]">
-            <div className="rounded-[2rem] border border-black/8 bg-white p-8">
-              <h2 className="text-2xl font-black">AI intake</h2>
-              <p className="mt-3 text-sm leading-6 text-gray-500">
-                Upload rough imagery and notes. Gemini drafts the title, description, category, pricing guidance, tags, rarity cues, and suggested channel, then routes the item into review.
-              </p>
-              <div className="mt-6 grid gap-4">
-                <textarea value={aiForm.notes} onChange={(e) => setAiForm((current) => ({ ...current, notes: e.target.value }))} className="input h-32 bg-gray-50" placeholder="Rough notes, provenance, defects, special context" />
-                <input value={aiForm.categoryHint} onChange={(e) => setAiForm((current) => ({ ...current, categoryHint: e.target.value }))} className="input bg-gray-50" placeholder="Category hint (optional)" />
-                <select value={aiForm.channelHint} onChange={(e) => setAiForm((current) => ({ ...current, channelHint: e.target.value as SalesChannel }))} className="input bg-gray-50">
-                  <option value="store">Store hint</option>
-                  <option value="auction">Auction hint</option>
-                  <option value="pack">Pack hint</option>
-                </select>
-                <input type="file" multiple accept="image/*" onChange={(e) => setAiFiles(Array.from(e.target.files || []))} className="input bg-gray-50" />
-              </div>
-              <button onClick={() => void handleAiSubmit()} className="mt-6 rounded-full bg-purple-900 px-5 py-3 text-sm font-bold text-white">Submit to review queue</button>
-            </div>
-            <div className="rounded-[2rem] border border-black/8 bg-white p-8">
-              <h2 className="text-2xl font-black">Pending review queue</h2>
-              <div className="mt-6 space-y-3">
-                {reviewQueue.filter((item) => item.status === 'pending').slice(0, 8).map((entry) => (
-                  <button key={entry.id} onClick={() => setSelectedReview(entry)} className="block w-full rounded-2xl bg-gray-50 p-4 text-left">
-                    <p className="text-xs uppercase tracking-[0.25em] text-purple-600">{entry.generatedDraft.suggestedChannel}</p>
-                    <p className="mt-2 text-lg font-black">{entry.generatedDraft.title}</p>
-                    <p className="mt-2 text-sm text-gray-500">Confidence {Math.round(entry.confidenceScore * 100)}%</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+            {tab === 'review' && <ReviewPanel />}
 
-        {tab === 'review' && (
-          <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-            <div className="rounded-[2rem] border border-black/8 bg-white p-8">
-              <h2 className="text-2xl font-black">Review queue</h2>
-              <div className="mt-6 space-y-3">
-                {reviewQueue.map((entry) => (
-                  <button key={entry.id} onClick={() => setSelectedReview(entry)} className={`block w-full rounded-2xl p-4 text-left ${selectedReview?.id === entry.id ? 'btn-primary' : 'bg-gray-50'}`}>
-                    <p className="text-xs uppercase tracking-[0.25em]">{entry.status}</p>
-                    <p className="mt-2 text-lg font-black">{entry.generatedDraft.title}</p>
-                    <p className="mt-2 text-sm opacity-70">{entry.generatedDraft.category}</p>
-                  </button>
-                ))}
+            {tab === 'products' && (
+              <div className="bg-white rounded-[2rem] border border-black/8 p-8">
+                <ProductsView />
               </div>
-            </div>
-            <div className="rounded-[2rem] border border-black/8 bg-white p-8">
-              {!selectedReview || !reviewDraft ? (
-                <p className="text-sm text-gray-500">Select a queued AI submission to inspect, edit, approve, or reject.</p>
-              ) : (
-                <>
-                  <h2 className="text-2xl font-black">Review decision</h2>
-                  <div className="mt-6 grid gap-4 md:grid-cols-2">
-                    <input value={reviewDraft.title} onChange={(e) => setReviewDraft((current: any) => ({ ...current, title: e.target.value }))} className="input bg-gray-50 md:col-span-2" />
-                    <textarea value={reviewDraft.description} onChange={(e) => setReviewDraft((current: any) => ({ ...current, description: e.target.value }))} className="input h-28 bg-gray-50 md:col-span-2" />
-                    <input value={reviewDraft.category} onChange={(e) => setReviewDraft((current: any) => ({ ...current, category: e.target.value }))} className="input bg-gray-50" />
-                    <input value={reviewDraft.tags} onChange={(e) => setReviewDraft((current: any) => ({ ...current, tags: e.target.value }))} className="input bg-gray-50" />
-                    <select value={reviewDraft.condition} onChange={(e) => setReviewDraft((current: any) => ({ ...current, condition: e.target.value }))} className="input bg-gray-50">
-                      <option value="New">New</option>
-                      <option value="Like New">Like new</option>
-                      <option value="Pre-owned">Pre-owned</option>
-                      <option value="Refurbished">Refurbished</option>
-                    </select>
-                    <select value={reviewDraft.suggestedChannel} onChange={(e) => setReviewDraft((current: any) => ({ ...current, suggestedChannel: e.target.value as SalesChannel }))} className="input bg-gray-50">
-                      <option value="store">Store</option>
-                      <option value="auction">Auction</option>
-                      <option value="pack">Pack component</option>
-                    </select>
-                    <input type="number" value={reviewDraft.pricing.salePrice} onChange={(e) => setReviewDraft((current: any) => ({ ...current, pricing: { ...current.pricing, salePrice: Number(e.target.value), listPrice: Number(e.target.value) } }))} className="input bg-gray-50" />
-                    <input type="number" value={reviewDraft.inventory.onHand} onChange={(e) => setReviewDraft((current: any) => ({ ...current, inventory: { ...current.inventory, onHand: Number(e.target.value) } }))} className="input bg-gray-50" />
-                  </div>
-                  <div className="mt-6 rounded-2xl bg-gray-50 p-4 text-sm text-gray-500">
-                    <p><strong>AI notes:</strong> {selectedReview.aiNotes.join(' · ') || 'No notes returned.'}</p>
-                    <p className="mt-2"><strong>Confidence markers:</strong> {selectedReview.confidenceMarkers.join(' · ') || 'Confidence markers not stored separately in Postgres review mode.'}</p>
-                  </div>
-                  <div className="mt-6 flex flex-wrap gap-3">
-                    <button onClick={() => void approveReview()} className="rounded-full bg-purple-900 px-5 py-3 text-sm font-bold text-white">Approve and publish</button>
-                    <button onClick={() => void rejectReview()} className="rounded-full border border-red-200 px-5 py-3 text-sm font-bold text-red-600">Reject</button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        )}
+            )}
 
-        {tab === 'packs' && (
-          <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-            <div className="rounded-[2rem] border border-black/8 bg-white p-8">
-              <h2 className="text-2xl font-black">Pack builder</h2>
-              <div className="mt-6 grid gap-4">
-                <input value={packForm.title} onChange={(e) => setPackForm((current) => ({ ...current, title: e.target.value }))} className="input bg-gray-50" placeholder="Pack title" />
-                <textarea value={packForm.description} onChange={(e) => setPackForm((current) => ({ ...current, description: e.target.value }))} className="input h-28 bg-gray-50" placeholder="Pack description" />
-                <input type="number" value={packForm.price} onChange={(e) => setPackForm((current) => ({ ...current, price: Number(e.target.value) }))} className="input bg-gray-50" placeholder="Pack price" />
-              </div>
-              <div className="mt-6 space-y-2">
-                {packEligible.map((product) => (
-                  <label key={product.id} className="flex items-center gap-3 rounded-2xl bg-gray-50 px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={packForm.selectedProductIds.includes(product.id)}
-                      onChange={(e) =>
-                        setPackForm((current) => ({
-                          ...current,
-                          selectedProductIds: e.target.checked
-                            ? [...current.selectedProductIds, product.id]
-                            : current.selectedProductIds.filter((id) => id !== product.id),
-                        }))
-                      }
-                    />
-                    <span className="font-bold">{product.title || product.name}</span>
-                  </label>
-                ))}
-              </div>
-              <button onClick={() => void createPackFromForm()} className="mt-6 rounded-full bg-purple-900 px-5 py-3 text-sm font-bold text-white">Create pack</button>
-            </div>
-            <div className="rounded-[2rem] border border-black/8 bg-white p-8">
-              <h2 className="text-2xl font-black">Pack-eligible inventory</h2>
-              <div className="mt-6 space-y-3">
-                {packEligible.map((product) => (
-                  <div key={product.id} className="rounded-2xl bg-gray-50 p-4 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold">{product.title || product.name}</span>
-                      <span>{currency(product.pricing?.salePrice || product.discountPrice || 0)}</span>
-                    </div>
-                    <p className="mt-2 text-gray-500">Pack allocation: {product.inventory?.allocated.packs || 0}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+            {tab === 'packs' && <PacksPanel products={products} />}
 
-        {tab === 'live' && (
-          <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-            <div className="rounded-[2rem] border border-black/8 bg-white p-8">
-              <h2 className="text-2xl font-black">Live session planning</h2>
-              <div className="mt-6 grid gap-4">
-                <input value={liveForm.title} onChange={(e) => setLiveForm((current) => ({ ...current, title: e.target.value }))} className="input bg-gray-50" placeholder="Session title" />
-                <textarea value={liveForm.spotlightMessage} onChange={(e) => setLiveForm((current) => ({ ...current, spotlightMessage: e.target.value }))} className="input h-28 bg-gray-50" placeholder="Spotlight message" />
-              </div>
-              <div className="mt-6 space-y-2">
-                {auctions.map((auction) => (
-                  <label key={auction.id} className="flex items-center gap-3 rounded-2xl bg-gray-50 px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={liveForm.selectedAuctionIds.includes(auction.id)}
-                      onChange={(e) =>
-                        setLiveForm((current) => ({
-                          ...current,
-                          selectedAuctionIds: e.target.checked
-                            ? [...current.selectedAuctionIds, auction.id]
-                            : current.selectedAuctionIds.filter((id) => id !== auction.id),
-                        }))
-                      }
-                    />
-                    <span className="font-bold">{auction.title}</span>
-                  </label>
-                ))}
-              </div>
-              <button onClick={() => void createLiveSessionFromForm()} className="mt-6 rounded-full bg-purple-900 px-5 py-3 text-sm font-bold text-white">Create live session</button>
-            </div>
-            <div className="rounded-[2rem] border border-black/8 bg-white p-8">
-              <h2 className="text-2xl font-black">Upcoming and live sessions</h2>
-              <div className="mt-6 space-y-3">
-                {liveSessions.map((session) => (
-                  <div key={session.id} className="rounded-2xl bg-gray-50 p-4 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold">{session.title}</span>
-                      <span>{session.status}</span>
-                    </div>
-                    <p className="mt-2 text-gray-500">{session.spotlightMessage || 'No spotlight message set.'}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+            {tab === 'live' && <LivePanel />}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </section>
   );
