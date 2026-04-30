@@ -53,13 +53,21 @@ function rowToProduct(row: any): Product {
   };
 }
 
+// DB constraint: only these 6 categories are valid in the products table.
+// Any other value (including AI-suggested extended categories) must map to 'Other'.
+const DB_CATEGORIES = new Set(['Sneakers', 'Clothing', 'Accessories', 'Electronics', 'Collectibles', 'Other']);
+function toDbCategory(cat?: string): string {
+  const trimmed = (cat || '').trim();
+  return DB_CATEGORIES.has(trimmed) ? trimmed : 'Other';
+}
+
 // Maps frontend Product → Supabase insert/update
 function productToRow(product: Partial<Product>) {
   const row: Record<string, any> = {};
 
   if (product.name !== undefined) row.name = product.name.trim();
   if (product.description !== undefined) row.description = product.description.trim();
-  if (product.category !== undefined) row.category = product.category.trim();
+  if (product.category !== undefined) row.category = toDbCategory(product.category);
   if (product.condition !== undefined) row.condition = product.condition;
   if (product.status !== undefined) row.status = product.status;
   // 'pack' is not in the DB enum; save pack-only products as 'store' (identified by alloc_packs > 0)

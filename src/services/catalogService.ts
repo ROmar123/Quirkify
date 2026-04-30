@@ -13,6 +13,9 @@ import { defaultAllocations, emptyReservations, slugify } from '../lib/quirkify'
 
 const PRODUCT_POLL_INTERVAL_MS = 30000;
 
+// DB constraint: products_category_check only allows these 6 values.
+const DB_CATEGORIES = new Set(['Sneakers', 'Clothing', 'Accessories', 'Electronics', 'Collectibles', 'Other']);
+
 type ProductRow = {
   id: string;
   name: string;
@@ -232,7 +235,7 @@ function productToInsertRow(product: Partial<Product>, status: ProductStatus) {
   return {
     name: title,
     description: product.description?.trim() || '',
-    category: product.category?.trim() || 'Other',
+    category: DB_CATEGORIES.has((product.category || '').trim()) ? product.category!.trim() : 'Other',
     condition: conditionToDb(product.condition),
     status: status === 'active' ? 'approved' : status,
     listing_type: listingType,
