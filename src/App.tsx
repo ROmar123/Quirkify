@@ -15,12 +15,17 @@ const Checkout = lazy(() => import('./components/store/Checkout'));
 const PaymentResult = lazy(() => import('./components/store/PaymentResult'));
 const Orders = lazy(() => import('./components/profile/Orders'));
 const Collection = lazy(() => import('./components/profile/Collection'));
+const ProfileHub = lazy(() => import('./components/profile/ProfileHub'));
 const PublicProfile = lazy(() => import('./components/profile/PublicProfile'));
 const SellerOnboarding = lazy(() => import('./components/profile/SellerOnboarding'));
 const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard'));
 const Inventory = lazy(() => import('./components/inventory/Inventory'));
 const CommercePage = lazy(() => import('./components/admin/CommercePage'));
+const OrderManager = lazy(() => import('./components/admin/OrderManager'));
 const GrowthPage = lazy(() => import('./components/admin/GrowthPage'));
+const LiveStreamManager = lazy(() => import('./components/admin/LiveStreamManager'));
+const ResourceMonitor = lazy(() => import('./components/admin/ResourceMonitor'));
+const SocialIntegration = lazy(() => import('./components/admin/SocialIntegration'));
 const LiveStreamRoom = lazy(() => import('./components/live/LiveStreamRoom'));
 const TermsOfService = lazy(() => import('./components/legal/TermsOfService'));
 const PrivacyPolicy = lazy(() => import('./components/legal/PrivacyPolicy'));
@@ -67,7 +72,7 @@ function AppRoutes() {
             <Route path="/live/:sessionId" element={<LiveStreamRoom />} />
             <Route path="/checkout" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><Checkout /></Guard>} />
             <Route path="/orders" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><Orders /></Guard>} />
-            <Route path="/profile" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><Collection /></Guard>} />
+            <Route path="/profile" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><ProfileHub /></Guard>} />
             <Route path="/collection" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><Collection /></Guard>} />
             <Route path="/profile/:uid" element={<PublicProfile />} />
             <Route path="/seller/onboarding" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><SellerOnboarding /></Guard>} />
@@ -75,11 +80,14 @@ function AppRoutes() {
             <Route path="/payment/success" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><PaymentResult type="success" /></Guard>} />
             <Route path="/payment/cancel" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><PaymentResult type="cancel" /></Guard>} />
             <Route path="/admin" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><AdminDashboard /></Guard>} />
-            <Route path="/admin/orders" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><Navigate to="/admin/commerce" replace /></Guard>} />
+            <Route path="/admin/orders" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><OrderManager /></Guard>} />
             <Route path="/admin/inventory" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><Inventory /></Guard>} />
             <Route path="/admin/commerce" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><CommercePage /></Guard>} />
             <Route path="/admin/campaigns" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><Navigate to="/admin/growth" replace /></Guard>} />
             <Route path="/admin/growth" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><GrowthPage /></Guard>} />
+            <Route path="/admin/live" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><LiveStreamManager /></Guard>} />
+            <Route path="/admin/monitor" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><ResourceMonitor /></Guard>} />
+            <Route path="/admin/social" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><SocialIntegration /></Guard>} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/returns" element={<ReturnsPolicy />} />

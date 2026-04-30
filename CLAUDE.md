@@ -45,6 +45,18 @@ After the 2025-04 migration, all admin product management uses Supabase:
 - `ReviewQueue.tsx` → `subscribeToProducts('pending')`, `updateProduct`
 - `CampaignManager.tsx` → `createCampaign`, `subscribeToCampaigns`
 
+### Admin Routes (all require `isAdmin`)
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/admin` | `AdminDashboard` | Overview with live counts + nav links |
+| `/admin/inventory` | `Inventory` | Full intake, review queue, pack setup, auction creation |
+| `/admin/commerce` | `CommercePage` | Fulfilment stages, tracking, admin notes |
+| `/admin/orders` | `OrderManager` | Search/filter orders, event history, quick status actions |
+| `/admin/growth` | `GrowthPage` | Gemini campaign drafts with human approval gate |
+| `/admin/live` | `LiveStreamManager` | Create/manage live sessions, host scripts, auction queues |
+| `/admin/social` | `SocialIntegration` | Social commerce flow preview + webhook endpoint status |
+| `/admin/monitor` | `ResourceMonitor` | Real-time DB stats, service health, feature status |
+
 ### RLS Policies
 Applied migrations:
 - `007_fix_rls.sql` — authenticated users can SELECT all products (not just `status='approved'`)
@@ -62,6 +74,8 @@ Applied migrations:
 - `/api/ai/campaign` — Gemini campaign suggestions
 - `/api/ai/personalize` — Gemini product recommendations
 - `/api/ai/talking-points` — Gemini host scripts
+- `/api/social/webhook` — TikTok/WhatsApp webhook with HMAC signature verification (endpoints ready, API keys pending)
+- `/api/health` — service health check (Supabase, Gemini, Yoco, Resend key presence)
 
 ### Environment Variables (Vercel)
 Required for full functionality:
@@ -70,6 +84,8 @@ Required for full functionality:
 - `VITE_GEMINI_API_KEY` + `GEMINI_API_KEY`
 - `YOCO_SECRET_KEY` + `YOCO_PUBLIC_KEY`
 - `VITE_ADMIN_EMAILS` — comma-separated admin emails
+- `TIKTOK_WEBHOOK_SECRET` + `WHATSAPP_APP_SECRET` + `WHATSAPP_VERIFY_TOKEN` (optional — enable social webhook verification)
+- `RESEND_API_KEY` + `QUIRKIFY_FROM_EMAIL` (optional — order notification emails)
 
 ## Admin Access
 - Admin email hardcoded in `src/services/profileService.ts`: `patengel85@gmail.com`
@@ -78,7 +94,7 @@ Required for full functionality:
 - Admin redirect on login: `window.location.pathname === '/auth' || '/'` → `/admin`
 
 ## Known Limitations
-- Live streaming (`LiveStreamRoom.tsx`) is UI prototype — no real WebRTC backend
-- Social integration (`SocialIntegration.tsx`) is a demo — no real TikTok/WhatsApp API
-- `ResourceMonitor.tsx` shows hardcoded metrics — no live API quota integration
-- `PublicProfile.tsx` collection view shows "coming soon"
+- **Live streaming** (`LiveStreamRoom.tsx`) — Firestore session + auction management is fully wired. No WebRTC camera/stream backend yet; video feed is the remaining gap.
+- **Social commerce** (`SocialIntegration.tsx`) — webhook endpoint + signature verification is production-ready. TikTok OAuth and WhatsApp Business API keys not yet connected; UI is an interactive preview.
+- **`ResourceMonitor.tsx`** — fully wired to live Supabase + Firestore counts and `/api/health` endpoint. Feature status labels for Streaming/Social accurately reflect Beta state.
+- **`PublicProfile.tsx`** — collection view is fully implemented (Firestore `users/{uid}/collection` + Supabase product join).

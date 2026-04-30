@@ -76,7 +76,11 @@ export default function AdminDashboard() {
           {[
             ['Inventory', '/admin/inventory', 'Manual intake, AI intake, review queue, pack setup, and auction creation.'],
             ['Commerce', '/admin/commerce', 'Order lifecycle, payment states, shipping states, and manual fulfilment notes.'],
+            ['Orders', '/admin/orders', 'Detailed order management with search, filters, event history and quick status actions.'],
             ['Growth', '/admin/growth', 'Gemini campaign planning with human approval and stored recommendations.'],
+            ['Live Sessions', '/admin/live', 'Create and manage live auction sessions, queues, and host scripts.'],
+            ['Social Commerce', '/admin/social', 'TikTok and WhatsApp commerce flow preview with webhook endpoint status.'],
+            ['Resource Monitor', '/admin/monitor', 'Real-time database stats, service health checks, and feature status.'],
             ['Auction feed', '/auctions', 'Customer auction feed and live-room entry points for testing the public auction experience.'],
           ].map(([title, path, copy]) => (
             <Link key={path as string} to={path as string} className="rounded-[1.75rem] border border-black/8 bg-purple-900 p-6 text-white">
