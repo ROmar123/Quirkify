@@ -243,7 +243,6 @@ function productToInsertRow(product: Partial<Product>, status: ProductStatus) {
     alloc_auction: Number(allocations.auction || 0),
     alloc_packs: Number(allocations.packs || 0),
     image_url: primaryImage,
-    image_urls: imageUrls,
     confidence_score: Number(product.aiConfidence ?? product.confidenceScore ?? 0),
     rarity: product.rarity || null,
     stats_quirkiness: product.stats?.quirkiness ?? null,
@@ -537,15 +536,10 @@ export async function updateProduct(productId: string, updates: Partial<Product>
   const merged = { ...current, ...updates } as Product;
   const row = productToInsertRow(merged, merged.status || current?.status || 'pending');
 
-  // Never re-send base64 data URLs — they bloat the request body and break the update.
-  // Only send image fields when they are real HTTPS URLs.
+  // Never re-send base64 data URLs — they bloat the request body.
+  // Keep the existing image_url in Supabase intact by not including it in the update.
   if (typeof row.image_url === 'string' && row.image_url.startsWith('data:')) {
     delete row.image_url;
-  }
-  if (Array.isArray(row.image_urls)) {
-    const httpUrls = row.image_urls.filter((u: string) => typeof u === 'string' && u.startsWith('http'));
-    if (httpUrls.length > 0) row.image_urls = httpUrls;
-    else delete row.image_urls;
   }
 
   const { data, error } = await supabase.from('products').update(row).eq('id', productId).select('*').single();

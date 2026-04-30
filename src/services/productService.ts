@@ -74,7 +74,6 @@ function productToRow(product: Partial<Product>) {
     row.alloc_packs = product.allocations.packs;
   }
   if (product.imageUrl !== undefined) row.image_url = product.imageUrl;
-  if (product.imageUrls !== undefined) row.image_urls = product.imageUrls;
   if (product.confidenceScore !== undefined) row.confidence_score = product.confidenceScore;
   if (product.rarity !== undefined) row.rarity = product.rarity;
   if (product.stats) {

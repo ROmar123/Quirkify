@@ -53,7 +53,8 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
     if (toAdd.length === 0) return;
     try {
       const compressed = await Promise.all(toAdd.map(f => compressImage(f)));
-      setImages(prev => [...prev, ...compressed].slice(0, 3));
+      const entries = compressed.map(({ file, dataUrl, base64 }) => ({ file, preview: dataUrl, base64 }));
+      setImages(prev => [...prev, ...entries].slice(0, 3));
       setFormData(null);
       setAnalysisStep(-1);
     } catch {
