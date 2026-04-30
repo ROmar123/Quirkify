@@ -18,6 +18,14 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    server: {
+      proxy: {
+        '/api': {
+          target: 'https://quirkify-recover.vercel.app',
+          changeOrigin: true,
+        },
+      },
+    },
     build: {
       rollupOptions: {
         output: {

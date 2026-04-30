@@ -222,21 +222,42 @@ function ReviewPanel() {
         {/* Edit panel */}
         <div>
           {!selected || !draft ? (
-            <div className="bg-white rounded-2xl border border-gray-100 p-16 text-center shadow-sm h-full flex flex-col items-center justify-center">
-              <ClipboardList className="w-10 h-10 text-gray-200 mb-3" />
-              <p className="text-sm font-semibold text-gray-500">Select an item to review</p>
-              <p className="text-xs text-gray-400 mt-1">Edit fields and approve or reject</p>
+            <div className="bg-white rounded-2xl border border-gray-100 p-16 text-center shadow-sm h-full flex flex-col items-center justify-center min-h-[400px]">
+              <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
+                <ClipboardList className="w-7 h-7 text-gray-200" />
+              </div>
+              <p className="text-sm font-semibold text-gray-500">Select a product to review</p>
+              <p className="text-xs text-gray-400 mt-1">Edit all fields then approve or reject</p>
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Image + meta header */}
+              {(() => {
+                const img = selected.sourceInput?.media?.[0]?.url || (selected as any).image_url;
+                return img ? (
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="relative h-52 bg-gray-50">
+                      <img src={img} alt="" className="w-full h-full object-contain" />
+                      <div className="absolute top-3 left-3 flex gap-1.5">
+                        <span className="text-[10px] font-bold px-2 py-1 rounded-full text-white"
+                          style={{ background: ch.color }}>{ch.label}</span>
+                        <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-black/60 text-white">
+                          {Math.round(selected.confidenceScore * 100)}% AI
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+
               {/* Details card */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-pink-500 to-purple-600" />
-                <div className="p-6 space-y-4">
+                <div className="p-5 space-y-4">
                   <p className="section-label">Product details</p>
                   <div>
-                    <label className="section-label block mb-1.5">Name</label>
-                    <input value={draft.title} onChange={e => setDraft((d: any) => ({ ...d, title: e.target.value }))} className="input" />
+                    <label className="section-label block mb-1.5">Product name</label>
+                    <input value={draft.title} onChange={e => setDraft((d: any) => ({ ...d, title: e.target.value }))} className="input" placeholder="Product name" />
                   </div>
                   <div>
                     <label className="section-label block mb-1.5">Description</label>
@@ -264,11 +285,11 @@ function ReviewPanel() {
               {/* Pricing card */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
-                <div className="p-6 space-y-4">
+                <div className="p-5 space-y-4">
                   <p className="section-label">Pricing &amp; stock</p>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <label className="section-label block mb-1.5">Retail / RRP</label>
+                      <label className="section-label block mb-1.5">Retail / RRP (R)</label>
                       <input type="number" value={draft.retailPrice} onChange={e => {
                         const retail = parseFloat(e.target.value) || 0;
                         const sale = Math.round(retail * (1 - (draft.markdownPct || 0) / 100));
@@ -285,13 +306,13 @@ function ReviewPanel() {
                     </div>
                     <div>
                       <label className="section-label block mb-1.5">Selling price</label>
-                      <div className={cn('input font-bold flex items-center', draft.salePrice > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'text-gray-400')}>
-                        R{draft.salePrice || 0}
+                      <div className={cn('input font-bold flex items-center tabular-nums', draft.salePrice > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'text-gray-400')}>
+                        {draft.salePrice > 0 ? `R${draft.salePrice.toLocaleString()}` : '—'}
                       </div>
                     </div>
                   </div>
                   <div>
-                    <label className="section-label block mb-1.5">Stock</label>
+                    <label className="section-label block mb-1.5">Stock quantity</label>
                     <input type="number" value={draft.stock} onChange={e => {
                       const qty = parseInt(e.target.value) || 1;
                       setDraft((d: any) => ({ ...d, stock: qty }));
@@ -304,51 +325,44 @@ function ReviewPanel() {
               {/* Channel card */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-600" />
-                <div className="p-6 space-y-4">
-                  <p className="section-label">Listing type</p>
-                  <div className="grid grid-cols-2 gap-2.5">
+                <div className="p-5 space-y-4">
+                  <p className="section-label">Sales channel</p>
+                  <div className="grid grid-cols-2 gap-2">
                     {[
-                      { value: 'store',   icon: ShoppingBag, label: 'Store only',       sub: 'Buy-now' },
-                      { value: 'auction', icon: Gavel,       label: 'Auction only',      sub: 'Bid to win' },
-                      { value: 'both',    icon: Layers,      label: 'Store + Auction',   sub: 'Both channels' },
-                      { value: 'pack',    icon: Package,     label: 'Pack component',    sub: 'Bundles only' },
+                      { value: 'store',   icon: ShoppingBag, label: 'Store only',     sub: 'Buy-now' },
+                      { value: 'auction', icon: Gavel,       label: 'Auction only',   sub: 'Bid to win' },
+                      { value: 'both',    icon: Layers,      label: 'Store + Auction',sub: 'Both channels' },
+                      { value: 'pack',    icon: Package,     label: 'Pack component', sub: 'Bundles only' },
                     ].map(opt => {
                       const Icon = opt.icon;
                       const active = listingType === opt.value;
                       const optCh = CHANNEL_LABELS[opt.value];
                       return (
-                        <button
-                          key={opt.value}
-                          type="button"
+                        <button key={opt.value} type="button"
                           onClick={() => {
                             setListingType(opt.value);
                             setAllocs(defaultAllocations(opt.value as SalesChannel | 'both', Number(draft.stock) || 1));
                           }}
                           className={cn(
-                            'flex items-start gap-2.5 p-3 rounded-xl border text-left transition-all',
+                            'flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all',
                             active ? 'border-purple-300 bg-purple-50 ring-1 ring-purple-300' : 'border-gray-100 bg-gray-50 hover:border-gray-200'
                           )}
                         >
-                          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: active ? optCh.color : '#f3f4f6' }}>
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                            style={{ background: active ? optCh.color : '#f3f4f6' }}>
                             <Icon className="w-3.5 h-3.5" style={{ color: active ? '#fff' : '#9ca3af' }} />
                           </div>
                           <div>
-                            <p className={cn('text-xs font-bold', active ? 'text-gray-900' : 'text-gray-600')}>{opt.label}</p>
-                            <p className="text-[10px] text-gray-400 mt-0.5">{opt.sub}</p>
+                            <p className={cn('text-xs font-bold leading-tight', active ? 'text-gray-900' : 'text-gray-500')}>{opt.label}</p>
+                            <p className="text-[10px] text-gray-400">{opt.sub}</p>
                           </div>
                         </button>
                       );
                     })}
                   </div>
-
                   <div>
                     <p className="section-label mb-2">Stock allocation</p>
-                    <AllocationEditor
-                      totalStock={Number(draft.stock) || 1}
-                      allocations={allocs}
-                      onChange={setAllocs}
-                      showPercentages
-                    />
+                    <AllocationEditor totalStock={Number(draft.stock) || 1} allocations={allocs} onChange={setAllocs} showPercentages />
                   </div>
                 </div>
               </div>
@@ -365,15 +379,14 @@ function ReviewPanel() {
               )}
 
               {/* Actions */}
-              <div className="flex gap-3">
+              <div className="flex gap-3 pb-2">
                 <button onClick={reject} disabled={busy}
-                  className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-red-200 text-red-600 text-sm font-bold hover:bg-red-50 transition-colors disabled:opacity-50">
-                  <XCircle className="w-4 h-4" />
-                  Reject
+                  className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl border-2 border-red-200 text-red-600 text-sm font-bold hover:bg-red-50 transition-colors disabled:opacity-50">
+                  <XCircle className="w-4 h-4" /> Reject
                 </button>
                 <button onClick={approve} disabled={busy}
-                  className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-bold text-white disabled:opacity-50 transition-colors"
-                  style={{ background: busy ? '#9ca3af' : `linear-gradient(135deg, ${ch.color}, ${ch.color}cc)` }}>
+                  className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl text-sm font-bold text-white shadow-md disabled:opacity-50 transition-all hover:-translate-y-0.5"
+                  style={{ background: busy ? '#9ca3af' : `linear-gradient(135deg, ${ch.color}, ${ch.color}bb)` }}>
                   {busy ? (
                     <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
                       className="w-4 h-4 border-2 border-white border-t-transparent rounded-full" />

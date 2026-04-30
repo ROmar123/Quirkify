@@ -147,26 +147,28 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         {/* Entry — choose intake method */}
         {currentStep === 'entry' && (
           <motion.div key="entry" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.25 }}>
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Add a product</h2>
-                <p className="text-gray-500 text-sm mt-1">Choose how to create your listing</p>
+                <h2 className="text-xl font-bold text-gray-900 tracking-tight">Add a product</h2>
+                <p className="text-gray-400 text-sm mt-0.5">Choose how to create your listing</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <motion.button
-                  whileHover={{ y: -3, boxShadow: '0 8px 24px rgba(168,85,247,0.12)' }}
+                  whileHover={{ y: -3 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setCurrentStep('intake')}
-                  className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:border-purple-200 transition-all text-left shadow-sm group"
+                  className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:border-purple-200 hover:shadow-lg transition-all text-left shadow-sm group"
+                  style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}
                 >
                   <div className="h-1 bg-gradient-to-r from-pink-500 to-purple-600" />
                   <div className="p-6">
-                    <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"
+                      style={{ background: 'linear-gradient(135deg, #fdf4ff, #ede9fe)' }}>
                       <Layers className="w-6 h-6 text-purple-500" />
                     </div>
-                    <h3 className="text-base font-bold text-gray-900 mb-1">AI Intake</h3>
-                    <p className="text-gray-500 text-sm leading-relaxed">Upload photos and let AI analyse product details instantly</p>
-                    <div className="mt-4 inline-flex items-center text-sm font-semibold text-purple-600">Get started →</div>
+                    <h3 className="text-base font-bold text-gray-900 mb-1.5">AI Intake</h3>
+                    <p className="text-gray-400 text-sm leading-relaxed">Upload photos — AI identifies the product, fills details &amp; suggests pricing automatically</p>
+                    <div className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-purple-600 group-hover:gap-2.5 transition-all">Start <span>→</span></div>
                   </div>
                 </motion.button>
 

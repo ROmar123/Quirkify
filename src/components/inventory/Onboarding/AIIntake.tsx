@@ -112,7 +112,14 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
       const markdownPercentage = 40;
       const discountPrice = calculateSellingPrice(retailPrice, markdownPercentage);
       const tempId = `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-      const imageUrl = await uploadFile(`products/${tempId}/primary.jpg`, files[0]);
+
+      // Try Firebase Storage; fall back to embedded base64 data URL if unavailable
+      let imageUrl: string;
+      try {
+        imageUrl = await uploadFile(`products/${tempId}/primary.jpg`, files[0]);
+      } catch {
+        imageUrl = `data:image/jpeg;base64,${imageBase64s[0]}`;
+      }
 
       setFormData({
         ...analysis,
