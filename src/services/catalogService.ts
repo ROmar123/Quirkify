@@ -139,6 +139,14 @@ function rowToProduct(row: ProductRow): Product {
   };
   const mediaUrls = row.image_urls?.length ? row.image_urls : row.image_url ? [row.image_url] : [];
 
+  // 'pack' is not stored in the DB enum; infer it from allocation pattern
+  const rawListingType = row.listing_type || 'store';
+  const inferredListingType: Product['listingType'] = (
+    rawListingType === 'store' &&
+    allocations.store === 0 &&
+    allocations.packs > 0
+  ) ? 'pack' : (rawListingType as Product['listingType']);
+
   return {
     id: row.id,
     slug: slugify(row.name || row.id),
@@ -150,7 +158,7 @@ function rowToProduct(row: ProductRow): Product {
     status: row.status as ProductStatus,
     source: Number(row.confidence_score || 0) > 0 ? 'ai' : 'manual',
     channels: listingTypeToChannels(row.listing_type),
-    listingType: (row.listing_type as Product['listingType']) || 'store',
+    listingType: inferredListingType,
     pricing: {
       listPrice: retailPrice,
       salePrice,
@@ -213,10 +221,13 @@ function productToInsertRow(product: Partial<Product>, status: ProductStatus) {
     (product.imageUrl ? [product.imageUrl] : []);
   const primaryImage = imageUrls[0] || '';
   const stock = Number(product.inventory?.onHand ?? product.stock ?? 0);
-  const allocations = product.inventory?.allocated || product.allocations || defaultAllocations('store', stock);
-  const listingType =
+  // Prefer explicit allocations over nested inventory.allocated (important for updates)
+  const allocations = product.allocations || product.inventory?.allocated || defaultAllocations('store', stock);
+  const rawListingType =
     product.listingType ||
     (allocations.store > 0 && allocations.auction > 0 ? 'both' : allocations.auction > 0 ? 'auction' : 'store');
+  // 'pack' is not in the DB listing_type enum; save as 'store' (identified by alloc_packs>0, alloc_store=0)
+  const listingType = rawListingType === 'pack' ? 'store' : rawListingType;
 
   return {
     name: title,

@@ -1,21 +1,21 @@
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '../firebase';
+import { supabase } from '../supabase';
 
 /**
- * Uploads a file to Firebase Storage and returns the download URL.
- * @param path The path where the file should be stored (e.g., 'profiles/uid/avatar.jpg')
- * @param file The file object to upload
+ * Uploads a file to Supabase Storage (product-images bucket) and returns the public URL.
  */
 export async function uploadFile(path: string, file: File): Promise<string> {
-  const storageRef = ref(storage, path);
-  const snapshot = await uploadBytes(storageRef, file);
-  return getDownloadURL(snapshot.ref);
+  const { data, error } = await supabase.storage
+    .from('product-images')
+    .upload(path, file, { upsert: true, contentType: file.type });
+  if (error) throw new Error(error.message);
+  const { data: urlData } = supabase.storage
+    .from('product-images')
+    .getPublicUrl(data.path);
+  return urlData.publicUrl;
 }
 
 /**
  * Uploads a profile picture for a user.
- * @param uid The user's ID
- * @param file The image file
  */
 export async function uploadProfilePicture(uid: string, file: File): Promise<string> {
   const extension = file.name.split('.').pop();
@@ -25,8 +25,6 @@ export async function uploadProfilePicture(uid: string, file: File): Promise<str
 
 /**
  * Uploads a product image.
- * @param productId The product ID
- * @param file The image file
  */
 export async function uploadProductImage(productId: string, file: File): Promise<string> {
   const extension = file.name.split('.').pop();

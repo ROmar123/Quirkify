@@ -4,6 +4,13 @@ import { Product } from '../types';
 type DbRow = Record<string, any>;
 
 function rowToProduct(row: DbRow): Product {
+  // 'pack' is stored as 'store' in the DB enum; infer it from allocation pattern
+  const inferredListingType = (
+    row.listing_type === 'store' &&
+    Number(row.alloc_store || 0) === 0 &&
+    Number(row.alloc_packs || 0) > 0
+  ) ? 'pack' : row.listing_type;
+
   return {
     id: row.id,
     name: row.name,
@@ -11,7 +18,7 @@ function rowToProduct(row: DbRow): Product {
     category: row.category,
     condition: row.condition,
     status: row.status,
-    listingType: row.listing_type,
+    listingType: inferredListingType,
     retailPrice: Number(row.retail_price),
     markdownPercentage: row.markdown_percentage,
     discountPrice: Number(row.discount_price),

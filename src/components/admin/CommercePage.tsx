@@ -63,24 +63,29 @@ export default function CommercePage() {
   }
 
   return (
-    <section className="hero-bg px-4 py-10">
+    <section className="hero-bg px-4 py-10 min-h-screen">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8 text-white">
-          <p className="text-[11px] uppercase tracking-[0.35em] text-purple-400">Admin View</p>
-          <h1 className="mt-4 text-4xl font-black">Commerce operations</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-white/68">
-            Keep fulfilment operationally clean: secure payment, pack accurately, hand over to courier, track the journey, and close delivery with auditable notes.
+        <div className="mb-8">
+          <p className="text-[11px] uppercase tracking-[0.35em] text-purple-500 font-bold mb-2">Admin · Commerce</p>
+          <h1 className="text-3xl font-black text-gray-900 tracking-tight" style={{ fontFamily: 'Nunito, sans-serif' }}>
+            Orders &amp; fulfilment
+          </h1>
+          <p className="mt-1 text-sm text-gray-400 font-medium">
+            Track payments, pack accurately, assign couriers, and close deliveries with auditable notes.
           </p>
         </div>
         {error ? (
-          <div className="mb-6 rounded-[1.5rem] border border-red-300/20 bg-red-500/10 px-5 py-4 text-sm text-red-100">
+          <div className="mb-6 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-sm text-red-700 font-medium">
             {error}
           </div>
         ) : null}
         <div className="space-y-4">
           {orders.length === 0 ? (
-            <div className="rounded-[1.75rem] border border-dashed border-black/10 bg-white p-8 text-sm text-gray-500">
-              {loading ? 'Loading commerce operations…' : 'No orders yet.'}
+            <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
+              <p className="text-sm font-semibold text-gray-500">
+                {loading ? 'Loading orders…' : 'No orders yet'}
+              </p>
+              {!loading && <p className="text-xs text-gray-400 mt-1">Orders will appear here once customers check out</p>}
             </div>
           ) : orders.map((order) => (
             <article key={order.id} className="rounded-[1.75rem] border border-black/8 bg-white p-6 shadow-[0_10px_40px_rgba(15,21,30,0.08)]">

@@ -144,8 +144,19 @@ export default function GrowthPage() {
   }
 
   return (
-    <section className="hero-bg px-4 py-10">
+    <section className="hero-bg px-4 py-10 min-h-screen">
       <div className="mx-auto max-w-7xl space-y-6">
+        {/* Page header */}
+        <div className="mb-2">
+          <p className="text-[11px] uppercase tracking-[0.35em] text-purple-500 font-bold mb-2">Admin · Growth</p>
+          <h1 className="text-3xl font-black text-gray-900 tracking-tight" style={{ fontFamily: 'Nunito, sans-serif' }}>
+            Growth &amp; campaigns
+          </h1>
+          <p className="mt-1 text-sm text-gray-400 font-medium">
+            Gemini-powered recommendations — review &amp; approve before they go live.
+          </p>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {[
             { label: 'Live auctions', value: snapshot.liveAuctions.length, tone: 'btn-primary', icon: Radio },
@@ -169,10 +180,9 @@ export default function GrowthPage() {
         <div className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
           <div className="space-y-6">
             <div className="rounded-[2rem] border border-black/8 bg-white p-8 shadow-[0_20px_70px_rgba(15,21,30,0.08)]">
-              <p className="text-[11px] uppercase tracking-[0.35em] text-purple-600">Growth</p>
-              <h1 className="mt-4 text-4xl font-black">Campaign operating surface</h1>
-              <p className="mt-4 text-sm leading-6 text-gray-500">
-                Generate campaigns from live catalogue pressure, keep approval human, and align the site, auctions, and pack push to one commercial story.
+              <p className="text-sm font-bold text-gray-900">Generate a campaign plan</p>
+              <p className="mt-1 text-sm text-gray-400">
+                Describe your goal and any constraints — Gemini will produce a ready-to-approve campaign draft.
               </p>
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <label className="block">

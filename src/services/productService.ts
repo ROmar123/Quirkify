@@ -6,6 +6,13 @@ let productSubscriptionSequence = 0;
 
 // Maps Supabase row → frontend Product type
 function rowToProduct(row: any): Product {
+  // 'pack' is stored as 'store' in the DB enum; infer it from allocation pattern
+  const inferredListingType = (
+    row.listing_type === 'store' &&
+    Number(row.alloc_store || 0) === 0 &&
+    Number(row.alloc_packs || 0) > 0
+  ) ? 'pack' : row.listing_type;
+
   return {
     id: row.id,
     name: row.name,
@@ -13,7 +20,7 @@ function rowToProduct(row: any): Product {
     category: row.category,
     condition: row.condition,
     status: row.status,
-    listingType: row.listing_type,
+    listingType: inferredListingType,
     retailPrice: Number(row.retail_price),
     markdownPercentage: row.markdown_percentage,
     discountPrice: Number(row.discount_price),
@@ -55,7 +62,8 @@ function productToRow(product: Partial<Product>) {
   if (product.category !== undefined) row.category = product.category.trim();
   if (product.condition !== undefined) row.condition = product.condition;
   if (product.status !== undefined) row.status = product.status;
-  if (product.listingType !== undefined) row.listing_type = product.listingType;
+  // 'pack' is not in the DB enum; save pack-only products as 'store' (identified by alloc_packs > 0)
+  if (product.listingType !== undefined) row.listing_type = product.listingType === 'pack' ? 'store' : product.listingType;
   if (product.retailPrice !== undefined) row.retail_price = product.retailPrice;
   if (product.markdownPercentage !== undefined) row.markdown_percentage = product.markdownPercentage;
   // discount_price is a generated column — never set it
