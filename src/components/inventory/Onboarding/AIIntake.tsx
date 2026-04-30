@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion } from 'motion/react';
 import { Loader2, AlertCircle, X, ArrowLeft, Upload, CheckCircle2 } from 'lucide-react';
@@ -8,6 +8,7 @@ import { mapToStandardCategory } from '../../../lib/categories';
 import { ProductCondition } from '../../../types';
 import { validateProduct, calculateSellingPrice } from '../Shared/StockValidator';
 import { uploadFile } from '../../../services/storageService';
+import { compressImage } from '../../../lib/imageUtils';
 
 interface AIIntakeProps {
   onComplete: (data: AIIntakeResult) => void;
@@ -29,16 +30,16 @@ export interface AIIntakeResult {
 }
 
 const ANALYSIS_STEPS = [
-  { id: 'check', label: 'Analysing image' },
-  { id: 'analyze', label: 'Identifying product' },
+  { id: 'check',    label: 'Analysing image' },
+  { id: 'analyze',  label: 'Identifying product' },
   { id: 'generate', label: 'Generating description' },
-  { id: 'pricing', label: 'Calculating price' },
+  { id: 'pricing',  label: 'Calculating price' },
 ];
 
+type ImageEntry = { file: File; preview: string; base64: string };
+
 export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
-  const [files, setFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
-  const [imageBase64s, setImageBase64s] = useState<string[]>([]);
+  const [images, setImages] = useState<ImageEntry[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState<number>(-1);
   const [formData, setFormData] = useState<Partial<AIIntakeResult> | null>(null);
@@ -46,79 +47,62 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
   const [error, setError] = useState<string | null>(null);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    const validFiles = acceptedFiles.filter(f => {
-      if (f.size > 5 * 1024 * 1024) {
-        setError(`${f.name} is too large (max 5MB)`);
-        return false;
-      }
-      return true;
-    });
-    if (validFiles.length === 0) return;
-
-    const newFiles = [...files, ...validFiles].slice(0, 3);
-    setFiles(newFiles);
-    const newPreviews = newFiles.map(f => URL.createObjectURL(f));
-    setPreviews(newPreviews);
-
-    const base64Array = await Promise.all(newFiles.map(f => new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve((reader.result as string).split(',')[1]);
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsDataURL(f);
-    })));
-
-    setImageBase64s(base64Array);
-    setFormData(null);
     setError(null);
-    setAnalysisStep(-1);
-  }, [files]);
-
-  useEffect(() => {
-    return () => { previews.forEach(p => URL.revokeObjectURL(p)); };
-  }, [previews]);
+    const slots = 3 - images.length;
+    const toAdd = acceptedFiles.slice(0, Math.max(0, slots));
+    if (toAdd.length === 0) return;
+    try {
+      const compressed = await Promise.all(toAdd.map(f => compressImage(f)));
+      setImages(prev => [...prev, ...compressed].slice(0, 3));
+      setFormData(null);
+      setAnalysisStep(-1);
+    } catch {
+      setError('Failed to process image. Please try again.');
+    }
+  }, [images]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop, accept: { 'image/*': [] }, multiple: true, maxFiles: 3,
   });
 
-  const removeFile = (index: number) => {
-    URL.revokeObjectURL(previews[index]);
-    const newFiles = files.filter((_, i) => i !== index);
-    setFiles(newFiles);
-    setPreviews(previews.filter((_, i) => i !== index));
+  const removeImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const simulateProgress = async () => {
     for (let i = 0; i < ANALYSIS_STEPS.length; i++) {
       setAnalysisStep(i);
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 900));
     }
   };
 
   const handleAnalyze = async () => {
-    if (imageBase64s.length === 0) { setError('Please select at least one image'); return; }
+    if (images.length === 0) { setError('Please select at least one image'); return; }
     setIsAnalyzing(true);
     setError(null);
     setErrors([]);
+
+    const analysisPromise = Promise.race([
+      identifyProduct(images[0].base64),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Analysis timed out — please try a different image or try again')), 40000)
+      ),
+    ]);
+
     try {
-      await simulateProgress();
-      setAnalysisStep(3);
-      const analysis = await Promise.race([
-        identifyProduct(imageBase64s[0]),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Analysis timed out')), 45000)),
-      ]) as any;
+      const [analysis] = await Promise.all([analysisPromise, simulateProgress()]) as [any, void];
 
       const retailPrice = analysis.retailPrice || analysis.priceRange?.max || 0;
       const markdownPercentage = 40;
       const discountPrice = calculateSellingPrice(retailPrice, markdownPercentage);
       const tempId = `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
-      // Try Firebase Storage; fall back to embedded base64 data URL if unavailable
       let imageUrl: string;
       try {
-        imageUrl = await uploadFile(`products/${tempId}/primary.jpg`, files[0]);
+        imageUrl = await uploadFile(`products/${tempId}/primary.jpg`, images[0].file);
       } catch {
-        imageUrl = `data:image/jpeg;base64,${imageBase64s[0]}`;
+        // Storage unavailable — compressed data URL (~100KB) is safe to store in DB
+        imageUrl = images[0].preview;
       }
 
       setFormData({
@@ -177,10 +161,10 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
           <div className="h-1 bg-gradient-to-r from-pink-500 to-purple-600" />
           <div className="p-6 border-b border-gray-100">
             <div className="flex gap-5">
-              {previews[0] && (
-                <img src={previews[0]} className="w-24 h-24 rounded-xl object-cover flex-shrink-0 border border-gray-100" alt="" />
+              {images[0] && (
+                <img src={images[0].preview} className="w-24 h-24 rounded-xl object-cover flex-shrink-0 border border-gray-100" alt="" />
               )}
-              <div>
+              <div className="flex-1">
                 <p className="section-label mb-2">AI Confidence</p>
                 <div className="flex items-center gap-3">
                   <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -213,30 +197,32 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
                 <label className="section-label block mb-1.5">Category</label>
                 <select value={formData.category || ''} onChange={e => handleFieldChange('category', e.target.value)} className="input">
                   <option value="">Select…</option>
-                  {['Sneakers','Clothing','Accessories','Electronics','Collectibles','Other'].map(cat => (
+                  {['Sneakers', 'Clothing', 'Accessories', 'Electronics', 'Collectibles', 'Other'].map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
               </div>
               <div>
                 <label className="section-label block mb-1.5">Condition</label>
-                <select value={formData.condition || 'New'} onChange={e => handleFieldChange('condition', e.target.value)} className="input">
-                  {['New','Like New','Pre-owned','Refurbished'].map(c => <option key={c}>{c}</option>)}
+                <select value={formData.condition || 'New'} onChange={e => handleFieldChange('condition', e.target.value as ProductCondition)} className="input">
+                  {['New', 'Like New', 'Pre-owned', 'Refurbished'].map(c => <option key={c}>{c}</option>)}
                 </select>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="section-label block mb-1.5">Retail (R)</label>
-                <input type="number" value={formData.retailPrice || ''} onChange={e => handleFieldChange('retailPrice', Number(e.target.value))} className="input" />
+                <input type="number" value={formData.retailPrice || ''} onChange={e => handleFieldChange('retailPrice', Number(e.target.value))} className="input" min="0" />
               </div>
               <div>
                 <label className="section-label block mb-1.5">Markdown %</label>
-                <input type="number" value={formData.markdownPercentage || 40} onChange={e => handleFieldChange('markdownPercentage', Number(e.target.value))} className="input" />
+                <input type="number" value={formData.markdownPercentage ?? 40} onChange={e => handleFieldChange('markdownPercentage', Number(e.target.value))} className="input" min="0" max="100" />
               </div>
               <div>
                 <label className="section-label block mb-1.5">Sale Price</label>
-                <div className="input bg-green-50 border-green-200 font-bold text-green-700 flex items-center">R{formData.discountPrice || 0}</div>
+                <div className="input bg-green-50 border-green-200 font-bold text-green-700 flex items-center">
+                  R{(formData.discountPrice || 0).toLocaleString()}
+                </div>
               </div>
             </div>
             <div>
@@ -268,7 +254,7 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
         </button>
         <div>
           <h2 className="text-xl font-bold text-gray-900">Upload product photos</h2>
-          <p className="text-gray-400 text-sm mt-0.5">Up to 3 images for AI analysis</p>
+          <p className="text-gray-400 text-sm mt-0.5">Up to 3 images — auto-compressed before AI analysis</p>
         </div>
       </div>
 
@@ -284,17 +270,17 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
           <Upload className="w-6 h-6 text-gray-400" />
         </div>
         <p className="text-sm font-semibold text-gray-700">Drag &amp; drop photos here</p>
-        <p className="text-xs text-gray-400 mt-1">or click to browse · up to 3 images · max 5MB each</p>
+        <p className="text-xs text-gray-400 mt-1">or click to browse · up to 3 images · any size</p>
       </div>
 
-      {previews.length > 0 && (
+      {images.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
-          {previews.map((preview, i) => (
+          {images.map((img, i) => (
             <motion.div key={i} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
               className="relative group rounded-xl overflow-hidden border border-gray-100">
-              <img src={preview} className="w-full h-28 object-cover" alt="" />
+              <img src={img.preview} className="w-full h-28 object-cover" alt="" />
               <button
-                onClick={e => { e.stopPropagation(); removeFile(i); }}
+                onClick={e => { e.stopPropagation(); removeImage(i); }}
                 className="absolute top-1.5 right-1.5 w-6 h-6 bg-white/90 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
               >
                 <X className="w-3 h-3 text-gray-600" />
@@ -332,8 +318,8 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
         </div>
       )}
 
-      {!isAnalyzing && previews.length > 0 && !formData && (
-        <button onClick={handleAnalyze} className="btn-primary w-full justify-center py-3.5">
+      {!isAnalyzing && images.length > 0 && !formData && (
+        <button onClick={() => void handleAnalyze()} className="btn-primary w-full justify-center py-3.5">
           Analyse with AI
         </button>
       )}

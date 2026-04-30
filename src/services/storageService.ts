@@ -2,15 +2,20 @@ import { supabase } from '../supabase';
 
 /**
  * Uploads a file to Supabase Storage (product-images bucket) and returns the public URL.
+ * Throws if the bucket is missing, RLS blocks the write, or upload takes > 15 s.
  */
 export async function uploadFile(path: string, file: File): Promise<string> {
-  const { data, error } = await supabase.storage
+  const upload = supabase.storage
     .from('product-images')
     .upload(path, file, { upsert: true, contentType: file.type });
+
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Image upload timed out — check that the "product-images" storage bucket exists in Supabase with public access')), 15000)
+  );
+
+  const { data, error } = await Promise.race([upload, timeout]);
   if (error) throw new Error(error.message);
-  const { data: urlData } = supabase.storage
-    .from('product-images')
-    .getPublicUrl(data.path);
+  const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(data.path);
   return urlData.publicUrl;
 }
 

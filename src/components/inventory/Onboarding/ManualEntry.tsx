@@ -4,6 +4,7 @@ import { ArrowLeft, Upload, AlertCircle, Sparkles, X, CheckCircle2 } from 'lucid
 import { AIIntakeResult } from './AIIntake';
 import { ProductCondition } from '../../../types';
 import { uploadFile } from '../../../services/storageService';
+import { compressImage } from '../../../lib/imageUtils';
 import { cn } from '../../../lib/utils';
 
 const CATEGORIES = ['Sneakers', 'Clothing', 'Accessories', 'Electronics', 'Collectibles', 'Other'];
@@ -52,14 +53,13 @@ export default function ManualEntry({ onComplete, onCancel }: ManualEntryProps) 
   const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { setError('Image must be under 5MB'); return; }
     if (!file.type.startsWith('image/')) { setError('Please select a valid image'); return; }
-    setImageFile(file);
     setError(null);
     setUploadStatus('idle');
-    const reader = new FileReader();
-    reader.onload = ev => setImagePreview(ev.target?.result as string);
-    reader.readAsDataURL(file);
+    compressImage(file).then(({ file: compressed, dataUrl }) => {
+      setImageFile(compressed);
+      setImagePreview(dataUrl);
+    }).catch(() => setError('Failed to process image. Please try again.'));
   };
 
   const handleImageDrop = (e: React.DragEvent) => {
@@ -86,13 +86,14 @@ export default function ManualEntry({ onComplete, onCancel }: ManualEntryProps) 
       try {
         setUploadStatus('uploading');
         const tempId = `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-        imageUrl = await uploadFile(`products/${tempId}/primary.jpg`, imageFile);
+        imageUrl = await Promise.race([
+          uploadFile(`products/${tempId}/primary.jpg`, imageFile),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Upload timed out')), 12000)),
+        ]);
         setUploadStatus('done');
       } catch {
-        // Firebase Storage unavailable — use the base64 data URL captured in imagePreview
-        // The product will still save correctly; image displays from the data URL
         setUploadStatus('fallback');
-        imageUrl = imagePreview;
+        imageUrl = imagePreview!;
       }
     }
 
@@ -158,7 +159,7 @@ export default function ManualEntry({ onComplete, onCancel }: ManualEntryProps) 
                     <Upload className="w-6 h-6 text-gray-400" />
                   </div>
                   <p className="text-sm font-semibold text-gray-700">Drag photo here or click to upload</p>
-                  <p className="text-xs text-gray-400 mt-1">PNG, JPG · max 5MB</p>
+                  <p className="text-xs text-gray-400 mt-1">PNG, JPG · any size</p>
                 </div>
                 <input type="file" accept="image/*" onChange={handleImage} className="hidden" />
               </label>

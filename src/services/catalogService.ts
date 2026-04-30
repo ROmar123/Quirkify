@@ -536,6 +536,18 @@ export async function updateProduct(productId: string, updates: Partial<Product>
   const current = await getProduct(productId);
   const merged = { ...current, ...updates } as Product;
   const row = productToInsertRow(merged, merged.status || current?.status || 'pending');
+
+  // Never re-send base64 data URLs — they bloat the request body and break the update.
+  // Only send image fields when they are real HTTPS URLs.
+  if (typeof row.image_url === 'string' && row.image_url.startsWith('data:')) {
+    delete row.image_url;
+  }
+  if (Array.isArray(row.image_urls)) {
+    const httpUrls = row.image_urls.filter((u: string) => typeof u === 'string' && u.startsWith('http'));
+    if (httpUrls.length > 0) row.image_urls = httpUrls;
+    else delete row.image_urls;
+  }
+
   const { data, error } = await supabase.from('products').update(row).eq('id', productId).select('*').single();
   if (error) throw new Error(error.message);
   return rowToProduct(data as ProductRow);

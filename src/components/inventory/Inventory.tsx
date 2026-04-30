@@ -1,15 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Plus, ClipboardList, Package, Radio, LayoutGrid,
+  Plus, ClipboardList, Package, LayoutGrid,
   CheckCircle, XCircle, ShoppingBag, Gavel, Layers, AlertCircle,
 } from 'lucide-react';
-import {
-  createAuctionFromProduct,
-  createLiveSession,
-  listAuctions,
-  listLiveSessions,
-} from '../../services/auctionService';
+import { createAuctionFromProduct } from '../../services/auctionService';
 import {
   createPack,
   subscribeToInventory,
@@ -19,20 +14,19 @@ import {
 import { useSession } from '../../hooks/useSession';
 import { currency, defaultAllocations, emptyReservations } from '../../lib/quirkify';
 import { cn } from '../../lib/utils';
-import type { LiveSession, Pack, Product, ProductCondition, ReviewEntry, SalesChannel } from '../../types';
+import type { Pack, Product, ProductCondition, ReviewEntry, SalesChannel } from '../../types';
 import OnboardingFlow from './Onboarding/OnboardingFlow';
 import ProductsView from './Management/ProductsView';
 import AllocationEditor from './Shared/AllocationEditor';
 import type { AllocationSnapshot } from '../../types';
 
-type Tab = 'intake' | 'review' | 'products' | 'packs' | 'live';
+type Tab = 'intake' | 'review' | 'products' | 'packs';
 
 const TABS: Array<{ key: Tab; label: string; icon: typeof Plus }> = [
   { key: 'intake',   label: 'Intake',    icon: Plus },
   { key: 'review',   label: 'Review',    icon: ClipboardList },
   { key: 'products', label: 'Products',  icon: LayoutGrid },
   { key: 'packs',    label: 'Packs',     icon: Package },
-  { key: 'live',     label: 'Live',      icon: Radio },
 ];
 
 const CHANNEL_LABELS: Record<string, { label: string; color: string }> = {
@@ -518,130 +512,6 @@ function PacksPanel({ products }: { products: Product[] }) {
   );
 }
 
-// ─── Live Panel ────────────────────────────────────────────────────────────────
-
-function LivePanel() {
-  const { profile } = useSession();
-  const [auctions, setAuctions] = useState<any[]>([]);
-  const [sessions, setSessions] = useState<LiveSession[]>([]);
-  const [form, setForm] = useState({ title: '', spotlightMessage: '', selectedAuctionIds: [] as string[] });
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    void Promise.all([listLiveSessions(), listAuctions()]).then(([s, a]) => { setSessions(s); setAuctions(a); });
-  }, []);
-
-  async function createSession() {
-    if (!profile || !form.title) return;
-    setSaving(true);
-    try {
-      const session: LiveSession = {
-        id: crypto.randomUUID(),
-        title: form.title,
-        status: 'scheduled',
-        hostId: profile.id,
-        hostName: profile.displayName,
-        auctionQueue: form.selectedAuctionIds,
-        currentAuctionId: form.selectedAuctionIds[0] || null,
-        spotlightMessage: form.spotlightMessage,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      await createLiveSession(session);
-      setSessions(s => [session, ...s]);
-      setForm({ title: '', spotlightMessage: '', selectedAuctionIds: [] });
-      setMsg('Live session created.');
-      setTimeout(() => setMsg(null), 3000);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_0.9fr]">
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="h-1 bg-gradient-to-r from-rose-400 to-orange-500" />
-        <div className="p-6 space-y-4">
-          <p className="text-lg font-bold text-gray-900">Plan a live session</p>
-          <div>
-            <label className="section-label block mb-1.5">Session title *</label>
-            <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="input" placeholder="e.g. Sunday Drop Live" />
-          </div>
-          <div>
-            <label className="section-label block mb-1.5">Spotlight message</label>
-            <textarea value={form.spotlightMessage} onChange={e => setForm(f => ({ ...f, spotlightMessage: e.target.value }))} rows={2} className="input resize-none" placeholder="Shown to viewers during stream" />
-          </div>
-          <div>
-            <label className="section-label block mb-3">Auction queue</label>
-            <div className="space-y-2">
-              {auctions.map(a => {
-                const checked = form.selectedAuctionIds.includes(a.id);
-                return (
-                  <label key={a.id} className={cn(
-                    'flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all',
-                    checked ? 'border-rose-200 bg-rose-50' : 'border-gray-100 bg-gray-50 hover:border-gray-200'
-                  )}>
-                    <input type="checkbox" checked={checked}
-                      onChange={e => setForm(f => ({
-                        ...f,
-                        selectedAuctionIds: e.target.checked
-                          ? [...f.selectedAuctionIds, a.id]
-                          : f.selectedAuctionIds.filter((id: string) => id !== a.id),
-                      }))}
-                      className="rounded accent-rose-500" />
-                    <span className="text-sm font-semibold text-gray-900">{a.title}</span>
-                  </label>
-                );
-              })}
-              {auctions.length === 0 && <p className="text-sm text-gray-400">No auctions available yet</p>}
-            </div>
-          </div>
-          {msg && (
-            <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-100 rounded-xl text-sm text-green-700 font-medium">
-              <CheckCircle className="w-4 h-4 flex-shrink-0" />
-              {msg}
-            </div>
-          )}
-          <button onClick={createSession} disabled={saving || !form.title} className="btn-primary w-full justify-center disabled:opacity-50">
-            {saving ? 'Creating…' : 'Create live session'}
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="h-1 bg-gradient-to-r from-amber-400 to-yellow-500" />
-        <div className="p-6">
-          <p className="section-label mb-3">Sessions ({sessions.length})</p>
-          {sessions.length === 0 ? (
-            <div className="py-10 text-center">
-              <Radio className="w-8 h-8 text-gray-200 mx-auto mb-2" />
-              <p className="text-sm text-gray-500 font-medium">No sessions yet</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {sessions.map(s => (
-                <div key={s.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">{s.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{s.spotlightMessage || 'No spotlight message'}</p>
-                  </div>
-                  <span className={cn(
-                    'text-[10px] font-bold px-2 py-1 rounded-full',
-                    s.status === 'live' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-600'
-                  )}>
-                    {s.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main Inventory Component ──────────────────────────────────────────────────
 
 export default function Inventory() {
@@ -706,8 +576,6 @@ export default function Inventory() {
             )}
 
             {tab === 'packs' && <PacksPanel products={products} />}
-
-            {tab === 'live' && <LivePanel />}
           </motion.div>
         </AnimatePresence>
       </div>
