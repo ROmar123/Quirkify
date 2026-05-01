@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Product, ProductCondition, AllocationSnapshot } from '../../../types';
-import { fetchProduct, updateProduct } from '../../../services/productService';
-import { ArrowLeft, Save, Edit2, AlertCircle } from 'lucide-react';
+import { fetchProduct, updateProduct, deleteProduct } from '../../../services/productService';
+import { ArrowLeft, Save, Edit2, Trash2, AlertCircle } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import AllocationEditor from '../Shared/AllocationEditor';
 import { validateProduct, calculateSellingPrice } from '../Shared/StockValidator';
@@ -16,6 +16,7 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
   const [formData, setFormData] = useState<Partial<Product> | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -100,6 +101,18 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
       setError(err.message || 'Failed to save changes');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete "${product?.name}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      await deleteProduct(productId);
+      onBack?.();
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete product');
+      setDeleting(false);
     }
   };
 
@@ -336,10 +349,19 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
                 </button>
               </>
             ) : (
-              <button onClick={() => { setIsEditing(true); setValidationErrors([]); }} className="btn-primary w-full flex items-center justify-center gap-2">
-                <Edit2 className="w-4 h-4" />
-                Edit Product
-              </button>
+              <>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="btn-secondary flex-1 flex items-center justify-center gap-2 text-red-600 border-red-200 hover:bg-red-50 disabled:opacity-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {deleting ? 'Deleting…' : 'Delete'}
+                </button>
+                <button onClick={() => { setIsEditing(true); setValidationErrors([]); }} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                  <Edit2 className="w-4 h-4" /> Edit Product
+                </button>
+              </>
             )}
           </div>
         </div>

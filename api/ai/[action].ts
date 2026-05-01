@@ -60,7 +60,7 @@ async function handleIdentify(req: any, res: any) {
   const { base64Image } = req.body ?? {};
   if (!base64Image) return res.status(400).json({ error: 'No image provided' });
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
   if (!apiKey) return res.status(503).json({ error: 'AI not configured' });
 
   try {
@@ -84,7 +84,11 @@ async function handleIdentify(req: any, res: any) {
 }` },
               { inlineData: { data: base64Image, mimeType: 'image/jpeg' } }
             ]
-          }]
+          }],
+          generationConfig: {
+            temperature: 0.4,
+            responseMimeType: 'application/json',
+          },
         })
       }
     );
