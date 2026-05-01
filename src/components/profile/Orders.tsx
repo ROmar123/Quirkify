@@ -7,28 +7,21 @@ import {
   RefreshCw, ChevronRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { fetchOrderDetail, fetchOrders, Order, OrderDetail } from '../../services/orderService';
+import { fetchOrderDetail, fetchOrders, FULFILLMENT_STEPS, orderStep, Order, OrderDetail } from '../../services/orderService';
 import { getProfileByUid } from '../../services/profileService';
 import { cancelStoreCheckout, resumeStoreCheckout } from '../../services/paymentService';
 import { cn } from '../../lib/utils';
 
-const STATUS: Record<string, { label: string; color: string; icon: any; step: number }> = {
-  pending:        { label: 'Pending',        color: 'bg-amber-100 text-amber-700',   icon: Clock,       step: 0 },
-  paid:           { label: 'Paid',           color: 'bg-blue-100 text-blue-700',     icon: CheckCircle, step: 1 },
-  processing:     { label: 'Processing',     color: 'bg-purple-100 text-purple-700', icon: Package,     step: 2 },
-  shipped:        { label: 'Shipped',        color: 'bg-indigo-100 text-indigo-700', icon: Truck,       step: 3 },
-  delivered:      { label: 'Delivered',      color: 'bg-green-100 text-green-700',   icon: CheckCircle, step: 4 },
-  cancelled:      { label: 'Cancelled',      color: 'bg-red-100 text-red-700',       icon: XCircle,     step: -1 },
-  refunded:       { label: 'Refunded',       color: 'bg-gray-100 text-gray-600',     icon: XCircle,     step: -1 },
-  payment_failed: { label: 'Payment Failed', color: 'bg-red-100 text-red-700',       icon: XCircle,     step: -1 },
+const STATUS: Record<string, { label: string; color: string; icon: any }> = {
+  pending:        { label: 'Awaiting Payment', color: 'bg-amber-100 text-amber-700',   icon: Clock       },
+  paid:           { label: 'Confirmed',        color: 'bg-blue-100 text-blue-700',     icon: CheckCircle },
+  processing:     { label: 'Confirmed',        color: 'bg-blue-100 text-blue-700',     icon: Package     },
+  shipped:        { label: 'Dispatched',       color: 'bg-indigo-100 text-indigo-700', icon: Truck       },
+  delivered:      { label: 'Delivered',        color: 'bg-green-100 text-green-700',   icon: CheckCircle },
+  cancelled:      { label: 'Cancelled',        color: 'bg-red-100 text-red-700',       icon: XCircle     },
+  refunded:       { label: 'Refunded',         color: 'bg-gray-100 text-gray-600',     icon: XCircle     },
+  payment_failed: { label: 'Payment Failed',   color: 'bg-red-100 text-red-700',       icon: XCircle     },
 };
-
-const STEPS = [
-  { key: 'paid',      label: 'Paid' },
-  { key: 'processing', label: 'Preparing' },
-  { key: 'shipped',   label: 'Shipped' },
-  { key: 'delivered', label: 'Delivered' },
-];
 
 function fmt(n: number) { return `R${n.toLocaleString()}`; }
 function fmtDate(s: string) {
@@ -212,7 +205,7 @@ export default function Orders() {
                 {visibleOrders.map((order, idx) => {
                   const cfg = STATUS[order.status] || STATUS.pending;
                   const Icon = cfg.icon;
-                  const activeStep = cfg.step;
+                  const activeStep = orderStep(order.status);
                   return (
                     <motion.div
                       key={order.id}
@@ -250,7 +243,7 @@ export default function Orders() {
                         {activeStep >= 0 && (
                           <div className="mt-4">
                             <div className="flex gap-1">
-                              {STEPS.map((step, i) => (
+                              {FULFILLMENT_STEPS.map((step, i) => (
                                 <div key={step.key} className="flex-1">
                                   <div className={cn(
                                     'h-1.5 rounded-full transition-all',
@@ -261,7 +254,7 @@ export default function Orders() {
                               ))}
                             </div>
                             <div className="flex justify-between mt-1">
-                              {STEPS.map((step, i) => (
+                              {FULFILLMENT_STEPS.map((step, i) => (
                                 <p key={step.key} className={cn(
                                   'text-[9px] font-semibold',
                                   i < activeStep ? 'text-purple-500' : 'text-gray-300'
@@ -347,11 +340,11 @@ export default function Orders() {
                     </div>
 
                     {/* Progress stepper */}
-                    {STATUS[selectedOrder.status]?.step >= 0 && (
+                    {orderStep(selectedOrder.status) >= 0 && (
                       <div className="mt-5">
                         <div className="flex items-center gap-0">
-                          {STEPS.map((step, i) => {
-                            const activeStep = STATUS[selectedOrder.status]?.step || 0;
+                          {FULFILLMENT_STEPS.map((step, i) => {
+                            const activeStep = orderStep(selectedOrder.status);
                             const done = i < activeStep;
                             const current = i === activeStep - 1;
                             return (
@@ -367,7 +360,7 @@ export default function Orders() {
                                       ? <CheckCircle className="w-3.5 h-3.5 text-white" />
                                       : <div className={cn('w-2 h-2 rounded-full', current ? 'bg-purple-400' : 'bg-gray-200')} />}
                                   </div>
-                                  {i < STEPS.length - 1 && <div className={cn('flex-1 h-0.5', done ? 'bg-purple-400' : 'bg-gray-100')} />}
+                                  {i < FULFILLMENT_STEPS.length - 1 && <div className={cn('flex-1 h-0.5', done ? 'bg-purple-400' : 'bg-gray-100')} />}
                                 </div>
                                 <p className={cn('text-[9px] font-semibold mt-1.5', done || current ? 'text-purple-600' : 'text-gray-300')}>
                                   {step.label}

@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { listActiveProducts, listPacks, subscribeToReviewQueue } from '../../services/catalogService';
-import { fetchOrdersForAdmin } from '../../services/commerceService';
+import { fetchOrders } from '../../services/orderService';
 import { listAuctions, listLiveSessions } from '../../services/auctionService';
 
 const WEEKDAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -119,16 +119,17 @@ export default function AdminDashboard() {
       listPacks(),
       listAuctions(),
       listLiveSessions(),
-      fetchOrdersForAdmin(),
+      fetchOrders(),
     ])
       .then(([products, packs, auctions, sessions, orders]) => {
+        const openOrders = orders.filter(o => ['pending', 'paid', 'processing', 'shipped'].includes(o.status));
         setCounts(c => ({
           ...c,
           products: products.length,
           packs: packs.length,
           auctions: auctions.length,
           liveSessions: sessions.length,
-          orders: orders.length,
+          orders: openOrders.length,
         }));
       })
       .catch(e => setError(e instanceof Error ? e.message : 'Failed to load dashboard'))
