@@ -16,6 +16,9 @@ const PRODUCT_POLL_INTERVAL_MS = 30000;
 // DB constraint: products_category_check only allows these 6 values.
 const DB_CATEGORIES = new Set(['Sneakers', 'Clothing', 'Accessories', 'Electronics', 'Collectibles', 'Other']);
 
+// DB ENUM product_rarity — PostgREST validates ENUM values strictly
+const DB_CATEGORIES_RARITY = new Set(['Common', 'Limited', 'Rare', 'Super Rare', 'Unique']);
+
 type ProductRow = {
   id: string;
   name: string;
@@ -247,7 +250,7 @@ function productToInsertRow(product: Partial<Product>, status: ProductStatus) {
     alloc_packs: Number(allocations.packs || 0),
     image_url: primaryImage,
     confidence_score: Number(product.aiConfidence ?? product.confidenceScore ?? 0),
-    rarity: product.rarity || null,
+    rarity: (product.rarity && DB_CATEGORIES_RARITY.has(product.rarity)) ? product.rarity : null,
     stats_quirkiness: product.stats?.quirkiness ?? null,
     stats_rarity: product.stats?.rarity ?? null,
     stats_utility: product.stats?.utility ?? null,
@@ -534,15 +537,49 @@ export async function listPacks() {
   });
 }
 
-export async function updateProduct(productId: string, updates: Partial<Product>) {
-  const current = await getProduct(productId);
-  const merged = { ...current, ...updates } as Product;
-  const row = productToInsertRow(merged, merged.status || current?.status || 'pending');
+const VALID_RARITIES_CATALOG = new Set(['Common', 'Limited', 'Rare', 'Super Rare', 'Unique']);
 
-  // Never re-send base64 data URLs — they bloat the request body.
-  // Keep the existing image_url in Supabase intact by not including it in the update.
-  if (typeof row.image_url === 'string' && row.image_url.startsWith('data:')) {
-    delete row.image_url;
+export async function updateProduct(productId: string, updates: Partial<Product>) {
+  const row: Record<string, any> = {};
+
+  if (updates.name !== undefined) row.name = updates.name.trim();
+  if (updates.description !== undefined) row.description = updates.description.trim();
+  if (updates.category !== undefined) {
+    const cat = updates.category.trim();
+    row.category = DB_CATEGORIES.has(cat) ? cat : 'Other';
+  }
+  if (updates.condition !== undefined) row.condition = conditionToDb(updates.condition);
+  if (updates.status !== undefined) row.status = updates.status === 'active' ? 'approved' : updates.status;
+  if (updates.listingType !== undefined) {
+    row.listing_type = updates.listingType === 'pack' ? 'store' : updates.listingType;
+  }
+  if (updates.retailPrice !== undefined) row.retail_price = Number(updates.retailPrice);
+  if (updates.markdownPercentage !== undefined) row.markdown_percentage = Number(updates.markdownPercentage);
+  if (updates.stock !== undefined) row.stock = Number(updates.stock);
+  if (updates.allocations) {
+    row.alloc_store = Number(updates.allocations.store || 0);
+    row.alloc_auction = Number(updates.allocations.auction || 0);
+    row.alloc_packs = Number(updates.allocations.packs || 0);
+  }
+  // Only send image_url if it's a valid HTTPS URL — never send base64 or empty strings
+  if (updates.imageUrl && updates.imageUrl.startsWith('http')) {
+    row.image_url = updates.imageUrl;
+  }
+  if (updates.confidenceScore !== undefined) {
+    row.confidence_score = Math.min(1, Math.max(0, Number(updates.confidenceScore)));
+  }
+  if (updates.rarity && VALID_RARITIES_CATALOG.has(updates.rarity)) {
+    row.rarity = updates.rarity;
+  }
+  if (updates.stats) {
+    row.stats_quirkiness = updates.stats.quirkiness ?? null;
+    row.stats_rarity = updates.stats.rarity ?? null;
+    row.stats_utility = updates.stats.utility ?? null;
+    row.stats_hype = updates.stats.hype ?? null;
+  }
+  if (updates.priceRange) {
+    row.price_range_min = Number(updates.priceRange.min || 0);
+    row.price_range_max = Number(updates.priceRange.max || 0);
   }
 
   const { data, error } = await supabase.from('products').update(row).eq('id', productId).select('*').single();

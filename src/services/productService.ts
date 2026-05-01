@@ -54,12 +54,14 @@ function rowToProduct(row: any): Product {
 }
 
 // DB constraint: only these 6 categories are valid in the products table.
-// Any other value (including AI-suggested extended categories) must map to 'Other'.
 const DB_CATEGORIES = new Set(['Sneakers', 'Clothing', 'Accessories', 'Electronics', 'Collectibles', 'Other']);
 function toDbCategory(cat?: string): string {
   const trimmed = (cat || '').trim();
   return DB_CATEGORIES.has(trimmed) ? trimmed : 'Other';
 }
+
+// DB ENUM product_rarity: PostgREST validates ENUM values — anything else throws "string did not match expected pattern"
+const VALID_RARITIES = new Set(['Common', 'Limited', 'Rare', 'Super Rare', 'Unique']);
 
 // Maps frontend Product → Supabase insert/update
 function productToRow(product: Partial<Product>) {
@@ -83,7 +85,7 @@ function productToRow(product: Partial<Product>) {
   }
   if (product.imageUrl !== undefined) row.image_url = product.imageUrl;
   if (product.confidenceScore !== undefined) row.confidence_score = product.confidenceScore;
-  if (product.rarity !== undefined) row.rarity = product.rarity;
+  if (product.rarity !== undefined && VALID_RARITIES.has(product.rarity)) row.rarity = product.rarity;
   if (product.stats) {
     row.stats_quirkiness = product.stats.quirkiness;
     row.stats_rarity = product.stats.rarity;
