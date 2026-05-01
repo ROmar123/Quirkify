@@ -107,7 +107,12 @@ function productToRow(product: Partial<Product>): Record<string, any> {
     const cat = product.category.trim();
     row.category = DB_CATEGORIES.has(cat) ? cat : 'Other';
   }
-  if (product.condition          !== undefined) row.condition          = product.condition;
+  if (product.condition !== undefined) {
+    const CONDITION_NORMALIZE: Record<string, string> = {
+      new: 'New', like_new: 'Like New', pre_owned: 'Pre-owned', refurbished: 'Refurbished',
+    };
+    row.condition = CONDITION_NORMALIZE[product.condition as string] ?? product.condition;
+  }
   if (product.status             !== undefined) row.status             = product.status === 'active' ? 'approved' : product.status;
   if (product.listingType        !== undefined) row.listing_type       = product.listingType === 'pack' ? 'store' : product.listingType;
   if (product.retailPrice        !== undefined) row.retail_price       = Number(product.retailPrice);

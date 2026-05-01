@@ -76,7 +76,7 @@ async function handleIdentify(req: any, res: any) {
 {
   "name": "product name here",
   "description": "2-3 sentence description",
-  "category": "one of: Sneakers, Clothing, Accessories, Electronics, Collectibles, Toys & Games, Books & Media, Beauty & Health, Home & Decor, Sports & Outdoors, Art & Crafts, Vintage & Retro, Other",
+  "category": "one of: Sneakers, Clothing, Accessories, Electronics, Collectibles, Other",
   "retailPrice": number_in_ZAR,
   "rarity": "Common|Limited|Rare|Super Rare|Unique",
   "stats": { "quirkiness": 1-100, "rarity": 1-100, "utility": 1-100, "hype": 1-100 },

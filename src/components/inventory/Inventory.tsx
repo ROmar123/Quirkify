@@ -81,7 +81,7 @@ function ReviewPanel() {
   };
 
   async function approve() {
-    if (!profile || !selected || !draft) return;
+    if (!selected || !draft) return;
     setBusy(true);
     try {
       const qty = Number(draft.stock) || 1;
@@ -107,7 +107,7 @@ function ReviewPanel() {
           startsAt: start,
           endsAt: end,
           startPrice: Number(draft.retailPrice) || 0,
-          createdBy: profile.id,
+          createdBy: profile?.id ?? '',
         });
       }
       setQueue(q => q.filter(e => e.id !== selected.id));
