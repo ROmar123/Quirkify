@@ -98,7 +98,32 @@ function QuickAction({ order, onAction }: {
   const [showTracking, setShowTracking] = useState(false);
   const [tracking, setTracking]         = useState('');
   const [carrier, setCarrier]           = useState('The Courier Guy');
+  const [bookingTCG, setBookingTCG]     = useState(false);
+  const [tcgError, setTcgError]         = useState<string | null>(null);
   const s = order.status;
+
+  const handleAutoBookTCG = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setBookingTCG(true);
+    setTcgError(null);
+    try {
+      const { auth } = await import('../../firebase');
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/shipping/book', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ orderId: order.id }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Booking failed');
+      onAction(order.id, 'courier_booked', { trackingNumber: data.trackingNumber || data.waybillNumber, carrier: 'The Courier Guy' });
+      setShowTracking(false);
+    } catch (err: any) {
+      setTcgError(err.message);
+    } finally {
+      setBookingTCG(false);
+    }
+  };
 
   const btn = (label: string, status: OrderStatus, color = 'indigo') => (
     <button
@@ -115,23 +140,33 @@ function QuickAction({ order, onAction }: {
   if (s === 'packed') {
     if (showTracking) {
       return (
-        <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-          <input value={tracking} onChange={e => setTracking(e.target.value)}
-            placeholder="Tracking #"
-            className="text-[10px] border border-gray-200 rounded-lg px-2 py-1.5 w-28 focus:outline-none focus:border-purple-300" />
+        <div className="flex flex-col gap-1.5" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-1.5">
+            <input value={tracking} onChange={e => setTracking(e.target.value)}
+              placeholder="Tracking #"
+              className="text-[10px] border border-gray-200 rounded-lg px-2 py-1.5 w-28 focus:outline-none focus:border-purple-300" />
+            <button
+              onClick={() => { onAction(order.id, 'courier_booked', { trackingNumber: tracking, carrier }); setShowTracking(false); }}
+              className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600">
+              Manual Book
+            </button>
+            <button
+              onClick={() => { onAction(order.id, 'ready_for_collection'); }}
+              className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-teal-500 text-white hover:bg-teal-600">
+              Collect
+            </button>
+            <button onClick={() => { setShowTracking(false); setTcgError(null); }} className="p-1 text-gray-400 hover:text-gray-600">
+              <X className="w-3 h-3" />
+            </button>
+          </div>
           <button
-            onClick={() => { onAction(order.id, 'courier_booked', { trackingNumber: tracking, carrier }); setShowTracking(false); }}
-            className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600">
-            Book Courier
+            onClick={handleAutoBookTCG}
+            disabled={bookingTCG}
+            className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 self-start"
+          >
+            {bookingTCG ? 'Booking TCG…' : 'Auto-Book Courier Guy'}
           </button>
-          <button
-            onClick={() => { onAction(order.id, 'ready_for_collection'); }}
-            className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-teal-500 text-white hover:bg-teal-600">
-            Ready to Collect
-          </button>
-          <button onClick={() => setShowTracking(false)} className="p-1 text-gray-400 hover:text-gray-600">
-            <X className="w-3 h-3" />
-          </button>
+          {tcgError && <p className="text-[10px] text-red-600">{tcgError}</p>}
         </div>
       );
     }
