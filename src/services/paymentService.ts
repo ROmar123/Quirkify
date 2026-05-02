@@ -140,7 +140,7 @@ export const startWalletTopup = async (amount: number): Promise<void> => {
 
 export const initiateYocoCheckout = async (amount: number, itemName: string, mPaymentId: string) => {
   try {
-    const response = await fetch('/api/payments/yoco/initiate', {
+    const response = await fetch('/api/payments/yoco/initiate', { // routes to /api/payments/yoco/[action].ts?action=initiate
       method: 'POST',
       headers: await authHeaders(),
       body: JSON.stringify({ amount, item_name: itemName, m_payment_id: mPaymentId }),

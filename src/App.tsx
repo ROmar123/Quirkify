@@ -21,6 +21,10 @@ const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard'));
 const Inventory = lazy(() => import('./components/inventory/Inventory'));
 const CommercePage = lazy(() => import('./components/admin/CommercePage'));
 const GrowthPage = lazy(() => import('./components/admin/GrowthPage'));
+const WithdrawalsPage = lazy(() => import('./components/admin/WithdrawalsPage'));
+const OfflineReservationsPage = lazy(() => import('./components/admin/OfflineReservationsPage'));
+const CampaignPlacementsPage = lazy(() => import('./components/admin/CampaignPlacementsPage'));
+const WalletPage = lazy(() => import('./components/profile/WalletPage'));
 const LiveStreamRoom = lazy(() => import('./components/live/LiveStreamRoom'));
 const TermsOfService = lazy(() => import('./components/legal/TermsOfService'));
 const PrivacyPolicy = lazy(() => import('./components/legal/PrivacyPolicy'));
@@ -80,6 +84,10 @@ function AppRoutes() {
             <Route path="/admin/commerce" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><CommercePage /></Guard>} />
             <Route path="/admin/campaigns" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><Navigate to="/admin/growth" replace /></Guard>} />
             <Route path="/admin/growth" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><GrowthPage /></Guard>} />
+            <Route path="/admin/withdrawals" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><WithdrawalsPage /></Guard>} />
+            <Route path="/admin/reservations" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><OfflineReservationsPage /></Guard>} />
+            <Route path="/admin/placements" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><CampaignPlacementsPage /></Guard>} />
+            <Route path="/wallet" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><WalletPage /></Guard>} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/returns" element={<ReturnsPolicy />} />

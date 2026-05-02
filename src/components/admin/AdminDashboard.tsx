@@ -183,6 +183,30 @@ export default function AdminDashboard() {
       gradient: 'linear-gradient(135deg, #92400e 0%, #f59e0b 100%)',
       delay: 0.5,
     },
+    {
+      title: 'Withdrawals',
+      description: 'Approve or reject seller payout requests',
+      path: '/admin/withdrawals',
+      icon: Gavel,
+      gradient: 'linear-gradient(135deg, #065f46 0%, #0d9488 100%)',
+      delay: 0.55,
+    },
+    {
+      title: 'Reservations',
+      description: 'WhatsApp, Facebook & in-store offline holds',
+      path: '/admin/reservations',
+      icon: ClipboardList,
+      gradient: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)',
+      delay: 0.6,
+    },
+    {
+      title: 'Placements',
+      description: 'Deploy campaigns to banner and hero slots',
+      path: '/admin/placements',
+      icon: Megaphone,
+      gradient: 'linear-gradient(135deg, #4a1d96 0%, #c026d3 100%)',
+      delay: 0.65,
+    },
   ];
 
   return (
