@@ -119,7 +119,7 @@ function mapPendingProductToReviewEntry(product: Product): ReviewEntry {
   const channel = inferChannel(product.inventory?.allocated || defaultAllocations('store', product.stock || 1));
   const entry: ReviewEntry = {
     id: product.id,
-    status: product.status === 'pending' ? 'pending' : product.status === 'rejected' ? 'rejected' : 'approved',
+    status: (product.status === 'pending' || product.status === 'draft_review') ? 'pending' : product.status === 'rejected' ? 'rejected' : 'approved',
     source: product.source || 'ai',
     sourceInput: {
       notes: product.description || '',
@@ -275,10 +275,10 @@ export function subscribeToInventory(callback: (products: Product[]) => void) {
 }
 
 export function subscribeToReviewQueue(callback: (items: ReviewEntry[]) => void) {
-  return subscribeToProductRows(['pending'], (products) => callback(products.map(mapPendingProductToReviewEntry)));
+  return subscribeToProductRows(['draft_review', 'pending'], (products) => callback(products.map(mapPendingProductToReviewEntry)));
 }
 
-export async function createCatalogProduct(product: Partial<Product>, status: ProductStatus = 'pending') {
+export async function createCatalogProduct(product: Partial<Product>, status: ProductStatus = 'draft_review') {
   const row = productToInsertRow(product, status);
   const { data, error } = await supabase.from('products').insert(row).select('*').single();
   if (error) throw new Error(error.message);

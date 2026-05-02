@@ -1,7 +1,7 @@
 export type UserRole = 'customer' | 'seller' | 'admin';
 export type IntakeSource = 'manual' | 'ai';
 export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'revision_requested';
-export type ProductStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'active' | 'archived';
+export type ProductStatus = 'draft' | 'pending' | 'draft_review' | 'reviewed' | 'approved' | 'rejected' | 'active' | 'allocated' | 'live' | 'sold' | 'removed' | 'archived';
 export type ProductCondition = 'new' | 'like_new' | 'pre_owned' | 'refurbished' | 'New' | 'Like New' | 'Pre-owned' | 'Refurbished';
 export type SalesChannel = 'store' | 'auction' | 'pack';
 export type Rarity = 'Common' | 'Limited' | 'Rare' | 'Super Rare' | 'Unique';

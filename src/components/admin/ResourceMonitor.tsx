@@ -55,7 +55,7 @@ export default function ResourceMonitor() {
         supabase.from('products').select('*', { count: 'exact', head: true }),
         supabase.from('orders').select('*', { count: 'exact', head: true }),
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
-        supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'draft_review'),
         supabase.from('notifications').select('*', { count: 'exact', head: true }),
       ]);
       setSupabaseStats({

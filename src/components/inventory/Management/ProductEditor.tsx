@@ -48,6 +48,13 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
       const markdown = key === 'markdownPercentage' ? value : formData.markdownPercentage || 40;
       updated.discountPrice = calculateSellingPrice(retail, markdown);
     }
+    if (key === 'listingType') {
+      const stock = formData.stock || 0;
+      if (value === 'store')   updated.allocations = { store: stock, auction: 0, packs: 0 };
+      if (value === 'auction') updated.allocations = { store: 0, auction: stock, packs: 0 };
+      if (value === 'pack')    updated.allocations = { store: 0, auction: 0, packs: stock };
+      if (value === 'both')    updated.allocations = { store: Math.ceil(stock / 2), auction: Math.floor(stock / 2), packs: 0 };
+    }
     setFormData(updated);
   };
 
@@ -111,7 +118,12 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
       await deleteProduct(productId);
       onBack?.();
     } catch (err: any) {
-      setError(err.message || 'Failed to delete product');
+      const msg = err.message || '';
+      if (msg.includes('foreign key') || msg.includes('23503')) {
+        setError('This product has linked orders or auctions and cannot be deleted. Set its status to "rejected" to hide it instead.');
+      } else {
+        setError(msg || 'Failed to delete product');
+      }
       setDeleting(false);
     }
   };

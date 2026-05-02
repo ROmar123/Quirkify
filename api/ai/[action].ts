@@ -72,21 +72,19 @@ async function handleIdentify(req: any, res: any) {
         body: JSON.stringify({
           contents: [{
             parts: [
-              { text: `You are a product analyst for Quirkify, a gamified social commerce platform. Analyze this product image and respond with ONLY valid JSON in this exact format (no markdown, no explanation):
+              { text: `You are a product analyst for Quirkify, a South African gamified commerce platform. Analyze this product image and return ONLY valid JSON — no markdown, no explanation, no code fences:
 {
-  "name": "product name here",
-  "description": "2-3 sentence description",
+  "name": "specific product name",
+  "description": "2-3 sentence description of condition, features, and appeal",
   "category": "one of: Sneakers, Clothing, Accessories, Electronics, Collectibles, Other",
   "retailPrice": number_in_ZAR,
-  "rarity": "Common|Limited|Rare|Super Rare|Unique",
-  "stats": { "quirkiness": 1-100, "rarity": 1-100, "utility": 1-100, "hype": 1-100 },
-  "confidenceScore": 0-1
+  "confidenceScore": 0.0-1.0
 }` },
               { inlineData: { data: base64Image, mimeType: 'image/jpeg' } }
             ]
           }],
           generationConfig: {
-            temperature: 0.4,
+            temperature: 0.3,
             responseMimeType: 'application/json',
           },
         })
@@ -94,20 +92,23 @@ async function handleIdentify(req: any, res: any) {
     );
 
     const data = await response.json();
+
+    if (!response.ok) {
+      const geminiError = data?.error?.message || `Gemini API error (${response.status})`;
+      return res.status(502).json({ error: geminiError });
+    }
+
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!text) {
+      const reason = data?.candidates?.[0]?.finishReason || 'no content returned';
+      return res.status(502).json({ error: `Gemini returned no content (${reason})` });
+    }
 
     try {
-      return res.json(JSON.parse(text));
+      const parsed = JSON.parse(text);
+      return res.json(parsed);
     } catch {
-      return res.json({
-        name: 'Product',
-        description: text.slice(0, 200),
-        category: 'Other',
-        retailPrice: 0,
-        rarity: 'Common',
-        stats: { quirkiness: 50, rarity: 50, utility: 50, hype: 50 },
-        confidenceScore: 0.5,
-      });
+      return res.status(502).json({ error: 'Gemini response was not valid JSON', raw: text.slice(0, 300) });
     }
   } catch (err: any) {
     return res.status(500).json({ error: err.message });

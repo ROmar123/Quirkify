@@ -48,7 +48,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     setProductData({
       ...data,
       allocations: { store: data.stock, auction: 0, packs: 0 },
-      status: 'pending',
+      status: 'draft_review',
     });
     setCurrentStep('review');
   };
