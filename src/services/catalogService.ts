@@ -165,7 +165,13 @@ async function fetchProductRows(statuses?: string[]) {
     query = query.in('status', statuses);
   }
   const { data, error } = await query;
-  if (error) throw new Error(error.message);
+  if (error) {
+    // If draft_review is not yet in the DB enum, retry without it
+    if (statuses?.includes('draft_review') && error.message.includes('invalid input value')) {
+      return fetchProductRows(statuses.filter(s => s !== 'draft_review'));
+    }
+    throw new Error(error.message);
+  }
   return (data || []) as ProductRow[];
 }
 
@@ -278,7 +284,7 @@ export function subscribeToReviewQueue(callback: (items: ReviewEntry[]) => void)
   return subscribeToProductRows(['draft_review', 'pending'], (products) => callback(products.map(mapPendingProductToReviewEntry)));
 }
 
-export async function createCatalogProduct(product: Partial<Product>, status: ProductStatus = 'draft_review') {
+export async function createCatalogProduct(product: Partial<Product>, status: ProductStatus = 'pending') {
   const row = productToInsertRow(product, status);
   const { data, error } = await supabase.from('products').insert(row).select('*').single();
   if (error) throw new Error(error.message);

@@ -113,7 +113,7 @@ function productToRow(product: Partial<Product>): Record<string, any> {
     };
     row.condition = CONDITION_NORMALIZE[product.condition as string] ?? product.condition;
   }
-  if (product.status             !== undefined) row.status             = product.status === 'active' ? 'approved' : product.status === 'draft' ? 'draft_review' : product.status;
+  if (product.status             !== undefined) row.status             = product.status === 'active' ? 'approved' : (product.status === 'draft' || product.status === 'draft_review') ? 'pending' : product.status;
   if (product.listingType        !== undefined) row.listing_type       = product.listingType === 'pack' ? 'store' : product.listingType;
   if (product.retailPrice        !== undefined) row.retail_price       = Number(product.retailPrice);
   if (product.markdownPercentage !== undefined) row.markdown_percentage = Number(product.markdownPercentage);
@@ -164,7 +164,7 @@ export async function fetchProduct(id: string): Promise<Product | null> {
 
 /** Create a new product (defaults to pending status) */
 export async function createProduct(product: Partial<Product>): Promise<Product> {
-  const row = productToRow({ ...product, status: product.status || 'draft_review' });
+  const row = productToRow({ ...product, status: product.status || 'pending' });
   // Ensure required fields are present for INSERT
   if (!row.name)        throw new Error('Product name is required');
   if (!row.description) throw new Error('Description is required');
