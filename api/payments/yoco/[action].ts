@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { requireVerifiedUser, sendAuthError } from '../../_lib/auth.js';
 import { normalizeEnvValue } from '../../_lib/env.js';
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
-import { sendOrderStatusEmail } from '../../_lib/orderNotifications';
+import { sendOrderStatusEmail, sendWalletTopupEmail } from '../../_lib/orderNotifications';
 
 // ─── Yoco initiate ─────────────────────────────────────────────────────────
 async function handleInitiate(req: any, res: any) {
@@ -118,6 +118,14 @@ async function handlePaymentCompleted(event: YocoEvent): Promise<void> {
       p_metadata: { yoco_payment_id: event.data.id },
     });
     if (walletError) throw new Error(walletError.message);
+
+    // Send wallet top-up confirmation email (non-blocking)
+    const { data: orderFull } = await supabase
+      .from('orders').select('customer_email, customer_name, total').eq('id', orderId).single();
+    if (orderFull?.customer_email) {
+      void sendWalletTopupEmail(orderFull.customer_email, orderFull.customer_name || '', Number(orderFull.total || 0)).catch(() => {});
+    }
+    return; // Don't send order paid email for wallet top-ups
   }
 
   if (!shouldCreditWallet && currentOrder?.profile_id) {

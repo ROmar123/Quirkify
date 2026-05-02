@@ -162,3 +162,61 @@ export async function sendOrderStatusEmail(orderId: string, status: Notification
     throw new Error(`Resend failed: ${response.status} ${text}`);
   }
 }
+
+async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+  const resendApiKey = normalizeEnvValue(process.env.RESEND_API_KEY);
+  const fromEmail = normalizeEnvValue(process.env.QUIRKIFY_FROM_EMAIL);
+  if (!resendApiKey || !fromEmail) return;
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: fromEmail, to: [to], subject, html }),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Resend failed: ${response.status} ${text}`);
+  }
+}
+
+const EMAIL_BASE = `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827;max-width:560px;margin:0 auto"><div style="background:linear-gradient(135deg,#ec4899,#a855f7);padding:24px 28px;border-radius:12px 12px 0 0"><h1 style="color:#fff;margin:0;font-size:20px;font-weight:800">Quirkify</h1></div><div style="background:#fff;padding:28px;border:1px solid #f3f4f6;border-top:none;border-radius:0 0 12px 12px">`;
+const EMAIL_FOOTER = `</div><p style="text-align:center;color:#9ca3af;font-size:11px;margin-top:16px">Questions? Reply to this email or visit quirkify.co.za</p></div>`;
+
+export async function sendWalletTopupEmail(toEmail: string, customerName: string, amount: number): Promise<void> {
+  const name = customerName || 'there';
+  const amountStr = formatCurrency(amount);
+  const html = EMAIL_BASE + `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#111827">Wallet topped up ✓</h2>
+    <p>Hi ${name},</p>
+    <p>Your Quirkify Wallet has been credited with <strong>${amountStr}</strong>. You can use it immediately to shop in the store or bid in auctions.</p>
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:16px 0">
+      <p style="margin:0;font-size:14px;color:#166534"><strong>${amountStr} added to your wallet</strong></p>
+    </div>
+    <p>Visit <a href="https://quirkify.co.za/wallet" style="color:#a855f7;font-weight:600">your wallet</a> to view your balance and transaction history.</p>
+  ` + EMAIL_FOOTER;
+  await sendEmail(toEmail, `Wallet topped up — ${amountStr} added`, html);
+}
+
+export async function sendWithdrawalRequestedEmail(toEmail: string, customerName: string, amount: number): Promise<void> {
+  const name = customerName || 'there';
+  const amountStr = formatCurrency(amount);
+  const html = EMAIL_BASE + `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#111827">Withdrawal request received</h2>
+    <p>Hi ${name},</p>
+    <p>We've received your withdrawal request for <strong>${amountStr}</strong>. This will be processed within 2 business days.</p>
+    <p>You'll receive a confirmation once the payment has been made to your bank account.</p>
+    <p>If you have questions, reply to this email.</p>
+  ` + EMAIL_FOOTER;
+  await sendEmail(toEmail, `Withdrawal request — ${amountStr}`, html);
+}
+
+export async function sendOutbidEmail(toEmail: string, customerName: string, auctionTitle: string, newBid: number): Promise<void> {
+  const name = customerName || 'there';
+  const html = EMAIL_BASE + `
+    <h2 style="margin:0 0 8px;font-size:22px;color:#111827">You've been outbid</h2>
+    <p>Hi ${name},</p>
+    <p>Someone has outbid you on <strong>${auctionTitle}</strong>. The current highest bid is now <strong>${formatCurrency(newBid)}</strong>.</p>
+    <p><a href="https://quirkify.co.za/auctions" style="color:#a855f7;font-weight:600">Return to the auction →</a></p>
+  ` + EMAIL_FOOTER;
+  await sendEmail(toEmail, `You've been outbid on ${auctionTitle}`, html);
+}
