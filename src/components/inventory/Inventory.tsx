@@ -269,7 +269,7 @@ function ReviewPanel() {
                     <div>
                       <label className="section-label block mb-1.5">Condition</label>
                       <select value={draft.condition} onChange={e => setDraft((d: any) => ({ ...d, condition: e.target.value }))} className="input">
-                        {['New', 'Like New', 'Pre-owned', 'Refurbished'].map(c => <option key={c}>{c}</option>)}
+                        {['New', 'Like New', 'Good', 'Fair', 'Damaged', 'For Parts', 'Pre-owned', 'Refurbished'].map(c => <option key={c}>{c}</option>)}
                       </select>
                     </div>
                   </div>

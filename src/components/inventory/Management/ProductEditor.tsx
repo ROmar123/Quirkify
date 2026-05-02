@@ -130,7 +130,7 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
     }
   };
 
-  const conditions: ProductCondition[] = ['New', 'Like New', 'Pre-owned', 'Refurbished'];
+  const conditions: ProductCondition[] = ['New', 'Like New', 'Good', 'Fair', 'Damaged', 'For Parts', 'Pre-owned', 'Refurbished'];
 
   const CHANNEL_BADGE: Record<string, { label: string; bg: string; text: string }> = {
     store:   { label: 'Store',           bg: 'bg-indigo-50',  text: 'text-indigo-700' },

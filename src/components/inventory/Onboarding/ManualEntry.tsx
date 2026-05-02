@@ -8,16 +8,20 @@ import { compressImage } from '../../../lib/imageUtils';
 import { cn } from '../../../lib/utils';
 
 const CATEGORIES = ['Sneakers', 'Clothing', 'Accessories', 'Electronics', 'Collectibles', 'Other'];
-const CONDITIONS: ProductCondition[] = ['New', 'Like New', 'Pre-owned', 'Refurbished'];
+const CONDITIONS: ProductCondition[] = ['New', 'Like New', 'Good', 'Fair', 'Damaged', 'For Parts', 'Pre-owned', 'Refurbished'];
 
 const CONDITION_MARKDOWNS: Partial<Record<ProductCondition, number>> = {
-  'New': 0, 'Like New': 15, 'Pre-owned': 30, 'Refurbished': 40,
+  'New': 0, 'Like New': 15, 'Good': 25, 'Fair': 35, 'Damaged': 50, 'For Parts': 60, 'Pre-owned': 30, 'Refurbished': 40,
 };
 
 const CONDITION_COLORS: Partial<Record<ProductCondition, string>> = {
-  'New': 'border-green-300 bg-green-50 text-green-700',
-  'Like New': 'border-emerald-300 bg-emerald-50 text-emerald-700',
-  'Pre-owned': 'border-amber-300 bg-amber-50 text-amber-700',
+  'New':         'border-green-300 bg-green-50 text-green-700',
+  'Like New':    'border-emerald-300 bg-emerald-50 text-emerald-700',
+  'Good':        'border-teal-300 bg-teal-50 text-teal-700',
+  'Fair':        'border-amber-300 bg-amber-50 text-amber-700',
+  'Damaged':     'border-orange-300 bg-orange-50 text-orange-700',
+  'For Parts':   'border-red-300 bg-red-50 text-red-700',
+  'Pre-owned':   'border-amber-300 bg-amber-50 text-amber-700',
   'Refurbished': 'border-blue-300 bg-blue-50 text-blue-700',
 };
 
