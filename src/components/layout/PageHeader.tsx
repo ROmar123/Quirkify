@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LogIn, Bell, ShoppingBag, ArrowRightLeft, Gavel,
   ClipboardList, User, LayoutDashboard, Boxes, Megaphone, X,
-  Package, LogOut, ChevronDown
+  Package, LogOut, ChevronDown, Wallet
 } from 'lucide-react';
 import { auth, onAuthStateChanged, signOut, type AuthUser } from '../../firebase';
 import { useCart } from '../../context/CartContext';
@@ -121,6 +121,7 @@ function UserMenu({ user }: { user: AuthUser }) {
   const menuItems = [
     { label: 'My Orders', icon: ClipboardList, path: '/orders' },
     { label: 'My Collection', icon: Package, path: '/collection' },
+    { label: 'Wallet', icon: Wallet, path: '/wallet' },
     { label: 'View Profile', icon: User, path: `/profile/${user.uid}` },
   ];
 

@@ -9,6 +9,8 @@ import { motion } from 'motion/react';
 import { listActiveProducts, listPacks, subscribeToReviewQueue } from '../../services/catalogService';
 import { fetchOrders } from '../../services/orderService';
 import { listAuctions, listLiveSessions } from '../../services/auctionService';
+import { fetchAllWithdrawals } from '../../services/withdrawalService';
+import { fetchOfflineReservations } from '../../services/offlineReservationService';
 
 const WEEKDAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -105,6 +107,7 @@ export default function AdminDashboard() {
   const [counts, setCounts] = useState({
     products: 0, packs: 0, auctions: 0,
     liveSessions: 0, orders: 0, reviews: 0,
+    pendingWithdrawals: 0, activeReservations: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -120,16 +123,20 @@ export default function AdminDashboard() {
       listAuctions(),
       listLiveSessions(),
       fetchOrders(),
+      fetchAllWithdrawals('requested').catch(() => []),
+      fetchOfflineReservations('reserved').catch(() => []),
     ])
-      .then(([products, packs, auctions, sessions, orders]) => {
-        const openOrders = orders.filter(o => ['pending', 'paid', 'processing', 'shipped'].includes(o.status));
+      .then(([products, packs, auctions, sessions, orders, withdrawals, reservations]) => {
+        const openOrders = (orders as any[]).filter(o => ['pending', 'paid', 'processing', 'shipped'].includes(o.status));
         setCounts(c => ({
           ...c,
-          products: products.length,
-          packs: packs.length,
-          auctions: auctions.length,
-          liveSessions: sessions.length,
+          products: (products as any[]).length,
+          packs: (packs as any[]).length,
+          auctions: (auctions as any[]).length,
+          liveSessions: (sessions as any[]).length,
           orders: openOrders.length,
+          pendingWithdrawals: (withdrawals as any[]).length,
+          activeReservations: (reservations as any[]).filter((r: any) => new Date(r.expiresAt) > new Date()).length,
         }));
       })
       .catch(e => setError(e instanceof Error ? e.message : 'Failed to load dashboard'))
@@ -139,15 +146,15 @@ export default function AdminDashboard() {
   }, []);
 
   const urgentStats: StatCardProps[] = [
-    { label: 'Pending review', value: counts.reviews, icon: Sparkles, accent: '#f59e0b', bg: '#fffbeb', urgent: true, delay: 0.05 },
-    { label: 'Open orders',    value: counts.orders,  icon: ClipboardList, accent: '#6366f1', bg: '#eef2ff', urgent: true, delay: 0.1 },
-    { label: 'Live auctions',  value: counts.auctions, icon: Gavel, accent: '#ec4899', bg: '#fdf2f8', urgent: counts.auctions > 0, delay: 0.15 },
+    { label: 'Pending review',  value: counts.reviews,            icon: Sparkles,    accent: '#f59e0b', bg: '#fffbeb', urgent: true, delay: 0.05 },
+    { label: 'Open orders',     value: counts.orders,             icon: ClipboardList, accent: '#6366f1', bg: '#eef2ff', urgent: true, delay: 0.1 },
+    { label: 'Withdrawals',     value: counts.pendingWithdrawals, icon: Gavel,        accent: '#10b981', bg: '#ecfdf5', urgent: counts.pendingWithdrawals > 0, delay: 0.15 },
   ];
 
   const inventoryStats: StatCardProps[] = [
-    { label: 'Active products', value: counts.products, icon: Boxes,    accent: '#a855f7', bg: '#faf5ff', delay: 0.2 },
-    { label: 'Pack offers',     value: counts.packs,    icon: Package,  accent: '#14b8a6', bg: '#f0fdfa', delay: 0.25 },
-    { label: 'Live sessions',   value: counts.liveSessions, icon: Radio, accent: '#ef4444', bg: '#fef2f2', delay: 0.3 },
+    { label: 'Active products',   value: counts.products,          icon: Boxes,    accent: '#a855f7', bg: '#faf5ff', delay: 0.2 },
+    { label: 'Live auctions',     value: counts.auctions,          icon: Gavel,    accent: '#ec4899', bg: '#fdf2f8', delay: 0.25 },
+    { label: 'Offline holds',     value: counts.activeReservations, icon: Package, accent: '#2563eb', bg: '#eff6ff', delay: 0.3 },
   ];
 
   const navCards: NavCardProps[] = [

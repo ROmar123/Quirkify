@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Product, Campaign, Pack } from '../../types';
 import { fetchPublishedListings, StoreListing } from '../../services/storeListingService';
 import { fetchActiveCampaigns } from '../../services/campaignService';
+import { fetchPlacementsForSlot, type CampaignPlacement } from '../../services/campaignPlacementService';
 import { listPacks } from '../../services/catalogService';
 import { getPersonalizedRecommendations } from '../../services/aiClient';
 import { auth } from '../../firebase';
@@ -364,6 +365,7 @@ export default function StoreFront() {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [liveSessions] = useState<{ id: string; title: string; viewerCount: number }[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [storeBanners, setStoreBanners] = useState<CampaignPlacement[]>([]);
   const [recommendations, setRecommendations] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -401,6 +403,7 @@ export default function StoreFront() {
   useEffect(() => {
     loadProducts();
     fetchActiveCampaigns().then(setCampaigns).catch(() => {});
+    fetchPlacementsForSlot('store_banner').then(setStoreBanners).catch(() => {});
     listPacks().then(all => setPacks(all.filter(pk => pk.active || pk.status === 'available'))).catch(() => {});
   }, []);
 
@@ -547,6 +550,39 @@ export default function StoreFront() {
             </div>
           </div>
         </motion.section>
+
+        {/* ── Campaign banners ── */}
+        {storeBanners.length > 0 && (
+          <div className="mb-6 space-y-3">
+            {storeBanners.slice(0, 2).map(banner => (
+              <motion.div
+                key={banner.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="relative overflow-hidden rounded-2xl"
+                style={{ background: banner.bgColor || '#7C3AED' }}
+              >
+                {banner.imageUrl && (
+                  <img src={banner.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30" />
+                )}
+                <div className="relative flex items-center justify-between p-4 sm:p-5">
+                  <div className="text-white">
+                    <p className="font-black text-lg leading-tight">{banner.headline}</p>
+                    {banner.subline && <p className="text-sm opacity-75 mt-0.5">{banner.subline}</p>}
+                  </div>
+                  {banner.ctaUrl && (
+                    <Link
+                      to={banner.ctaUrl}
+                      className="flex-shrink-0 ml-4 px-4 py-2 bg-white/20 hover:bg-white/30 border border-white/30 rounded-full text-white text-sm font-bold transition-all"
+                    >
+                      {banner.ctaText || 'Shop Now'}
+                    </Link>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
 
         {/* ── New Arrivals strip ── */}
         {!loading && products.length > 0 && (
