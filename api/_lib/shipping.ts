@@ -197,6 +197,122 @@ async function tcgTrack(trackingNumber: string) {
 
 // ─── Exports ──────────────────────────────────────────────────────────────────
 
+// ─── Shipment booking ─────────────────────────────────────────────────────────
+
+export interface BookShipmentInput {
+  orderId: string;
+  orderNumber: string;
+  deliveryAddress: {
+    street_address: string;
+    suburb?: string;
+    city: string;
+    code: string;
+    lat?: number | null;
+    lng?: number | null;
+  };
+  customerName: string;
+  customerPhone?: string;
+  packageWeight?: number;
+  packageDescription?: string;
+}
+
+export interface BookShipmentResult {
+  success: boolean;
+  waybillNumber?: string;
+  trackingNumber?: string;
+  bookingReference?: string;
+  carrier: string;
+  error?: string;
+  rawResponse?: unknown;
+}
+
+export async function bookShipment(input: BookShipmentInput): Promise<BookShipmentResult> {
+  const apiKey = normalizeEnvValue(process.env.TCG_API_KEY);
+
+  if (!apiKey) {
+    return {
+      success: false,
+      carrier: 'The Courier Guy',
+      error: 'Courier API not configured — set TCG_API_KEY environment variable',
+    };
+  }
+
+  const deliveryZone = inferZone(input.deliveryAddress.city, input.deliveryAddress.code);
+
+  const body = {
+    collection_address: COLLECTION_ADDRESS,
+    delivery_address: {
+      lat: input.deliveryAddress.lat || null,
+      lng: input.deliveryAddress.lng || null,
+      street_address: input.deliveryAddress.street_address,
+      local_area: input.deliveryAddress.suburb || input.deliveryAddress.city,
+      suburb: input.deliveryAddress.suburb || input.deliveryAddress.city,
+      city: input.deliveryAddress.city,
+      code: input.deliveryAddress.code,
+      zone: deliveryZone,
+      country: 'South Africa',
+      entered_address: [
+        input.deliveryAddress.street_address,
+        input.deliveryAddress.suburb,
+        input.deliveryAddress.city,
+        input.deliveryAddress.code,
+        'South Africa',
+      ].filter(Boolean).join(', '),
+      type: 'residential',
+    },
+    parcels: [{
+      description: input.packageDescription || `Quirkify Order ${input.orderNumber}`,
+      weight: input.packageWeight || 1,
+      width: 20,
+      height: 15,
+      length: 25,
+    }],
+    service_level_code: 'ECO',
+    mdd_id: 'quirkify',
+    reference: input.orderNumber,
+    customer: {
+      name: input.customerName,
+      phone: input.customerPhone || '',
+    },
+    opt_in_rates: [],
+    opt_in_time_based_rates: [],
+  };
+
+  try {
+    const res = await fetch(`${TCG_BASE}/shipments/create?api_key=${encodeURIComponent(apiKey)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    const data = await res.json() as Record<string, any>;
+
+    if (!res.ok) {
+      return {
+        success: false,
+        carrier: 'The Courier Guy',
+        error: data.message || data.error || `TCG API error ${res.status}`,
+        rawResponse: data,
+      };
+    }
+
+    return {
+      success: true,
+      carrier: 'The Courier Guy',
+      waybillNumber: data.shipment?.waybill_number || data.waybill_number,
+      trackingNumber: data.shipment?.tracking_number || data.tracking_number || data.shipment?.waybill_number,
+      bookingReference: data.id || data.shipment?.id,
+      rawResponse: data,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      carrier: 'The Courier Guy',
+      error: err.message || 'Failed to book shipment',
+    };
+  }
+}
+
 export async function getShippingQuote(input: ShippingQuoteInput) {
   if (input.lat && input.lng) {
     const live = await tcgRateQuote(input).catch(() => null);
