@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Product, Campaign, Pack } from '../../types';
-import { fetchProducts } from '../../services/productService';
+import { fetchPublishedListings, StoreListing } from '../../services/storeListingService';
 import { fetchActiveCampaigns } from '../../services/campaignService';
 import { listPacks } from '../../services/catalogService';
 import { getPersonalizedRecommendations } from '../../services/aiClient';
@@ -309,6 +309,54 @@ function PackCard({ pack }: { pack: Pack }) {
   );
 }
 
+function listingToProduct(l: StoreListing): Product {
+  return {
+    id: l.id,
+    slug: l.id,
+    title: l.title,
+    name: l.title,
+    description: l.description,
+    category: l.category || 'Other',
+    condition: (l.condition || 'New') as any,
+    status: 'approved',
+    source: 'manual',
+    listingType: 'store',
+    retailPrice: l.retailPrice,
+    markdownPercentage: l.discountPercent,
+    discountPrice: l.sellingPrice,
+    stock: l.quantityRemaining,
+    totalStock: l.quantityTotal,
+    allocations: { store: l.quantityTotal, auction: 0, packs: 0 },
+    imageUrl: l.images[0] || '',
+    imageUrls: l.images,
+    media: l.images.map(url => ({ url })),
+    channels: { store: true, auction: false, packComponent: false },
+    pricing: {
+      listPrice: l.retailPrice, salePrice: l.sellingPrice,
+      auctionStartPrice: l.sellingPrice, auctionReservePrice: l.retailPrice,
+    },
+    priceRange: { min: l.sellingPrice, max: l.retailPrice },
+    inventory: {
+      onHand: l.quantityRemaining,
+      allocated: { store: l.quantityTotal, auction: 0, packs: 0 },
+      reserved: { store: 0, auction: 0, packs: 0 },
+      sold: { store: 0, auction: 0, packs: 0 },
+    },
+    // store_listing_id stored in authorUid slot for cart reference
+    authorUid: l.productId,
+    createdBy: l.productId,
+    updatedBy: l.productId,
+    aiConfidence: 0,
+    confidenceScore: 0,
+    tags: [],
+    merchandisingNotes: [],
+    rarityNotes: [],
+    version: 1,
+    createdAt: l.createdAt,
+    updatedAt: l.updatedAt,
+  } as Product;
+}
+
 // ── Main storefront ───────────────────────────────────────────────────────────
 export default function StoreFront() {
   const navigate = useNavigate();
@@ -341,8 +389,8 @@ export default function StoreFront() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchProducts('approved');
-      setProducts(data.filter(p => !p.listingType || p.listingType === 'store' || p.listingType === 'both'));
+      const listings = await fetchPublishedListings();
+      setProducts(listings.map(listingToProduct));
     } catch {
       setError('Failed to load products. Please try again.');
     } finally {

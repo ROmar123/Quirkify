@@ -99,23 +99,17 @@ async function handlePaymentCompleted(event: YocoEvent): Promise<void> {
     }
 
     if (shouldCreditWallet && currentOrder?.profile_id) {
-      const { data: profile, error: profileReadError } = await supabase
-        .from("profiles")
-        .select("id, balance")
-        .eq("id", currentOrder.profile_id)
-        .single();
-
-      if (profileReadError) {
-        throw new Error(profileReadError.message);
-      }
-
-      const { error: balanceError } = await supabase
-        .from("profiles")
-        .update({ balance: Number(profile?.balance || 0) + Number(currentOrder.total || 0) })
-        .eq("id", currentOrder.profile_id);
-
-      if (balanceError) {
-        throw new Error(balanceError.message);
+      // Credit wallet_accounts (proper wallet system)
+      const { error: walletError } = await supabase.rpc("wallet_credit", {
+        p_profile_id: currentOrder.profile_id,
+        p_amount: Number(currentOrder.total || 0),
+        p_entry_type: "top_up",
+        p_reference_type: "order",
+        p_reference_id: orderId,
+        p_metadata: { yoco_payment_id: event.data.id },
+      });
+      if (walletError) {
+        throw new Error(walletError.message);
       }
     }
 

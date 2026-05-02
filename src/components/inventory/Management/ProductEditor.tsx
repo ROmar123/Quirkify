@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Product, ProductCondition, AllocationSnapshot } from '../../../types';
 import { fetchProduct, updateProduct, deleteProduct } from '../../../services/productService';
-import { ArrowLeft, Save, Edit2, Trash2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Save, Edit2, Trash2, AlertCircle, ShoppingBag } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import AllocationEditor from '../Shared/AllocationEditor';
 import { validateProduct, calculateSellingPrice } from '../Shared/StockValidator';
+import PublishToStoreModal from './PublishToStoreModal';
 
 interface ProductEditorProps {
   productId: string;
@@ -18,6 +19,7 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showPublishModal, setShowPublishModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
@@ -370,12 +372,28 @@ export default function ProductEditor({ productId, onBack }: ProductEditorProps)
                   <Trash2 className="w-4 h-4" />
                   {deleting ? 'Deleting…' : 'Delete'}
                 </button>
+                {product.status === 'approved' && (
+                  <button
+                    onClick={() => setShowPublishModal(true)}
+                    className="btn-secondary flex-1 flex items-center justify-center gap-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                  >
+                    <ShoppingBag className="w-4 h-4" /> Publish to Store
+                  </button>
+                )}
                 <button onClick={() => { setIsEditing(true); setValidationErrors([]); }} className="btn-primary flex-1 flex items-center justify-center gap-2">
-                  <Edit2 className="w-4 h-4" /> Edit Product
+                  <Edit2 className="w-4 h-4" /> Edit
                 </button>
               </>
             )}
           </div>
+
+          {showPublishModal && product && (
+            <PublishToStoreModal
+              product={product}
+              onPublished={() => { setShowPublishModal(false); onBack?.(); }}
+              onClose={() => setShowPublishModal(false)}
+            />
+          )}
         </div>
       </div>
     </div>
