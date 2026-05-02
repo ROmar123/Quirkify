@@ -78,6 +78,7 @@ function AppRoutes() {
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/payment/success" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><PaymentResult type="success" /></Guard>} />
             <Route path="/payment/cancel" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><PaymentResult type="cancel" /></Guard>} />
+            <Route path="/payment-result" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><PaymentResult type="success" /></Guard>} />
             <Route path="/admin" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><AdminDashboard /></Guard>} />
             <Route path="/admin/orders" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><Navigate to="/admin/commerce" replace /></Guard>} />
             <Route path="/admin/inventory" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><Inventory /></Guard>} />
