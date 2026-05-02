@@ -13,6 +13,7 @@ import { startStoreCheckout, startWalletCheckout, startWalletTopup } from '../..
 import { fetchMyWallet, type WalletAccount } from '../../services/storeListingService';
 import { fetchShippingQuote, type ShippingQuote } from '../../services/shippingService';
 import { searchAddressSuggestions, type AddressSuggestion } from '../../services/locationService';
+import { fetchProduct } from '../../services/productService';
 
 type CheckoutStep = 'cart' | 'shipping' | 'payment';
 

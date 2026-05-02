@@ -62,7 +62,8 @@ export default function AIIntake({ onComplete, onCancel }: AIIntakeProps) {
     }
   }, [images]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { getRootProps, getInputProps, isDragActive } = (useDropzone as any)({
     onDrop, accept: { 'image/*': [] }, multiple: true, maxFiles: 3,
   });
 
