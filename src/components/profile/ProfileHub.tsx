@@ -18,6 +18,7 @@ import { fetchOrdersForCustomer } from '../../services/commerceService';
 import { listCampaignDrafts, listFeaturedProducts } from '../../services/catalogService';
 import { listAuctions, listLiveSessions } from '../../services/auctionService';
 import { useCart } from '../../context/CartContext';
+import { fetchMyWallet, type WalletAccount } from '../../services/storeListingService';
 import type { Auction, CampaignDraft, LiveSession, Order, Product } from '../../types';
 
 function statusTone(status: string) {
@@ -49,6 +50,11 @@ export default function ProfileHub() {
   const [sessions, setSessions] = useState<LiveSession[]>([]);
   const [campaigns, setCampaigns] = useState<CampaignDraft[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [wallet, setWallet] = useState<WalletAccount | null>(null);
+
+  useEffect(() => {
+    fetchMyWallet().then(setWallet).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!profile) return;
@@ -83,7 +89,7 @@ export default function ProfileHub() {
   );
   const missionCards = useMemo(
     () => [
-      { label: 'Wallet balance', value: currency(profile?.balance || 0), detail: 'Auction credit and store spend.', icon: Wallet, accent: '#7C3AED', bg: '#F5F3FF' },
+      { label: 'Wallet balance', value: currency(wallet?.availableBalance ?? profile?.balance ?? 0), detail: 'Auction credit and store spend.', icon: Wallet, accent: '#7C3AED', bg: '#F5F3FF' },
       { label: 'Open orders', value: String(activeOrders.length), detail: 'In payment or fulfilment.', icon: Receipt, accent: '#2563EB', bg: '#EFF6FF' },
       { label: 'Active bids', value: String(activeBids.length), detail: 'Lots where you lead.', icon: Gavel, accent: '#EC4899', bg: '#FFF1F2' },
       { label: 'Cart total', value: currency(total), detail: `${items.length} lines staged.`, icon: ShoppingBag, accent: '#059669', bg: '#F0FDF4' },

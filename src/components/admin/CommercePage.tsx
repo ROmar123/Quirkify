@@ -15,22 +15,35 @@ import { cn } from '../../lib/utils';
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<string, { label: string; badge: string; dot: string }> = {
-  pending:        { label: 'Awaiting Payment', badge: 'bg-amber-100 text-amber-700',   dot: 'bg-amber-400'  },
-  paid:           { label: 'Confirmed',        badge: 'bg-blue-100 text-blue-700',     dot: 'bg-blue-500'   },
-  processing:     { label: 'Confirmed',        badge: 'bg-blue-100 text-blue-700',     dot: 'bg-blue-500'   },
-  shipped:        { label: 'Dispatched',       badge: 'bg-indigo-100 text-indigo-700', dot: 'bg-indigo-500' },
-  delivered:      { label: 'Delivered',        badge: 'bg-green-100 text-green-700',   dot: 'bg-green-500'  },
-  cancelled:      { label: 'Cancelled',        badge: 'bg-red-100 text-red-700',       dot: 'bg-red-400'    },
-  refunded:       { label: 'Refunded',         badge: 'bg-gray-100 text-gray-600',     dot: 'bg-gray-400'   },
-  payment_failed: { label: 'Failed',           badge: 'bg-red-100 text-red-700',       dot: 'bg-red-500'    },
+  pending:               { label: 'Awaiting Payment',    badge: 'bg-amber-100 text-amber-700',   dot: 'bg-amber-400'  },
+  paid:                  { label: 'Confirmed',           badge: 'bg-blue-100 text-blue-700',     dot: 'bg-blue-500'   },
+  confirmed:             { label: 'Confirmed',           badge: 'bg-blue-100 text-blue-700',     dot: 'bg-blue-500'   },
+  processing:            { label: 'Processing',          badge: 'bg-blue-100 text-blue-700',     dot: 'bg-blue-400'   },
+  packed:                { label: 'Packed',              badge: 'bg-purple-100 text-purple-700', dot: 'bg-purple-500' },
+  courier_booked:        { label: 'Courier Booked',      badge: 'bg-indigo-100 text-indigo-700', dot: 'bg-indigo-500' },
+  ready_for_collection:  { label: 'Ready to Collect',   badge: 'bg-teal-100 text-teal-700',     dot: 'bg-teal-500'   },
+  out_for_delivery:      { label: 'Out for Delivery',    badge: 'bg-indigo-100 text-indigo-700', dot: 'bg-indigo-500' },
+  awaiting_collection:   { label: 'Awaiting Collection', badge: 'bg-teal-100 text-teal-700',    dot: 'bg-teal-400'   },
+  shipped:               { label: 'Dispatched',          badge: 'bg-indigo-100 text-indigo-700', dot: 'bg-indigo-400' },
+  delivered:             { label: 'Delivered',           badge: 'bg-green-100 text-green-700',   dot: 'bg-green-500'  },
+  collected:             { label: 'Collected',           badge: 'bg-green-100 text-green-700',   dot: 'bg-green-400'  },
+  completed:             { label: 'Completed',           badge: 'bg-green-100 text-green-800',   dot: 'bg-green-600'  },
+  cancelled:             { label: 'Cancelled',           badge: 'bg-red-100 text-red-700',       dot: 'bg-red-400'    },
+  refunded:              { label: 'Refunded',            badge: 'bg-gray-100 text-gray-600',     dot: 'bg-gray-400'   },
+  payment_failed:        { label: 'Failed',              badge: 'bg-red-100 text-red-700',       dot: 'bg-red-500'    },
 };
 
+const NEEDS_ACTION_STATUSES = new Set(['paid', 'confirmed', 'processing', 'packed']);
+const IN_TRANSIT_STATUSES   = new Set(['courier_booked', 'out_for_delivery', 'shipped']);
+const COLLECTION_STATUSES   = new Set(['ready_for_collection', 'awaiting_collection']);
+const DONE_STATUSES         = new Set(['delivered', 'collected', 'completed']);
+
 const FILTER_TABS = [
-  { id: 'all',       label: 'All'       },
-  { id: 'paid',      label: 'Confirmed' },
-  { id: 'shipped',   label: 'Dispatched'},
-  { id: 'delivered', label: 'Delivered' },
-  { id: 'cancelled', label: 'Issues'    },
+  { id: 'all',      label: 'All'          },
+  { id: 'action',   label: 'Needs Action' },
+  { id: 'transit',  label: 'In Transit'   },
+  { id: 'done',     label: 'Done'         },
+  { id: 'cancelled', label: 'Issues'      },
 ];
 
 function fmt(n: number) { return `R${n.toLocaleString()}`; }
@@ -82,58 +95,62 @@ function QuickAction({ order, onAction }: {
   order: Order;
   onAction: (id: string, status: OrderStatus, extras?: { trackingNumber?: string; carrier?: string }) => void;
 }) {
-  const [showDispatch, setShowDispatch] = useState(false);
+  const [showTracking, setShowTracking] = useState(false);
   const [tracking, setTracking]         = useState('');
   const [carrier, setCarrier]           = useState('The Courier Guy');
+  const s = order.status;
 
-  if (order.status === 'paid' || order.status === 'processing') {
-    if (showDispatch) {
+  const btn = (label: string, status: OrderStatus, color = 'indigo') => (
+    <button
+      onClick={e => { e.stopPropagation(); onAction(order.id, status); }}
+      className={`text-[10px] font-bold uppercase tracking-wide px-2.5 py-1.5 rounded-lg bg-${color}-50 text-${color}-700 hover:bg-${color}-100 transition-colors`}
+    >
+      {label} →
+    </button>
+  );
+
+  if (s === 'paid' || s === 'confirmed' || s === 'processing')
+    return btn('Mark Packed', 'packed', 'purple');
+
+  if (s === 'packed') {
+    if (showTracking) {
       return (
         <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-          <input
-            value={tracking}
-            onChange={e => setTracking(e.target.value)}
+          <input value={tracking} onChange={e => setTracking(e.target.value)}
             placeholder="Tracking #"
-            className="text-[10px] border border-gray-200 rounded-lg px-2 py-1.5 w-28 focus:outline-none focus:border-purple-300"
-          />
-          <input
-            value={carrier}
-            onChange={e => setCarrier(e.target.value)}
-            placeholder="Carrier"
-            className="text-[10px] border border-gray-200 rounded-lg px-2 py-1.5 w-24 focus:outline-none focus:border-purple-300"
-          />
+            className="text-[10px] border border-gray-200 rounded-lg px-2 py-1.5 w-28 focus:outline-none focus:border-purple-300" />
           <button
-            onClick={() => { onAction(order.id, 'shipped', { trackingNumber: tracking, carrier }); setShowDispatch(false); }}
-            className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 transition-colors"
-          >
-            Dispatch
+            onClick={() => { onAction(order.id, 'courier_booked', { trackingNumber: tracking, carrier }); setShowTracking(false); }}
+            className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600">
+            Book Courier
           </button>
-          <button onClick={() => setShowDispatch(false)} className="p-1 text-gray-400 hover:text-gray-600">
+          <button
+            onClick={() => { onAction(order.id, 'ready_for_collection'); }}
+            className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-teal-500 text-white hover:bg-teal-600">
+            Ready to Collect
+          </button>
+          <button onClick={() => setShowTracking(false)} className="p-1 text-gray-400 hover:text-gray-600">
             <X className="w-3 h-3" />
           </button>
         </div>
       );
     }
     return (
-      <button
-        onClick={e => { e.stopPropagation(); setShowDispatch(true); }}
-        className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
-      >
-        Mark Dispatched →
+      <button onClick={e => { e.stopPropagation(); setShowTracking(true); }}
+        className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
+        Dispatch / Collect →
       </button>
     );
   }
 
-  if (order.status === 'shipped') {
-    return (
-      <button
-        onClick={e => { e.stopPropagation(); onAction(order.id, 'delivered'); }}
-        className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1.5 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
-      >
-        Mark Delivered →
-      </button>
-    );
-  }
+  if (s === 'courier_booked' || s === 'out_for_delivery' || s === 'shipped')
+    return btn('Mark Delivered', 'delivered', 'green');
+
+  if (s === 'ready_for_collection' || s === 'awaiting_collection')
+    return btn('Mark Collected', 'collected', 'teal');
+
+  if (s === 'delivered' || s === 'collected')
+    return btn('Complete Order', 'completed', 'green');
 
   return null;
 }
@@ -243,11 +260,16 @@ export default function CommercePage() {
 
   const filtered = useMemo(() => {
     return orders.filter(o => {
-      // Map filter tab "paid" to include both paid + processing
       const statusMatch = statusFilter === 'all'
         ? true
-        : statusFilter === 'paid'
-        ? (o.status === 'paid' || o.status === 'processing')
+        : statusFilter === 'action'
+        ? NEEDS_ACTION_STATUSES.has(o.status)
+        : statusFilter === 'transit'
+        ? (IN_TRANSIT_STATUSES.has(o.status) || COLLECTION_STATUSES.has(o.status))
+        : statusFilter === 'done'
+        ? DONE_STATUSES.has(o.status)
+        : statusFilter === 'cancelled'
+        ? (o.status === 'cancelled' || o.status === 'refunded' || o.status === 'payment_failed')
         : o.status === statusFilter;
       const term = search.toLowerCase();
       const searchMatch = !term
@@ -259,10 +281,10 @@ export default function CommercePage() {
   }, [orders, search, statusFilter]);
 
   const stats = useMemo(() => ({
-    gmv:              orders.filter(o => ['paid','processing','shipped','delivered'].includes(o.status)).reduce((s, o) => s + o.total, 0),
-    awaitingDispatch: orders.filter(o => ['paid','processing'].includes(o.status)).length,
-    inTransit:        orders.filter(o => o.status === 'shipped').length,
-    delivered:        orders.filter(o => o.status === 'delivered').length,
+    gmv:              orders.filter(o => !['cancelled','refunded','payment_failed','pending'].includes(o.status)).reduce((s, o) => s + o.total, 0),
+    needsAction:      orders.filter(o => NEEDS_ACTION_STATUSES.has(o.status)).length,
+    inTransit:        orders.filter(o => IN_TRANSIT_STATUSES.has(o.status) || COLLECTION_STATUSES.has(o.status)).length,
+    completed:        orders.filter(o => DONE_STATUSES.has(o.status)).length,
   }), [orders]);
 
   // ─── Loading ────────────────────────────────────────────────────────────────
@@ -315,9 +337,9 @@ export default function CommercePage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             {[
               ['GMV', fmt(stats.gmv)],
-              ['To Dispatch', String(stats.awaitingDispatch)],
+              ['Needs Action', String(stats.needsAction)],
               ['In Transit', String(stats.inTransit)],
-              ['Delivered', String(stats.delivered)],
+              ['Completed', String(stats.completed)],
             ].map(([label, value]) => (
               <div key={label} className="rounded-xl border border-white/15 bg-white/10 px-3 py-3 text-center">
                 <p className="text-[9px] font-bold uppercase tracking-widest text-purple-200 mb-1">{label}</p>
@@ -357,9 +379,15 @@ export default function CommercePage() {
             {tab.label}
             {tab.id !== 'all' && (
               <span className="ml-1.5 text-[10px] font-bold">
-                {tab.id === 'paid'
-                  ? (orders.filter(o => o.status === 'paid' || o.status === 'processing').length || '')
-                  : (orders.filter(o => o.status === tab.id).length || '')}
+                {tab.id === 'action'
+                  ? (orders.filter(o => NEEDS_ACTION_STATUSES.has(o.status)).length || '')
+                  : tab.id === 'transit'
+                  ? (orders.filter(o => IN_TRANSIT_STATUSES.has(o.status) || COLLECTION_STATUSES.has(o.status)).length || '')
+                  : tab.id === 'done'
+                  ? (orders.filter(o => DONE_STATUSES.has(o.status)).length || '')
+                  : tab.id === 'cancelled'
+                  ? (orders.filter(o => ['cancelled','refunded','payment_failed'].includes(o.status)).length || '')
+                  : ''}
               </span>
             )}
           </button>
@@ -548,8 +576,15 @@ export default function CommercePage() {
                         className="input"
                       >
                         <option value="paid">Confirmed (paid)</option>
-                        <option value="shipped">Dispatched</option>
+                        <option value="processing">Processing</option>
+                        <option value="packed">Packed</option>
+                        <option value="courier_booked">Courier Booked</option>
+                        <option value="ready_for_collection">Ready for Collection</option>
+                        <option value="out_for_delivery">Out for Delivery</option>
+                        <option value="awaiting_collection">Awaiting Collection</option>
                         <option value="delivered">Delivered</option>
+                        <option value="collected">Collected</option>
+                        <option value="completed">Completed</option>
                         <option value="cancelled">Cancelled</option>
                         <option value="refunded">Refunded</option>
                       </select>

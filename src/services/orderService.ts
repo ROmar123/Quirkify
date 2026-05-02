@@ -6,9 +6,17 @@ import { auth } from '../firebase';
 export type OrderStatus =
   | 'pending'
   | 'paid'
+  | 'confirmed'
   | 'processing'
+  | 'packed'
+  | 'courier_booked'
+  | 'ready_for_collection'
+  | 'out_for_delivery'
+  | 'awaiting_collection'
   | 'shipped'
   | 'delivered'
+  | 'collected'
+  | 'completed'
   | 'cancelled'
   | 'refunded'
   | 'payment_failed';
@@ -79,22 +87,33 @@ export interface OrderDetail extends Order {
 // ─── 4-step fulfillment ───────────────────────────────────────────────────────
 
 export const FULFILLMENT_STEPS = [
-  { key: 'placed',     label: 'Order Placed' },
-  { key: 'confirmed',  label: 'Confirmed'    },
-  { key: 'dispatched', label: 'Dispatched'   },
-  { key: 'delivered',  label: 'Delivered'    },
+  { key: 'placed',     label: 'Order Placed'  },
+  { key: 'processing', label: 'Processing'    },
+  { key: 'on_the_way', label: 'On the Way'    },
+  { key: 'delivered',  label: 'Delivered'     },
 ] as const;
 
-/** Returns the current step index (0-4) for the 4-step progress bar.
- *  0 = placed (pending payment), 1 = confirmed (paid), 2 = dispatched (shipped), 3 = delivered.
- *  Returns -1 for cancelled/refunded/failed orders. */
 export function orderStep(status: OrderStatus): number {
   switch (status) {
-    case 'delivered':                return 4;
-    case 'shipped':                  return 3;
-    case 'paid': case 'processing':  return 2;
-    case 'pending':                  return 1;
-    default:                         return -1; // cancelled / refunded / payment_failed
+    case 'delivered':
+    case 'collected':
+    case 'completed':
+      return 4;
+    case 'courier_booked':
+    case 'out_for_delivery':
+    case 'shipped':
+    case 'ready_for_collection':
+    case 'awaiting_collection':
+      return 3;
+    case 'paid':
+    case 'confirmed':
+    case 'processing':
+    case 'packed':
+      return 2;
+    case 'pending':
+      return 1;
+    default:
+      return -1;
   }
 }
 

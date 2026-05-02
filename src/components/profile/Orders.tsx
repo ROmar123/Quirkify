@@ -13,14 +13,22 @@ import { cancelStoreCheckout, resumeStoreCheckout } from '../../services/payment
 import { cn } from '../../lib/utils';
 
 const STATUS: Record<string, { label: string; color: string; icon: any }> = {
-  pending:        { label: 'Awaiting Payment', color: 'bg-amber-100 text-amber-700',   icon: Clock       },
-  paid:           { label: 'Confirmed',        color: 'bg-blue-100 text-blue-700',     icon: CheckCircle },
-  processing:     { label: 'Confirmed',        color: 'bg-blue-100 text-blue-700',     icon: Package     },
-  shipped:        { label: 'Dispatched',       color: 'bg-indigo-100 text-indigo-700', icon: Truck       },
-  delivered:      { label: 'Delivered',        color: 'bg-green-100 text-green-700',   icon: CheckCircle },
-  cancelled:      { label: 'Cancelled',        color: 'bg-red-100 text-red-700',       icon: XCircle     },
-  refunded:       { label: 'Refunded',         color: 'bg-gray-100 text-gray-600',     icon: XCircle     },
-  payment_failed: { label: 'Payment Failed',   color: 'bg-red-100 text-red-700',       icon: XCircle     },
+  pending:               { label: 'Awaiting Payment',    color: 'bg-amber-100 text-amber-700',   icon: Clock       },
+  paid:                  { label: 'Confirmed',           color: 'bg-blue-100 text-blue-700',     icon: CheckCircle },
+  confirmed:             { label: 'Confirmed',           color: 'bg-blue-100 text-blue-700',     icon: CheckCircle },
+  processing:            { label: 'Processing',          color: 'bg-blue-100 text-blue-700',     icon: Package     },
+  packed:                { label: 'Packed',              color: 'bg-purple-100 text-purple-700', icon: Package     },
+  courier_booked:        { label: 'On the Way',          color: 'bg-indigo-100 text-indigo-700', icon: Truck       },
+  out_for_delivery:      { label: 'Out for Delivery',    color: 'bg-indigo-100 text-indigo-700', icon: Truck       },
+  ready_for_collection:  { label: 'Ready to Collect',   color: 'bg-teal-100 text-teal-700',     icon: CheckCircle },
+  awaiting_collection:   { label: 'Ready to Collect',   color: 'bg-teal-100 text-teal-700',     icon: Package     },
+  shipped:               { label: 'On the Way',          color: 'bg-indigo-100 text-indigo-700', icon: Truck       },
+  delivered:             { label: 'Delivered',           color: 'bg-green-100 text-green-700',   icon: CheckCircle },
+  collected:             { label: 'Collected',           color: 'bg-green-100 text-green-700',   icon: CheckCircle },
+  completed:             { label: 'Completed',           color: 'bg-green-100 text-green-800',   icon: CheckCircle },
+  cancelled:             { label: 'Cancelled',           color: 'bg-red-100 text-red-700',       icon: XCircle     },
+  refunded:              { label: 'Refunded',            color: 'bg-gray-100 text-gray-600',     icon: XCircle     },
+  payment_failed:        { label: 'Payment Failed',      color: 'bg-red-100 text-red-700',       icon: XCircle     },
 };
 
 function fmt(n: number) { return `R${n.toLocaleString()}`; }
