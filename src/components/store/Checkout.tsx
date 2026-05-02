@@ -4,13 +4,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   CreditCard, Truck, ArrowRight, ArrowLeft, ShoppingBag,
   LogIn, Shield, Zap, MapPin, AlertCircle, Check, Package,
-  Sparkles, ChevronRight
+  Sparkles, ChevronRight, Wallet, PlusCircle
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { auth, onAuthStateChanged, type AuthUser } from '../../firebase';
-import { startStoreCheckout } from '../../services/paymentService';
-import { fetchProduct } from '../../services/productService';
+import { startStoreCheckout, startWalletCheckout, startWalletTopup } from '../../services/paymentService';
+import { fetchMyWallet, type WalletAccount } from '../../services/storeListingService';
 import { fetchShippingQuote, type ShippingQuote } from '../../services/shippingService';
 import { searchAddressSuggestions, type AddressSuggestion } from '../../services/locationService';
 
@@ -42,6 +42,9 @@ export default function Checkout() {
     lat: number; lng: number; suburb: string; entered_address: string
   } | null>(null);
   const [validationErrors, setValidationErrors] = useState<Partial<Record<keyof typeof formData, string>>>({});
+  const [wallet, setWallet] = useState<WalletAccount | null>(null);
+  const [topupAmount, setTopupAmount] = useState(500);
+  const [toppingUp, setToppingUp] = useState(false);
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -53,6 +56,10 @@ export default function Checkout() {
   });
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
+
+  useEffect(() => {
+    if (user) fetchMyWallet().then(setWallet).catch(() => {});
+  }, [user]);
 
   useEffect(() => {
     setFormData(prev =>
@@ -169,19 +176,36 @@ export default function Checkout() {
       setIsProcessing(true);
       setPaymentError(null);
       try {
-        await startStoreCheckout({
-          firebaseUid: user.uid,
-          email: formData.email,
-          displayName: user.displayName || formData.email,
-          phone: formData.phone,
+        const result = await startWalletCheckout({
+          items: items.map(i => ({ listingId: i.productId, productId: i.productId, quantity: i.quantity })),
           address: formData.address,
           city: formData.city,
           zip: formData.zip,
-          items: items.map(i => ({ productId: i.id, quantity: i.quantity })),
-          shippingCost: shippingFee,
         });
-      } catch (err) {
-        setPaymentError(err instanceof Error ? err.message : 'Payment failed. Please try again.');
+        navigate(`/payment-result?orderId=${result.orderId}`);
+      } catch (err: any) {
+        if (err.code === 'INSUFFICIENT_BALANCE') {
+          setPaymentError(`Insufficient wallet balance. Top up to continue.`);
+        } else if (err.code === 'STOCK_UNAVAILABLE') {
+          setPaymentError(err.message);
+        } else {
+          // Fallback to Yoco direct checkout
+          try {
+            await startStoreCheckout({
+              firebaseUid: user.uid,
+              email: formData.email,
+              displayName: user.displayName || formData.email,
+              phone: formData.phone,
+              address: formData.address,
+              city: formData.city,
+              zip: formData.zip,
+              items: items.map(i => ({ productId: i.id, quantity: i.quantity })),
+              shippingCost: shippingFee,
+            });
+          } catch (fallbackErr) {
+            setPaymentError(fallbackErr instanceof Error ? fallbackErr.message : 'Payment failed. Please try again.');
+          }
+        }
       } finally {
         setIsProcessing(false);
       }
@@ -423,35 +447,65 @@ export default function Checkout() {
                   </div>
                 )}
 
-                <div className="bg-white rounded-2xl border border-gray-100 p-8 shadow-sm text-center">
-                  <div
-                    className="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center"
-                    style={{ background: 'var(--gradient-success)' }}
-                  >
-                    <Shield className="w-7 h-7 text-white" />
+                {/* Wallet balance panel */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="w-5 h-5 text-indigo-500" />
+                      <span className="font-semibold text-gray-900 text-sm">Quirkify Wallet</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-400">Available</p>
+                      <p className={cn('text-lg font-black', wallet && wallet.availableBalance >= orderTotal ? 'text-green-600' : 'text-red-500')}>
+                        R{wallet ? wallet.availableBalance.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                      </p>
+                    </div>
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">Pay with Yoco</h3>
-                  <p className="text-gray-500 text-sm mb-7 max-w-xs mx-auto">
-                    You'll be redirected to Yoco's secure checkout. We never store your card details.
-                  </p>
 
-                  <div className="grid grid-cols-3 gap-3 mb-7">
-                    {[
-                      { icon: Shield, label: 'PCI Compliant', color: '#22c55e' },
-                      { icon: Zap, label: 'Instant Processing', color: '#a855f7' },
-                      { icon: MapPin, label: 'SA Rands (ZAR)', color: '#f472b6' },
-                    ].map(({ icon: Icon, label, color }) => (
-                      <div key={label} className="bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
-                        <Icon className="w-4 h-4 mx-auto mb-1.5" style={{ color }} />
-                        <p className="text-[9px] font-semibold text-gray-600 leading-tight">{label}</p>
+                  {wallet && wallet.availableBalance >= orderTotal ? (
+                    <div className="flex items-center gap-2 p-3 bg-green-50 rounded-xl border border-green-100">
+                      <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                      <p className="text-sm text-green-700 font-medium">Wallet covers this order — click pay below.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                        <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                        <p className="text-sm text-amber-700">
+                          You need R{wallet ? Math.ceil(orderTotal - wallet.availableBalance) : orderTotal} more to pay with wallet.
+                        </p>
                       </div>
-                    ))}
-                  </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          value={topupAmount}
+                          min={10}
+                          max={50000}
+                          step={50}
+                          onChange={e => setTopupAmount(Number(e.target.value))}
+                          className="input flex-1 text-sm"
+                          placeholder="Top-up amount (R)"
+                        />
+                        <button
+                          disabled={toppingUp}
+                          onClick={async () => {
+                            setToppingUp(true);
+                            try { await startWalletTopup(topupAmount); }
+                            catch (e: any) { setPaymentError(e.message); setToppingUp(false); }
+                          }}
+                          className="btn-primary flex-shrink-0 flex items-center gap-1.5 text-sm px-4"
+                        >
+                          <PlusCircle className="w-4 h-4" />
+                          {toppingUp ? 'Redirecting…' : 'Top up'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-                  <div className="flex items-center gap-1.5 justify-center">
-                    <Shield className="w-3.5 h-3.5 text-green-500" />
-                    <p className="text-[10px] font-medium text-gray-400">256-bit encrypted · SSL secured</p>
-                  </div>
+                <div className="flex items-center gap-1.5 justify-center mt-2">
+                  <Shield className="w-3.5 h-3.5 text-green-500" />
+                  <p className="text-[10px] font-medium text-gray-400">Wallet payments are instant and secure</p>
                 </div>
               </motion.div>
             )}
@@ -500,8 +554,8 @@ export default function Checkout() {
             <div className="mt-5 space-y-2.5 hidden lg:block">
               <button
                 onClick={handleNext}
-                disabled={isProcessing || (step === 'cart' && stockErrors.length > 0)}
-                className="btn-primary w-full py-3 text-sm justify-center"
+                disabled={isProcessing || (step === 'cart' && stockErrors.length > 0) || (step === 'payment' && wallet !== null && wallet.availableBalance < orderTotal)}
+                className="btn-primary w-full py-3 text-sm justify-center disabled:opacity-50"
               >
                 {isProcessing ? (
                   <>
@@ -509,7 +563,7 @@ export default function Checkout() {
                     Processing…
                   </>
                 ) : step === 'payment' ? (
-                  <><CreditCard className="w-4 h-4" /> Pay R{orderTotal} with Yoco</>
+                  <><Wallet className="w-4 h-4" /> Pay R{orderTotal} with Wallet</>
                 ) : (
                   <>Continue <ArrowRight className="w-4 h-4" /></>
                 )}
@@ -546,7 +600,7 @@ export default function Checkout() {
             {isProcessing ? (
               <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} className="w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
             ) : step === 'payment' ? (
-              <><CreditCard className="w-4 h-4" /> Pay</>
+              <><Wallet className="w-4 h-4" /> Pay</>
             ) : (
               <>Next <ArrowRight className="w-4 h-4" /></>
             )}

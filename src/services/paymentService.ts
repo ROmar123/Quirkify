@@ -104,6 +104,40 @@ export const getStoreCheckoutStatus = async (orderId: string) => {
   };
 };
 
+export interface WalletCheckoutResult {
+  orderId: string;
+  orderNumber: string;
+  total: number;
+}
+
+export const startWalletCheckout = async (params: {
+  items: { listingId?: string; productId: string; quantity: number }[];
+  address?: string;
+  city?: string;
+  zip?: string;
+}): Promise<WalletCheckoutResult> => {
+  const response = await fetch('/api/commerce/wallet-checkout', {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify(params),
+  });
+  const data = await response.json();
+  if (!response.ok) throw Object.assign(new Error(data.error || 'Wallet checkout failed'), { code: data.code });
+  return data as WalletCheckoutResult;
+};
+
+export const startWalletTopup = async (amount: number): Promise<void> => {
+  const response = await fetch('/api/commerce/wallet-topup', {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ amount }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Failed to initiate top-up');
+  if (!data.redirectUrl) throw new Error('Top-up redirect URL missing');
+  window.location.href = data.redirectUrl;
+};
+
 export const initiateYocoCheckout = async (amount: number, itemName: string, mPaymentId: string) => {
   try {
     const response = await fetch('/api/payments/yoco/initiate', {
