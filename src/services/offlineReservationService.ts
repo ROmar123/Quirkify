@@ -25,7 +25,7 @@ export interface OfflineReservation {
 export async function fetchOfflineReservations(status?: OfflineReservationStatus): Promise<OfflineReservation[]> {
   let q = supabase
     .from('offline_reservations')
-    .select('*, product:products(title, name, image_url)')
+    .select('*, product:products(name, image_url)')
     .order('created_at', { ascending: false });
   if (status) q = q.eq('status', status);
   const { data, error } = await q;
