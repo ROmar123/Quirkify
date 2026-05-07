@@ -121,7 +121,14 @@ function productToRow(product: Partial<Product>): Record<string, any> {
   if (product.listingType        !== undefined) row.listing_type       = product.listingType === 'pack' ? 'store' : product.listingType;
   if (product.retailPrice        !== undefined) row.retail_price       = Number(product.retailPrice);
   if (product.markdownPercentage !== undefined) row.markdown_percentage = Number(product.markdownPercentage);
-  // discount_price is a GENERATED ALWAYS column — never set it
+  // Compute discount_price from retail + markdown (it is a regular column, not generated)
+  if (product.discountPrice !== undefined) {
+    row.discount_price = Number(product.discountPrice);
+  } else if (product.retailPrice !== undefined || product.markdownPercentage !== undefined) {
+    const r   = Number(product.retailPrice   ?? 0);
+    const pct = Number(product.markdownPercentage ?? 0);
+    if (r > 0) row.discount_price = Math.round(r * (1 - pct / 100) * 100) / 100;
+  }
   if (product.stock !== undefined) row.stock = Number(product.stock);
   if (product.allocations) {
     row.alloc_store   = Number(product.allocations.store   || 0);
