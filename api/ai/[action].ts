@@ -1,5 +1,6 @@
 import { askGemini } from '../_lib/gemini';
 import { getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
+import { requireVerifiedUser, sendAuthError } from '../_lib/auth.js';
 
 function summarizeProducts(products: any[] = []) {
   return products.map((product) => ({
@@ -57,15 +58,21 @@ function summarizeOrders(orders: any[] = []) {
 }
 
 async function handleIdentify(req: any, res: any) {
+  try {
+    const verifiedUser = await requireVerifiedUser(req);
+    if (!verifiedUser) return sendAuthError(res);
+  } catch (err: any) {
+    if (err?.statusCode === 401) return sendAuthError(res, err);
+    return res.status(500).json({ error: err.message });
+  }
+
   const { base64Image } = req.body ?? {};
   if (!base64Image) return res.status(400).json({ error: 'No image provided' });
 
   const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-  console.log('[ai-identify] GEMINI_API_KEY present?', !!process.env.GEMINI_API_KEY, 'VITE_GEMINI_API_KEY present?', !!process.env.VITE_GEMINI_API_KEY, 'base64 length:', base64Image?.length);
   if (!apiKey) return res.status(503).json({ error: 'AI not configured' });
 
   try {
-    console.log('[ai-identify] calling Gemini model gemini-2.0-flash-001');
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${apiKey}`,
       {
@@ -94,19 +101,16 @@ async function handleIdentify(req: any, res: any) {
     );
 
     const data = await response.json();
-    console.log('[ai-identify] Gemini HTTP status:', response.status, 'has candidates?', !!data?.candidates);
 
     if (!response.ok) {
-      const geminiError = data?.error?.message || data?.message || `Gemini API error (${response.status}): ${JSON.stringify(data).slice(0, 200)}`;
-      console.error('[ai-identify] Gemini error:', geminiError, 'full response:', JSON.stringify(data).slice(0, 500));
+      const geminiError = data?.error?.message || data?.message || `Gemini API error (${response.status})`;
       return res.status(502).json({ error: geminiError });
     }
 
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     if (!text) {
       const reason = data?.candidates?.[0]?.finishReason || 'no content returned';
-      const safetyRatings = data?.candidates?.[0]?.safetyRatings;
-      return res.status(502).json({ error: `Gemini returned no content (${reason})`, safetyRatings });
+      return res.status(502).json({ error: `Gemini returned no content (${reason})` });
     }
 
     try {
@@ -121,6 +125,14 @@ async function handleIdentify(req: any, res: any) {
 }
 
 async function handleIntake(req: any, res: any) {
+  try {
+    const verifiedUser = await requireVerifiedUser(req);
+    if (!verifiedUser) return sendAuthError(res);
+  } catch (err: any) {
+    if (err?.statusCode === 401) return sendAuthError(res, err);
+    return res.status(500).json({ error: err.message });
+  }
+
   const { notes, categoryHint, channelHint, base64Image } = req.body || {};
   if (!notes && !base64Image) {
     return res.status(400).json({ error: 'Notes or an image are required for AI intake' });
@@ -183,6 +195,15 @@ Rules:
 }
 
 async function handleCampaign(req: any, res: any) {
+  try {
+    const verifiedUser = await requireVerifiedUser(req);
+    if (!verifiedUser) return sendAuthError(res);
+    if (!verifiedUser.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+  } catch (err: any) {
+    if (err?.statusCode === 401) return sendAuthError(res, err);
+    return res.status(500).json({ error: err.message });
+  }
+
   const { goal, constraints } = req.body || {};
   const supabase = getSupabaseAdmin();
 
@@ -256,6 +277,14 @@ Return strict JSON:
 }
 
 async function handlePersonalize(req: any, res: any) {
+  try {
+    const verifiedUser = await requireVerifiedUser(req);
+    if (!verifiedUser) return sendAuthError(res);
+  } catch (err: any) {
+    if (err?.statusCode === 401) return sendAuthError(res, err);
+    return res.status(500).json({ error: err.message });
+  }
+
   const { browsingHistory, cart } = req.body ?? {};
   try {
     const text = await askGemini(
@@ -273,6 +302,14 @@ async function handlePersonalize(req: any, res: any) {
 }
 
 async function handleTalkingPoints(req: any, res: any) {
+  try {
+    const verifiedUser = await requireVerifiedUser(req);
+    if (!verifiedUser) return sendAuthError(res);
+  } catch (err: any) {
+    if (err?.statusCode === 401) return sendAuthError(res, err);
+    return res.status(500).json({ error: err.message });
+  }
+
   const { productName, category } = req.body ?? {};
   if (!productName) return res.status(400).json({ error: 'Missing productName' });
 

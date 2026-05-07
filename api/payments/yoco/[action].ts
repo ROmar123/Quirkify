@@ -170,7 +170,7 @@ async function handleWebhook(req: any, res: any) {
 
   if (!signatureHeader) return res.status(401).json({ error: 'Missing signature header' });
 
-  const secret = normalizeEnvValue(process.env.YOCO_SECRET_KEY);
+  const secret = normalizeEnvValue(process.env.YOCO_WEBHOOK_SECRET);
   if (!secret) return res.status(500).json({ error: 'Server configuration error' });
 
   if (!verifyYocoSignature(rawBody, signatureHeader, secret))

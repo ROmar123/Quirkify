@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         '/api': {
-          target: 'https://quirkify-recover.vercel.app',
+          target: env.VITE_API_URL || 'http://localhost:3000',
           changeOrigin: true,
         },
       },

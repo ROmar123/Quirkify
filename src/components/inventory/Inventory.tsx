@@ -152,7 +152,7 @@ function ReviewPanel() {
     }
   }
 
-  const pending = queue.filter(e => e.status === 'pending');
+  const pending = queue.filter(e => e.status === 'pending' || e.status === 'draft_review');
   const ch = CHANNEL_LABELS[listingType] || CHANNEL_LABELS.store;
 
   return (
