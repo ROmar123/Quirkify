@@ -25,9 +25,17 @@ async function handleStoreCheckout(req: any, res: any) {
     if (!verifiedUser.email || !Array.isArray(items) || items.length === 0)
       return res.status(400).json({ error: 'Missing required checkout fields' });
 
-    const normalizedItems = items.map((item: any) => ({
-      productId: String(item?.productId || ''),
-      quantity: Number(item?.quantity || 0),
+    const supabaseForLookup = getSupabaseAdmin();
+    const rawItems = items as any[];
+    const normalizedItems = await Promise.all(rawItems.map(async (item: any) => {
+      const listingId = item?.listingId ? String(item.listingId) : null;
+      let productId = String(item?.productId || '');
+      if (listingId) {
+        const { data: listing } = await supabaseForLookup
+          .from('store_listings').select('product_id').eq('id', listingId).maybeSingle();
+        if (listing?.product_id) productId = listing.product_id;
+      }
+      return { productId, quantity: Number(item?.quantity || 0) };
     }));
     if (normalizedItems.some((i: any) => !i.productId || i.quantity <= 0))
       return res.status(400).json({ error: 'Invalid checkout items' });
@@ -172,6 +180,22 @@ async function handleWalletCheckout(req: any, res: any) {
     }
 
     const result = Array.isArray(data) ? data[0] : data;
+
+    // Insert collection items (mirror Yoco webhook logic)
+    const { data: orderItems } = await supabase
+      .from('order_items').select('product_id, unit_price, quantity').eq('order_id', result.order_id);
+    if (orderItems && orderItems.length > 0) {
+      const collectionRows = (orderItems as any[]).flatMap((item: any) =>
+        Array.from({ length: item.quantity ?? 1 }, () => ({
+          profile_id: profile.id,
+          product_id: item.product_id,
+          purchase_price: Number(item.unit_price) || 0,
+          acquired_at: new Date().toISOString(),
+        }))
+      );
+      await supabase.from('collection_items').insert(collectionRows);
+    }
+
     return res.status(200).json({ orderId: result.order_id, orderNumber: result.order_number, total: result.total });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Wallet checkout failed' });

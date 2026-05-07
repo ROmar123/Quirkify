@@ -8,7 +8,7 @@ interface StoreCheckoutPayload {
   address: string;
   city: string;
   zip: string;
-  items: { productId: string; quantity: number }[];
+  items: { listingId?: string; productId: string; quantity: number }[];
   shippingCost?: number;
 }
 

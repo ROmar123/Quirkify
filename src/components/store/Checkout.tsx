@@ -200,7 +200,7 @@ export default function Checkout() {
               address: formData.address,
               city: formData.city,
               zip: formData.zip,
-              items: items.map(i => ({ productId: i.id, quantity: i.quantity })),
+              items: items.map(i => ({ listingId: i.productId, productId: i.productId, quantity: i.quantity })),
               shippingCost: shippingFee,
             });
           } catch (fallbackErr) {

@@ -11,6 +11,7 @@ import {
   subscribeToReviewQueue,
   updateProduct,
 } from '../../services/catalogService';
+import { createStoreListing } from '../../services/storeListingService';
 import { useSession } from '../../hooks/useSession';
 import { currency, defaultAllocations, emptyReservations } from '../../lib/quirkify';
 import { cn } from '../../lib/utils';
@@ -99,6 +100,22 @@ function ReviewPanel() {
         allocations: finalAllocs,
         tags: String(draft.tags || '').split(',').map((t: string) => t.trim()).filter(Boolean),
       });
+      if (listingType === 'store' || listingType === 'both') {
+        const sellingPrice = Number(draft.salePrice) > 0
+          ? Number(draft.salePrice)
+          : Math.round(Number(draft.retailPrice) * (1 - (Number(draft.markdownPct) || 0) / 100));
+        const images = updated.imageUrl ? [updated.imageUrl] : updated.imageUrls ?? [];
+        await createStoreListing({
+          productId: updated.id,
+          title: updated.name,
+          description: updated.description,
+          images,
+          retailPrice: Number(draft.retailPrice) || 0,
+          sellingPrice: sellingPrice || Number(draft.retailPrice) || 0,
+          quantityTotal: qty,
+          publish: true,
+        });
+      }
       if (listingType === 'auction' || listingType === 'both') {
         const start = new Date(Date.now() + 60 * 60 * 1000).toISOString();
         const end = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();

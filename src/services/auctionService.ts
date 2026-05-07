@@ -150,8 +150,8 @@ export async function createAuctionFromProduct(params: {
   const auction: Auction = {
     id: auctionRef.id,
     productId: params.product.id,
-    title: params.product.title,
-    heroImage: params.product.media[0]?.url,
+    title: params.product.name || params.product.title || '',
+    heroImage: params.product.media?.[0]?.url || params.product.imageUrl,
     status: new Date(params.startsAt).getTime() <= Date.now() ? 'live' : 'scheduled',
     startsAt: params.startsAt,
     endsAt: params.endsAt,

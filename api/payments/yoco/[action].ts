@@ -112,7 +112,7 @@ async function handlePaymentCompleted(event: YocoEvent): Promise<void> {
     const { error: walletError } = await supabase.rpc('wallet_credit', {
       p_profile_id: currentOrder.profile_id,
       p_amount: Number(currentOrder.total || 0),
-      p_entry_type: 'top_up',
+      p_entry_type: 'topup',
       p_reference_type: 'order',
       p_reference_id: orderId,
       p_metadata: { yoco_payment_id: event.data.id },
