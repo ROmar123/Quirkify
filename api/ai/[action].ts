@@ -61,9 +61,11 @@ async function handleIdentify(req: any, res: any) {
   if (!base64Image) return res.status(400).json({ error: 'No image provided' });
 
   const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  console.log('[ai-identify] GEMINI_API_KEY present?', !!process.env.GEMINI_API_KEY, 'VITE_GEMINI_API_KEY present?', !!process.env.VITE_GEMINI_API_KEY, 'base64 length:', base64Image?.length);
   if (!apiKey) return res.status(503).json({ error: 'AI not configured' });
 
   try {
+    console.log('[ai-identify] calling Gemini model gemini-2.0-flash-001');
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${apiKey}`,
       {
@@ -92,9 +94,11 @@ async function handleIdentify(req: any, res: any) {
     );
 
     const data = await response.json();
+    console.log('[ai-identify] Gemini HTTP status:', response.status, 'has candidates?', !!data?.candidates);
 
     if (!response.ok) {
       const geminiError = data?.error?.message || data?.message || `Gemini API error (${response.status}): ${JSON.stringify(data).slice(0, 200)}`;
+      console.error('[ai-identify] Gemini error:', geminiError, 'full response:', JSON.stringify(data).slice(0, 500));
       return res.status(502).json({ error: geminiError });
     }
 

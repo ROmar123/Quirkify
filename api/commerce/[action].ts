@@ -206,8 +206,11 @@ async function handleWalletCheckout(req: any, res: any) {
 async function handleWalletTopup(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
+    console.log('[wallet-topup] start — env check: YOCO_SECRET_KEY present?', !!process.env.YOCO_SECRET_KEY, 'SUPABASE_SERVICE_ROLE_KEY present?', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+
     const verifiedUser = await requireVerifiedUser(req);
     if (!verifiedUser) return sendAuthError(res);
+    console.log('[wallet-topup] user verified:', verifiedUser.uid, verifiedUser.email);
 
     const { amount } = req.body ?? {};
     const topupAmount = Number(amount);
@@ -222,6 +225,7 @@ async function handleWalletTopup(req: any, res: any) {
       email: verifiedUser.email!,
       displayName: verifiedUser.name,
     });
+    console.log('[wallet-topup] profile:', profile.id, profile.display_name);
 
     const supabase = getSupabaseAdmin();
     const { data: order, error: orderError } = await supabase
@@ -242,10 +246,12 @@ async function handleWalletTopup(req: any, res: any) {
       })
       .select('id')
       .single();
-    if (orderError) throw new Error(orderError.message);
+    if (orderError) throw new Error(`Order insert failed: ${orderError.message}`);
+    console.log('[wallet-topup] order created:', order.id);
 
     const origin = req.headers.origin || `https://${req.headers.host}`;
     const amountCents = Math.round(topupAmount * 100);
+    console.log('[wallet-topup] calling Yoco — origin:', origin, 'amount cents:', amountCents);
 
     const yocoResponse = await axios.post('https://payments.yoco.com/api/checkouts', {
       amount: amountCents,
@@ -257,11 +263,13 @@ async function handleWalletTopup(req: any, res: any) {
       headers: { Authorization: `Bearer ${yocoSecretKey}`, 'Content-Type': 'application/json' },
     });
 
+    console.log('[wallet-topup] Yoco response status:', yocoResponse.status, 'redirectUrl:', yocoResponse.data.redirectUrl);
     return res.status(200).json({ redirectUrl: yocoResponse.data.redirectUrl, orderId: order.id });
   } catch (err: any) {
     const yocoData = err.response?.data;
     const yocoMsg = yocoData?.detail || yocoData?.message || (yocoData?.errors?.[0]?.message) || JSON.stringify(yocoData);
     const msg = yocoData ? `Yoco: ${yocoMsg}` : (err.message || 'Failed to initiate top-up');
+    console.error('[wallet-topup] ERROR:', msg, 'full:', JSON.stringify(yocoData || err.message));
     return res.status(500).json({ error: msg });
   }
 }
