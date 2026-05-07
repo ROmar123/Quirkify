@@ -46,7 +46,7 @@ export async function fetchMyWithdrawals(): Promise<WithdrawalRequest[]> {
 export async function fetchAllWithdrawals(status?: string): Promise<WithdrawalRequest[]> {
   let q = supabase
     .from('withdrawal_requests')
-    .select('*, profile:profiles(display_name, email)')
+    .select('*, profile:profiles!withdrawal_requests_profile_id_fkey(display_name, email)')
     .order('created_at', { ascending: false });
   if (status) q = q.eq('status', status);
   const { data, error } = await q;

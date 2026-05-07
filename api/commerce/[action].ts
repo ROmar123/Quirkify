@@ -259,7 +259,10 @@ async function handleWalletTopup(req: any, res: any) {
 
     return res.status(200).json({ redirectUrl: yocoResponse.data.redirectUrl, orderId: order.id });
   } catch (err: any) {
-    return res.status(500).json({ error: err.message || 'Failed to initiate top-up' });
+    const yocoData = err.response?.data;
+    const yocoMsg = yocoData?.detail || yocoData?.message || (yocoData?.errors?.[0]?.message) || JSON.stringify(yocoData);
+    const msg = yocoData ? `Yoco: ${yocoMsg}` : (err.message || 'Failed to initiate top-up');
+    return res.status(500).json({ error: msg });
   }
 }
 

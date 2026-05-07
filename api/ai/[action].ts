@@ -65,7 +65,7 @@ async function handleIdentify(req: any, res: any) {
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -94,14 +94,15 @@ async function handleIdentify(req: any, res: any) {
     const data = await response.json();
 
     if (!response.ok) {
-      const geminiError = data?.error?.message || `Gemini API error (${response.status})`;
+      const geminiError = data?.error?.message || data?.message || `Gemini API error (${response.status}): ${JSON.stringify(data).slice(0, 200)}`;
       return res.status(502).json({ error: geminiError });
     }
 
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     if (!text) {
       const reason = data?.candidates?.[0]?.finishReason || 'no content returned';
-      return res.status(502).json({ error: `Gemini returned no content (${reason})` });
+      const safetyRatings = data?.candidates?.[0]?.safetyRatings;
+      return res.status(502).json({ error: `Gemini returned no content (${reason})`, safetyRatings });
     }
 
     try {
@@ -111,7 +112,7 @@ async function handleIdentify(req: any, res: any) {
       return res.status(502).json({ error: 'Gemini response was not valid JSON', raw: text.slice(0, 300) });
     }
   } catch (err: any) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message || String(err) });
   }
 }
 
