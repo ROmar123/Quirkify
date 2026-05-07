@@ -121,7 +121,6 @@ async function handleWalletCheckout(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
     const verifiedUser = await requireVerifiedUser(req);
-    if (!verifiedUser) return sendAuthError(res);
 
     const { address, city, zip, items } = req.body ?? {};
     if (!Array.isArray(items) || items.length === 0)
@@ -183,7 +182,6 @@ async function handleWalletTopup(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
     const verifiedUser = await requireVerifiedUser(req);
-    if (!verifiedUser) return sendAuthError(res);
 
     const { amount } = req.body ?? {};
     const topupAmount = Number(amount);

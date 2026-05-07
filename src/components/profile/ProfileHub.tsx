@@ -19,7 +19,8 @@ import { listCampaignDrafts, listFeaturedProducts } from '../../services/catalog
 import { listAuctions, listLiveSessions } from '../../services/auctionService';
 import { useCart } from '../../context/CartContext';
 import { fetchMyWallet, type WalletAccount } from '../../services/storeListingService';
-import type { Auction, CampaignDraft, LiveSession, Order, Product } from '../../types';
+import type { Auction, CampaignDraft, LiveSession, Product } from '../../types';
+import type { Order } from '../../services/orderService';
 
 function statusTone(status: string) {
   if (status === 'paid' || status === 'confirmed' || status === 'approved' || status === 'live') return 'text-emerald-700 bg-emerald-50';
@@ -257,7 +258,7 @@ export default function ProfileHub() {
                         </span>
                       </div>
                       <p style={{ fontSize: 12, color: '#6B7280' }}>
-                        Payment: {order.paymentStatus.replaceAll('_', ' ')} · Shipping: {order.shippingStatus.replaceAll('_', ' ')}
+                        Payment: {(order.paymentStatus ?? 'pending').replaceAll('_', ' ')}
                       </p>
                     </div>
                   ))}

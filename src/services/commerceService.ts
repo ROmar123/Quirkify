@@ -1,4 +1,12 @@
 import { auth } from '../firebase';
+import { fetchOrders, type Order } from './orderService';
+
+export type { Order };
+
+/** Fetch orders for a given Supabase profile ID (customer view) */
+export async function fetchOrdersForCustomer(profileId: string): Promise<Order[]> {
+  return fetchOrders({ profileId });
+}
 
 async function authHeaders() {
   const token = await auth.currentUser?.getIdToken();

@@ -16,6 +16,9 @@ async function startServer() {
   const { default: shippingHandler } = await import('./api/shipping/[action]');
   const { default: commerceHandler } = await import('./api/commerce/[action]');
   const { default: yocoHandler } = await import('./api/payments/yoco/[action]');
+  const { default: syncProfileHandler } = await import('./api/auth/sync-profile');
+  const { default: adminHandler } = await import('./api/admin/[resource]');
+  const { default: socialWebhookHandler } = await import('./api/social/webhook');
 
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
@@ -23,6 +26,13 @@ async function startServer() {
   app.use(express.json({ limit: '10mb' }));
 
   app.get('/api/health', (req, res) => void healthHandler(req, res));
+
+  app.post('/api/auth/sync-profile', (req, res) => void syncProfileHandler(req, res));
+
+  app.all('/api/admin/:resource', (req, res) =>
+    void adminHandler({ ...req, query: { ...req.query, resource: req.params.resource } }, res));
+
+  app.post('/api/social/webhook', (req, res) => void socialWebhookHandler(req, res));
 
   app.post('/api/ai/:action', (req, res) =>
     void aiHandler({ ...req, query: { ...req.query, action: req.params.action } }, res));

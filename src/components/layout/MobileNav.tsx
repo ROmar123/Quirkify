@@ -3,13 +3,13 @@ import { useEffect, useState } from 'react';
 import { ShoppingBag, Gavel, ClipboardList, User, LayoutDashboard, Megaphone } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useMode } from '../../context/ModeContext';
-import { auth, onAuthStateChanged } from '../../firebase';
+import { auth, onAuthStateChanged, type AuthUser } from '../../firebase';
 import { motion } from 'motion/react';
 
 export default function MobileNav() {
   const location = useLocation();
   const { mode, isAdmin } = useMode();
-  const [user, setUser] = useState(auth.currentUser);
+  const [user, setUser] = useState<AuthUser | null>(auth.currentUser);
   const nextParam = new URLSearchParams(location.search).get('next');
   const effectivePath =
     location.pathname === '/auth' && nextParam?.startsWith('/')
