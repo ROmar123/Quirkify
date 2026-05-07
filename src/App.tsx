@@ -1,5 +1,6 @@
 import { lazy, Suspense, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'motion/react';
 import { CartProvider } from './context/CartContext';
 import { ModeProvider } from './context/ModeContext';
 import { useSession } from './hooks/useSession';
@@ -50,9 +51,56 @@ function Guard({
   return <>{children}</>;
 }
 
-function AppRoutes() {
+function AnimatedRoutes() {
+  const location = useLocation();
   const { loading, isAuthenticated, isAdmin } = useSession();
 
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={location.pathname}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -6 }}
+        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+        style={{ willChange: 'opacity, transform' }}
+      >
+        <Routes location={location}>
+          <Route path="/" element={<StoreFront />} />
+          <Route path="/product/:productId" element={<ProductDetails />} />
+          <Route path="/auctions" element={<AuctionList />} />
+          <Route path="/live/:sessionId" element={<LiveStreamRoom />} />
+          <Route path="/checkout" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><Checkout /></Guard>} />
+          <Route path="/orders" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><Orders /></Guard>} />
+          <Route path="/profile" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><Collection /></Guard>} />
+          <Route path="/collection" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><Collection /></Guard>} />
+          <Route path="/profile/:uid" element={<PublicProfile />} />
+          <Route path="/seller/onboarding" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><SellerOnboarding /></Guard>} />
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/payment/success" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><PaymentResult type="success" /></Guard>} />
+          <Route path="/payment/cancel" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><PaymentResult type="cancel" /></Guard>} />
+          <Route path="/payment-result" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><PaymentResult type="success" /></Guard>} />
+          <Route path="/admin" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><AdminDashboard /></Guard>} />
+          <Route path="/admin/orders" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><Navigate to="/admin/commerce" replace /></Guard>} />
+          <Route path="/admin/inventory" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><Inventory /></Guard>} />
+          <Route path="/admin/commerce" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><CommercePage /></Guard>} />
+          <Route path="/admin/campaigns" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><Navigate to="/admin/growth" replace /></Guard>} />
+          <Route path="/admin/growth" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><GrowthPage /></Guard>} />
+          <Route path="/admin/withdrawals" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><WithdrawalsPage /></Guard>} />
+          <Route path="/admin/reservations" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><OfflineReservationsPage /></Guard>} />
+          <Route path="/admin/placements" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><CampaignPlacementsPage /></Guard>} />
+          <Route path="/wallet" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><WalletPage /></Guard>} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/returns" element={<ReturnsPolicy />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+function AppRoutes() {
   return (
     <>
       <PageHeader />
@@ -64,36 +112,7 @@ function AppRoutes() {
             </div>
           }
         >
-          <Routes>
-            <Route path="/" element={<StoreFront />} />
-            <Route path="/product/:productId" element={<ProductDetails />} />
-            <Route path="/auctions" element={<AuctionList />} />
-            <Route path="/live/:sessionId" element={<LiveStreamRoom />} />
-            <Route path="/checkout" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><Checkout /></Guard>} />
-            <Route path="/orders" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><Orders /></Guard>} />
-            <Route path="/profile" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><Collection /></Guard>} />
-            <Route path="/collection" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><Collection /></Guard>} />
-            <Route path="/profile/:uid" element={<PublicProfile />} />
-            <Route path="/seller/onboarding" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><SellerOnboarding /></Guard>} />
-            <Route path="/auth" element={<AuthPage />} />
-            <Route path="/payment/success" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><PaymentResult type="success" /></Guard>} />
-            <Route path="/payment/cancel" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><PaymentResult type="cancel" /></Guard>} />
-            <Route path="/payment-result" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><PaymentResult type="success" /></Guard>} />
-            <Route path="/admin" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><AdminDashboard /></Guard>} />
-            <Route path="/admin/orders" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><Navigate to="/admin/commerce" replace /></Guard>} />
-            <Route path="/admin/inventory" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><Inventory /></Guard>} />
-            <Route path="/admin/commerce" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><CommercePage /></Guard>} />
-            <Route path="/admin/campaigns" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><Navigate to="/admin/growth" replace /></Guard>} />
-            <Route path="/admin/growth" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><GrowthPage /></Guard>} />
-            <Route path="/admin/withdrawals" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><WithdrawalsPage /></Guard>} />
-            <Route path="/admin/reservations" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><OfflineReservationsPage /></Guard>} />
-            <Route path="/admin/placements" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><CampaignPlacementsPage /></Guard>} />
-            <Route path="/wallet" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><WalletPage /></Guard>} />
-            <Route path="/terms" element={<TermsOfService />} />
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/returns" element={<ReturnsPolicy />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <AnimatedRoutes />
         </Suspense>
       </main>
       <Footer />

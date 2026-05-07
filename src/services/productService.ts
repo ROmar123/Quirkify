@@ -39,7 +39,7 @@ export function rowToProduct(row: any): Product {
     category: row.category || 'Other',
     condition: row.condition || 'New',
     status: row.status,
-    source: Number(row.confidence_score || 0) > 0 ? 'ai' : 'manual',
+    source: row.source === 'ai_intake' ? 'ai' : (Number(row.confidence_score || 0) > 0 ? 'ai' : 'manual'),
     channels: {
       store:         listingType === 'store'   || listingType === 'both',
       auction:       listingType === 'auction' || listingType === 'both',
@@ -84,7 +84,7 @@ export function rowToProduct(row: any): Product {
       utility:    Number(row.stats_utility || 0),
       hype:       Number(row.stats_hype    || 0),
     } : undefined,
-    tags:               [],
+    tags:               row.tags || [],
     merchandisingNotes: [],
     rarityNotes:        [],
     authorUid:  row.author_uid,
@@ -113,7 +113,11 @@ function productToRow(product: Partial<Product>): Record<string, any> {
     };
     row.condition = CONDITION_NORMALIZE[product.condition as string] ?? product.condition;
   }
-  if (product.status             !== undefined) row.status             = product.status === 'active' ? 'approved' : (product.status === 'draft' || product.status === 'draft_review') ? 'pending' : product.status;
+  if (product.status !== undefined) {
+    // Map legacy UI aliases to DB values; all lifecycle statuses now stored directly
+    const STATUS_MAP: Record<string, string> = { active: 'approved', draft: 'draft_review' };
+    row.status = STATUS_MAP[product.status] ?? product.status;
+  }
   if (product.listingType        !== undefined) row.listing_type       = product.listingType === 'pack' ? 'store' : product.listingType;
   if (product.retailPrice        !== undefined) row.retail_price       = Number(product.retailPrice);
   if (product.markdownPercentage !== undefined) row.markdown_percentage = Number(product.markdownPercentage);
@@ -140,7 +144,10 @@ function productToRow(product: Partial<Product>): Record<string, any> {
     row.price_range_min = Number(product.priceRange.min || 0);
     row.price_range_max = Number(product.priceRange.max || 0);
   }
-  if (product.authorUid !== undefined) row.author_uid = product.authorUid;
+  if (product.authorUid  !== undefined) row.author_uid   = product.authorUid;
+  if (product.source     !== undefined) row.source        = product.source === 'ai' ? 'ai_intake' : 'manual_intake';
+  if (product.tags       !== undefined) row.tags          = product.tags;
+  if (product.imageUrls  !== undefined && product.imageUrls.length > 0) row.image_urls = product.imageUrls;
 
   return row;
 }

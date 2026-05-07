@@ -10,6 +10,7 @@ import { cn } from '../../lib/utils';
 
 interface LedgerEntry {
   id: string;
+  direction: 'credit' | 'debit';
   amount: number;
   entryType: string;
   referenceType?: string;
@@ -17,14 +18,12 @@ interface LedgerEntry {
 }
 
 const ENTRY_TYPE_LABELS: Record<string, string> = {
-  top_up: 'Wallet Top-Up',
+  topup: 'Wallet Top-Up',
   order_payment: 'Purchase',
   auction_win: 'Auction Win',
-  withdrawal_reserved: 'Withdrawal (Pending)',
-  withdrawal_refunded: 'Withdrawal Refund',
+  withdrawal: 'Withdrawal',
   refund: 'Refund',
-  bonus: 'Bonus',
-  admin_credit: 'Admin Credit',
+  manual_adjustment: 'Admin Adjustment',
 };
 
 export default function WalletPage() {
@@ -53,10 +52,11 @@ export default function WalletPage() {
       ]);
       setLedger(l.map((e: any) => ({
         id: e.id,
+        direction: (e.direction ?? 'credit') as 'credit' | 'debit',
         amount: Number(e.amount),
-        entryType: e.entry_type ?? e.entryType ?? '',
-        referenceType: e.reference_type ?? e.referenceType,
-        createdAt: e.created_at ?? e.createdAt,
+        entryType: e.entryType ?? e.entry_type ?? '',
+        referenceType: e.referenceType ?? e.reference_type,
+        createdAt: e.createdAt ?? e.created_at,
       })));
       setWithdrawals(wr);
     } catch (e: any) {
@@ -327,9 +327,9 @@ export default function WalletPage() {
             {ledger.map(entry => (
               <div key={entry.id} className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl">
                 <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
-                  entry.amount > 0 ? 'bg-green-50' : 'bg-red-50'
+                  entry.direction === 'credit' ? 'bg-green-50' : 'bg-red-50'
                 )}>
-                  {entry.amount > 0
+                  {entry.direction === 'credit'
                     ? <ArrowDownLeft className="w-4 h-4 text-green-600" />
                     : <ArrowUpRight className="w-4 h-4 text-red-500" />
                   }
@@ -340,8 +340,8 @@ export default function WalletPage() {
                   </p>
                   <p className="text-xs text-gray-400">{new Date(entry.createdAt).toLocaleString()}</p>
                 </div>
-                <p className={cn('text-sm font-bold', entry.amount > 0 ? 'text-green-700' : 'text-red-600')}>
-                  {entry.amount > 0 ? '+' : ''}{currency(Math.abs(entry.amount))}
+                <p className={cn('text-sm font-bold', entry.direction === 'credit' ? 'text-green-700' : 'text-red-600')}>
+                  {entry.direction === 'credit' ? '+' : ''}{currency(Math.abs(entry.amount))}
                 </p>
               </div>
             ))}

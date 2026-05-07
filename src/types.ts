@@ -6,14 +6,27 @@ export type ProductCondition = 'new' | 'like_new' | 'pre_owned' | 'refurbished' 
 export type SalesChannel = 'store' | 'auction' | 'pack';
 export type Rarity = 'Common' | 'Limited' | 'Rare' | 'Super Rare' | 'Unique';
 export type OrderStatus =
-  | 'pending_payment'
+  | 'pending'
+  | 'paid'
   | 'confirmed'
   | 'processing'
-  | 'ready_to_ship'
+  | 'packed'
+  | 'courier_booked'
+  | 'ready_for_collection'
+  | 'out_for_delivery'
+  | 'awaiting_collection'
   | 'shipped'
   | 'delivered'
+  | 'collected'
+  | 'completed'
   | 'cancelled'
-  | 'refunded';
+  | 'refunded'
+  | 'payment_failed';
+
+export type StoreListingStatus = 'draft' | 'published' | 'paused' | 'sold_out' | 'removed';
+export type WithdrawalStatus = 'requested' | 'approved' | 'rejected' | 'paid' | 'cancelled';
+export type WalletEntryType = 'topup' | 'withdrawal' | 'order_payment' | 'refund' | 'manual_adjustment';
+export type PlacementSlot = 'home_hero' | 'store_banner' | 'auction_banner' | 'pack_banner' | 'product_section' | 'checkout_banner';
 export type PaymentStatus =
   | 'unpaid'
   | 'pending'

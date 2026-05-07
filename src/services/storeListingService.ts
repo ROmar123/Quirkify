@@ -155,20 +155,33 @@ export async function fetchMyWallet(): Promise<WalletAccount | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('auth_uid', user.id)
-    .maybeSingle();
-  if (!profile) return null;
-
+  // wallet_accounts.profile_id = auth.uid() (profiles.id is the Supabase auth UUID)
   const { data, error } = await supabase
     .from('wallet_accounts')
     .select('*')
-    .eq('profile_id', profile.id)
+    .eq('profile_id', user.id)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  if (!data) return null;
+  if (!data) {
+    // Wallet doesn't exist yet — create it via RPC
+    const { data: created, error: createErr } = await supabase.rpc('ensure_wallet_account', {
+      p_profile_id: user.id,
+    });
+    if (createErr) return null;
+    const { data: fresh } = await supabase
+      .from('wallet_accounts')
+      .select('*')
+      .eq('id', created)
+      .maybeSingle();
+    if (!fresh) return null;
+    return {
+      id: fresh.id,
+      profileId: fresh.profile_id,
+      availableBalance: Number(fresh.available_balance),
+      heldBalance: Number(fresh.held_balance),
+      status: fresh.status,
+    };
+  }
 
   return {
     id: data.id,
