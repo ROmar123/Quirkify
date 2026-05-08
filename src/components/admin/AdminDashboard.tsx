@@ -214,6 +214,14 @@ export default function AdminDashboard() {
       gradient: 'linear-gradient(135deg, #4a1d96 0%, #c026d3 100%)',
       delay: 0.65,
     },
+    {
+      title: 'Live Stream',
+      description: 'Schedule and manage live auction sessions',
+      path: '/admin/stream',
+      icon: Radio,
+      gradient: 'linear-gradient(135deg, #b91c1c 0%, #dc2626 100%)',
+      delay: 0.70,
+    },
   ];
 
   return (

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { Auction, Bid } from '../../types';
 import { subscribeToAuctions, placeBid, subscribeToBids, closeAuction } from '../../services/auctionService';
+import { fetchMyWallet, type WalletAccount } from '../../services/storeListingService';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Clock, Gavel, AlertCircle, CheckCircle2, Trophy,
-  Flame, ChevronDown, ChevronUp, Users, Zap,
+  Flame, ChevronDown, ChevronUp, Users, Zap, Wallet,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -45,13 +46,14 @@ function TimeUnit({ value, label }: { value: number; label: string }) {
 }
 
 function AuctionCard({
-  auction, onBid, bidValue, setBidValue, isBidding,
+  auction, onBid, bidValue, setBidValue, isBidding, walletBalance,
 }: {
   auction: Auction;
   onBid: () => void;
   bidValue: number;
   setBidValue: (v: number) => void;
   isBidding: boolean;
+  walletBalance: number | null;
 }) {
   const [bids, setBids] = useState<Bid[]>([]);
   const [showBids, setShowBids] = useState(false);
@@ -213,41 +215,57 @@ function AuctionCard({
 
         {/* Bid input or ended state */}
         {!ended ? (
-          <div className="flex gap-2 mt-auto">
-            <div className="relative flex-1">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm pointer-events-none">R</span>
-              <input
-                type="number"
-                value={bidValue || ''}
-                onChange={e => setBidValue(Number(e.target.value))}
-                placeholder={String(auction.currentBid + (auction.increment || 1))}
-                min={auction.currentBid + 1}
-                className="w-full pl-8 pr-3 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 transition-all"
-              />
-            </div>
-            <button
-              onClick={onBid}
-              disabled={isBidding || !bidValue || bidValue <= auction.currentBid}
-              className={cn(
-                'flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all duration-200 disabled:opacity-40',
-                isCritical
-                  ? 'bg-red-500 hover:bg-red-600 shadow-[0_4px_12px_rgba(239,68,68,0.4)]'
-                  : 'btn-primary'
-              )}
-            >
-              {isBidding ? (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}
-                  className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+          <div className="flex flex-col gap-2 mt-auto">
+            {walletBalance !== null && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-400 font-medium flex items-center gap-1">
+                  <Wallet className="w-3 h-3" />
+                  Wallet balance
+                </span>
+                <span className={cn(
+                  'font-black tabular-nums',
+                  bidValue > 0 && walletBalance < bidValue ? 'text-red-500' : 'text-green-600'
+                )}>
+                  R{walletBalance.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm pointer-events-none">R</span>
+                <input
+                  type="number"
+                  value={bidValue || ''}
+                  onChange={e => setBidValue(Number(e.target.value))}
+                  placeholder={String(auction.currentBid + (auction.increment || 1))}
+                  min={auction.currentBid + 1}
+                  className="w-full pl-8 pr-3 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 transition-all"
                 />
-              ) : (
-                <>
-                  <Zap className="w-3.5 h-3.5" />
-                  Bid
-                </>
-              )}
-            </button>
+              </div>
+              <button
+                onClick={onBid}
+                disabled={isBidding || !bidValue || bidValue <= auction.currentBid || (walletBalance !== null && bidValue > walletBalance)}
+                className={cn(
+                  'flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all duration-200 disabled:opacity-40',
+                  isCritical
+                    ? 'bg-red-500 hover:bg-red-600 shadow-[0_4px_12px_rgba(239,68,68,0.4)]'
+                    : 'btn-primary'
+                )}
+              >
+                {isBidding ? (
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}
+                    className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                  />
+                ) : (
+                  <>
+                    <Zap className="w-3.5 h-3.5" />
+                    Bid
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="mt-auto rounded-xl bg-gray-50 border border-gray-100 px-4 py-3 text-center">
@@ -281,6 +299,7 @@ export default function AuctionList() {
   const [bidding, setBidding] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [wallet, setWallet] = useState<WalletAccount | null>(null);
   const gavelAudio = useRef<HTMLAudioElement | null>(null);
   const navigate = useNavigate();
 
@@ -297,12 +316,27 @@ export default function AuctionList() {
     return () => { window.clearTimeout(tid); unsub(); };
   }, []);
 
+  useEffect(() => {
+    if (auth.currentUser) {
+      fetchMyWallet().then(setWallet).catch(() => {});
+    }
+    return auth.onAuthStateChanged(user => {
+      if (user) fetchMyWallet().then(setWallet).catch(() => {});
+      else setWallet(null);
+    });
+  }, []);
+
   const handleBid = async (auctionId: string, currentBid: number) => {
     if (!auth.currentUser) { navigate('/auth?next=%2Fauctions'); return; }
     const amount = bidAmount[auctionId];
     if (!amount || amount <= currentBid) {
       setError(`Bid must exceed R${currentBid.toLocaleString()}`);
       setTimeout(() => setError(null), 3000);
+      return;
+    }
+    if (wallet !== null && amount > wallet.availableBalance) {
+      setError(`Insufficient wallet balance. Top up your wallet to bid.`);
+      setTimeout(() => setError(null), 4000);
       return;
     }
     setBidding(b => ({ ...b, [auctionId]: true }));
@@ -312,6 +346,8 @@ export default function AuctionList() {
       gavelAudio.current?.play().catch(() => {});
       setSuccess(`Bid of R${amount.toLocaleString()} placed!`);
       setBidAmount(p => ({ ...p, [auctionId]: 0 }));
+      // Refresh wallet balance after successful bid
+      fetchMyWallet().then(setWallet).catch(() => {});
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to place bid');
@@ -377,9 +413,14 @@ export default function AuctionList() {
         <AnimatePresence>
           {error && (
             <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mb-4">
-              <div className="toast toast-error">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                {error}
+              <div className="toast toast-error flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  {error}
+                </div>
+                {error.includes('Insufficient') && (
+                  <a href="/wallet" className="text-xs font-bold underline whitespace-nowrap">Top up →</a>
+                )}
               </div>
             </motion.div>
           )}
@@ -441,6 +482,7 @@ export default function AuctionList() {
                   bidValue={bidAmount[a.id] || 0}
                   setBidValue={val => setBidAmount(p => ({ ...p, [a.id]: val }))}
                   isBidding={bidding[a.id] || false}
+                  walletBalance={wallet?.availableBalance ?? null}
                 />
               ))}
             </div>
@@ -463,6 +505,7 @@ export default function AuctionList() {
                   bidValue={0}
                   setBidValue={() => {}}
                   isBidding={false}
+                  walletBalance={null}
                 />
               ))}
             </div>
