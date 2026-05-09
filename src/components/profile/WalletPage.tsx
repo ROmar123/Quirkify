@@ -253,7 +253,7 @@ export default function WalletPage() {
             <div>
               <label className="section-label block mb-1.5">Amount (R) *</label>
               <input
-                type="number" min="50" max={wallet?.availableBalance ?? 0}
+                type="number" min="50" max={wallet?.availableBalance ?? undefined}
                 value={withdrawForm.amount}
                 onChange={e => setWithdrawForm(f => ({ ...f, amount: e.target.value }))}
                 placeholder="0" className="input"

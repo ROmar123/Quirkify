@@ -86,6 +86,8 @@ export default function Orders() {
       try {
         const detail = await fetchOrderDetail(selectedOrderId);
         if (!cancelled && detail) setSelectedOrder(detail);
+      } catch (err: any) {
+        if (!cancelled) setError(err.message || 'Failed to load order details');
       } finally {
         if (!cancelled) setDetailLoading(false);
       }

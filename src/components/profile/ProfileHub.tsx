@@ -14,12 +14,12 @@ import {
 import { motion } from 'motion/react';
 import { useSession } from '../../hooks/useSession';
 import { currency, formatDate } from '../../lib/quirkify';
-import { fetchOrdersForCustomer } from '../../services/commerceService';
+import { fetchOrders, type Order } from '../../services/orderService';
 import { listCampaignDrafts, listFeaturedProducts } from '../../services/catalogService';
 import { listAuctions, listLiveSessions } from '../../services/auctionService';
 import { useCart } from '../../context/CartContext';
 import { fetchMyWallet, type WalletAccount } from '../../services/storeListingService';
-import type { Auction, CampaignDraft, LiveSession, Order, Product } from '../../types';
+import type { Auction, CampaignDraft, LiveSession, Product } from '../../types';
 
 function statusTone(status: string) {
   if (status === 'paid' || status === 'confirmed' || status === 'approved' || status === 'live') return 'text-emerald-700 bg-emerald-50';
@@ -59,7 +59,7 @@ export default function ProfileHub() {
   useEffect(() => {
     if (!profile) return;
 
-    void fetchOrdersForCustomer(profile.id).then(setOrders).catch(() => setOrders([]));
+    void fetchOrders({ profileId: profile.id }).then(setOrders).catch(() => setOrders([]));
     void Promise.all([listAuctions(), listLiveSessions(), listFeaturedProducts()])
       .then(([auctionRows, sessionRows, productRows]) => {
         setAuctions(auctionRows);
@@ -257,7 +257,7 @@ export default function ProfileHub() {
                         </span>
                       </div>
                       <p style={{ fontSize: 12, color: '#6B7280' }}>
-                        Payment: {order.paymentStatus.replaceAll('_', ' ')} · Shipping: {order.shippingStatus.replaceAll('_', ' ')}
+                        Payment: {(order.paymentStatus ?? 'pending').replaceAll('_', ' ')} · {order.shippedAt ? `Shipped ${formatDate(order.shippedAt)}` : 'Not yet shipped'}
                       </p>
                     </div>
                   ))}

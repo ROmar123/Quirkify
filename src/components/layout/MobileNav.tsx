@@ -1,22 +1,17 @@
 import { Link, useLocation } from 'react-router-dom';
-import { useEffect, useState } from 'react';
 import { ShoppingBag, Gavel, ClipboardList, User, LayoutDashboard, Megaphone } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useMode } from '../../context/ModeContext';
-import { auth, onAuthStateChanged } from '../../firebase';
 import { motion } from 'motion/react';
 
 export default function MobileNav() {
   const location = useLocation();
   const { mode, isAdmin } = useMode();
-  const [user, setUser] = useState(auth.currentUser);
   const nextParam = new URLSearchParams(location.search).get('next');
   const effectivePath =
     location.pathname === '/auth' && nextParam?.startsWith('/')
       ? nextParam
       : location.pathname;
-
-  useEffect(() => onAuthStateChanged(auth, setUser), []);
 
   const isActivePath = (itemPath: string) => {
     if (itemPath === '/') return effectivePath === '/';

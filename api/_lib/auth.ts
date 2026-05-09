@@ -68,7 +68,7 @@ export async function requireVerifiedUser(req: any): Promise<VerifiedRequestUser
   };
 }
 
-export function sendAuthError(res: any, error: any) {
+export function sendAuthError(res: any, error?: any) {
   const status = Number(error?.statusCode || 401);
   return res.status(status).json({ error: error?.message || 'Authorization required' });
 }

@@ -442,7 +442,7 @@ export default function StoreFront() {
     if (activeCategory) list = list.filter(p => p.category === activeCategory);
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = list.filter(p => p.name.toLowerCase().includes(q) || p.category?.toLowerCase().includes(q));
+      list = list.filter(p => (p.name || p.title || '').toLowerCase().includes(q) || p.category?.toLowerCase().includes(q));
     }
     return list;
   }, [products, activeFilter, activeCategory, search]);
