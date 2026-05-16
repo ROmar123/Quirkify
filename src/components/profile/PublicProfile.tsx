@@ -87,7 +87,7 @@ export default function PublicProfile() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-12">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="skeleton h-40 rounded-2xl mb-6" />
         <div className="grid gap-4 sm:grid-cols-3">
           {[1, 2, 3].map(i => <div key={i} className="skeleton h-32 rounded-xl" />)}
@@ -128,7 +128,7 @@ export default function PublicProfile() {
 
   return (
     <div className="hero-bg min-h-screen">
-      <div className="max-w-4xl mx-auto px-4 py-8 pb-28 md:pb-12">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28 md:pb-12">
 
         {/* Profile banner + avatar */}
         <motion.div

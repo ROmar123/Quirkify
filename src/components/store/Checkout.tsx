@@ -262,7 +262,7 @@ export default function Checkout() {
   const currentStepIdx = STEPS.findIndex(s => s.id === step);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 pb-36 md:py-12 md:pb-12">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-36 md:py-12 md:pb-12">
       {/* Step indicator */}
       <div className="flex items-center justify-center gap-2 mb-10">
         {STEPS.map((s, i) => {

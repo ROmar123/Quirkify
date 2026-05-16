@@ -109,7 +109,11 @@ function AppRoutes() {
         <Suspense
           fallback={
             <div className="flex min-h-[50dvh] items-center justify-center">
-              <div className="w-7 h-7 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
+              <div
+                className="h-6 w-6 rounded-full border-[1.5px] border-[#E9D5FF] border-t-[#A855F7] animate-spin"
+                style={{ animationDuration: '700ms' }}
+                aria-label="Loading"
+              />
             </div>
           }
         >

@@ -50,7 +50,7 @@ export default function ProductDetails() {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           <div className="skeleton aspect-square rounded-3xl" />
           <div className="space-y-4">
@@ -124,7 +124,7 @@ export default function ProductDetails() {
 
   return (
     <div className="hero-bg min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 py-6 pb-24">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
         {/* Breadcrumbs */}
         <nav className="flex items-center gap-1.5 text-xs font-medium text-gray-400 mb-8" aria-label="Breadcrumb">
           <Link to="/" className="hover:text-gray-600 transition-colors">Store</Link>

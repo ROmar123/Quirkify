@@ -81,7 +81,7 @@ export default function SocialIntegration() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
         <Sparkles className="w-4 h-4 text-amber-500 flex-shrink-0" />
         <p className="text-xs text-amber-800 font-medium">
