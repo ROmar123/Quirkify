@@ -59,6 +59,7 @@ If you want CI to also upload source maps to Sentry on each merge to `main` (not
 - ✅ 022 auction atomic bidding + settle_auction
 - ✅ 023 allocation constraints + set_product_allocations RPC + inventory_movements
 - ✅ 024 audit_logs table + log_audit RPC
+- ✅ 025 POPIA — anonymize_profile + export_profile_data RPCs + profiles.deleted_at column
 
 ---
 
