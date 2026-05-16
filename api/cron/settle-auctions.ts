@@ -14,6 +14,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { getSupabaseAdmin } from '../_lib/supabaseAdmin';
 import { sendOrderStatusEmail } from '../_lib/orderNotifications';
 import { normalizeEnvValue } from '../_lib/env';
+import { withSentry } from '../_lib/sentry';
 
 const BATCH_LIMIT = 50;
 
@@ -25,7 +26,7 @@ type SettleResult = {
   error?: string;
 };
 
-export default async function handler(req: IncomingMessage, res: ServerResponse) {
+async function handler(req: IncomingMessage, res: ServerResponse) {
   // Vercel cron sends GET; reject anything else.
   if (req.method !== 'GET' && req.method !== 'POST') {
     res.writeHead(405, { 'Content-Type': 'application/json' });
@@ -107,3 +108,5 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ ok: true, ...summary, settled }));
 }
+
+export default withSentry(handler);

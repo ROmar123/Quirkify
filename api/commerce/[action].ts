@@ -9,6 +9,7 @@ import {
   getSupabaseAdmin,
 } from '../_lib/supabaseAdmin.js';
 import { getShippingQuote } from '../_lib/shipping.js';
+import { withSentry } from '../_lib/sentry';
 
 // ─── store-checkout ────────────────────────────────────────────────────────
 async function handleStoreCheckout(req: any, res: any) {
@@ -528,7 +529,7 @@ async function handleAuctionClose(req: any, res: any) {
 }
 
 // ─── Router ────────────────────────────────────────────────────────────────
-export default async function handler(req: any, res: any) {
+async function handler(req: any, res: any) {
   const action = String(req.query.action || '');
 
   switch (action) {
@@ -542,3 +543,5 @@ export default async function handler(req: any, res: any) {
       return res.status(404).json({ error: `Unknown commerce action: ${action}` });
   }
 }
+
+export default withSentry(handler);

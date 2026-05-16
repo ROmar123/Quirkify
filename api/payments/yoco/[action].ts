@@ -6,6 +6,7 @@ import { requireVerifiedUser, sendAuthError } from '../../_lib/auth.js';
 import { normalizeEnvValue } from '../../_lib/env.js';
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
 import { sendOrderStatusEmail, sendWalletTopupEmail } from '../../_lib/orderNotifications';
+import { withSentry } from '../../_lib/sentry';
 
 // ─── Yoco initiate ─────────────────────────────────────────────────────────
 async function handleInitiate(req: any, res: any) {
@@ -193,9 +194,11 @@ async function handleWebhook(req: any, res: any) {
 }
 
 // ─── Router ────────────────────────────────────────────────────────────────
-export default async function handler(req: any, res: any) {
+async function handler(req: any, res: any) {
   const action = String(req.query.action || '');
   if (action === 'initiate') return handleInitiate(req, res);
   if (action === 'webhook')  return handleWebhook(req, res);
   return res.status(404).json({ error: `Unknown payment action: ${action}` });
 }
+
+export default withSentry(handler);
