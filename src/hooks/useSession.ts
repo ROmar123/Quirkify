@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { auth, onAuthStateChanged, isAuthReady, type AuthUser } from '../firebase';
 import { syncProfile, isAdminEmail, type Profile as SessionProfile } from '../services/profileService';
 import { useMode } from '../context/ModeContext';
+import { identifyUser } from '../lib/sentry';
 
 export { type SessionProfile };
 
@@ -24,6 +25,7 @@ export function useSession() {
       if (!cancelled) {
         setUser(nextUser);
         setLoading(false);
+        identifyUser(nextUser ? { id: nextUser.uid, email: nextUser.email ?? undefined } : null);
       }
 
       if (!nextUser) {

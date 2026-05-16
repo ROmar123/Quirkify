@@ -1,6 +1,7 @@
 import { Component, ReactNode, useState, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react';
+import { Sentry } from '../lib/sentry';
 
 interface Props {
   children: ReactNode;
@@ -46,19 +47,17 @@ export class ErrorBoundary extends Component<Props, State> {
   }
   
   private reportError(error: Error, errorInfo: { componentStack: string }) {
-    // In production, send to your error tracking service
-    if (import.meta.env.PROD) {
-      // Example: Sentry, LogRocket, etc.
-      console.error('[ErrorBoundary] Reporting error:', {
-        errorId: this.state.errorId,
-        message: error.message,
-        stack: error.stack,
-        componentStack: errorInfo.componentStack,
-        userAgent: navigator.userAgent,
-        url: window.location.href,
-        timestamp: new Date().toISOString(),
-      });
-    }
+    // Forward to Sentry. The init guard inside lib/sentry.ts no-ops when
+    // VITE_SENTRY_DSN is unset, so this is safe in every environment.
+    Sentry.captureException(error, {
+      contexts: {
+        react: { componentStack: errorInfo.componentStack },
+      },
+      tags: {
+        errorBoundary: 'root',
+        errorId: this.state.errorId ?? 'unknown',
+      },
+    });
   }
 
   reset = () => {
