@@ -8,6 +8,7 @@ import PageHeader from './components/layout/PageHeader';
 import MobileNav from './components/layout/MobileNav';
 import Footer from './components/layout/Footer';
 import { Toaster } from './components/ui/Toaster';
+import { CookieConsent } from './components/CookieConsent';
 
 const AuthPage = lazy(() => import('./components/auth/AuthPage'));
 const StoreFront = lazy(() => import('./components/store/StoreFront'));
@@ -127,6 +128,7 @@ function AppRoutes() {
       <Footer />
       <MobileNav />
       <Toaster />
+      <CookieConsent />
     </>
   );
 }

@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ArrowLeft, Download, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Download, Trash2, AlertTriangle, Loader2, Cookie } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { toast } from '../ui/Toaster';
 import { downloadMyData, deleteMyAccount } from '../../services/accountService';
 import { signOut } from '../../firebase';
+import { getConsent, setConsent } from '../../lib/consent';
 
 export default function AccountSettings() {
   const navigate = useNavigate();
@@ -13,6 +14,17 @@ export default function AccountSettings() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [tracking, setTracking] = useState<boolean>(() => getConsent()?.tracking ?? false);
+
+  useEffect(() => {
+    setTracking(getConsent()?.tracking ?? false);
+  }, []);
+
+  const handleTrackingToggle = (next: boolean) => {
+    setConsent(next);
+    setTracking(next);
+    toast.success(next ? 'Diagnostic tracking enabled' : 'Diagnostic tracking disabled. Reload to take full effect.');
+  };
 
   const handleExport = async () => {
     setExporting(true);
@@ -50,11 +62,43 @@ export default function AccountSettings() {
         <h1 className="text-2xl font-semibold text-[#0F0F0F] tracking-tight">Account settings</h1>
         <p className="text-sm text-[#6B7280] mt-1">Manage your data and account.</p>
 
-        {/* Right to Data Portability */}
+        {/* Tracking consent (POPIA s.11(3) — withdraw at any time) */}
         <motion.section
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           className="card mt-6 p-6"
+        >
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-xl bg-[#FAFAFA] border border-[#F3F4F6] flex items-center justify-center flex-shrink-0">
+              <Cookie className="w-4 h-4 text-[#6B7280]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base font-semibold text-[#0F0F0F]">Diagnostic tracking</h2>
+              <p className="text-sm text-[#6B7280] mt-1">
+                When enabled, we capture a short session replay if an error happens in your browser, so we can reproduce and fix it. Essential cookies for sign-in are always on.
+              </p>
+              <div className="flex items-center justify-between mt-4 p-3 rounded-xl bg-[#FAFAFA] border border-[#F3F4F6]">
+                <span className="text-sm font-medium text-[#0F0F0F]">Allow diagnostic replays</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={tracking}
+                  onClick={() => handleTrackingToggle(!tracking)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${tracking ? 'bg-[#0F0F0F]' : 'bg-[#D1D5DB]'}`}
+                >
+                  <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${tracking ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </motion.section>
+
+        {/* Right to Data Portability */}
+        <motion.section
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.03 }}
+          className="card mt-4 p-6"
         >
           <div className="flex items-start gap-4">
             <div className="w-10 h-10 rounded-xl bg-[#FAFAFA] border border-[#F3F4F6] flex items-center justify-center flex-shrink-0">
