@@ -129,7 +129,6 @@ async function handleWalletCheckout(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
     const verifiedUser = await requireVerifiedUser(req);
-    if (!verifiedUser) return sendAuthError(res);
 
     const { address, city, zip, items } = req.body ?? {};
     if (!Array.isArray(items) || items.length === 0)
@@ -198,6 +197,7 @@ async function handleWalletCheckout(req: any, res: any) {
 
     return res.status(200).json({ orderId: result.order_id, orderNumber: result.order_number, total: result.total });
   } catch (err: any) {
+    if (err?.statusCode === 401) return sendAuthError(res, err);
     return res.status(500).json({ error: err.message || 'Wallet checkout failed' });
   }
 }
@@ -209,7 +209,6 @@ async function handleWalletTopup(req: any, res: any) {
     console.log('[wallet-topup] start — env check: YOCO_SECRET_KEY present?', !!process.env.YOCO_SECRET_KEY, 'SUPABASE_SERVICE_ROLE_KEY present?', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
 
     const verifiedUser = await requireVerifiedUser(req);
-    if (!verifiedUser) return sendAuthError(res);
     console.log('[wallet-topup] user verified:', verifiedUser.uid, verifiedUser.email);
 
     const { amount } = req.body ?? {};
@@ -266,6 +265,7 @@ async function handleWalletTopup(req: any, res: any) {
     console.log('[wallet-topup] Yoco response status:', yocoResponse.status, 'redirectUrl:', yocoResponse.data.redirectUrl);
     return res.status(200).json({ redirectUrl: yocoResponse.data.redirectUrl, orderId: order.id });
   } catch (err: any) {
+    if (err?.statusCode === 401) return sendAuthError(res, err);
     const yocoData = err.response?.data;
     const yocoMsg = yocoData?.detail || yocoData?.message || (yocoData?.errors?.[0]?.message) || JSON.stringify(yocoData);
     const msg = yocoData ? `Yoco: ${yocoMsg}` : (err.message || 'Failed to initiate top-up');
