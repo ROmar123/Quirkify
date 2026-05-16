@@ -200,14 +200,43 @@ export async function createProduct(product: Partial<Product>): Promise<Product>
   return rowToProduct(data);
 }
 
-/** Update an existing product — only sends the fields explicitly provided */
+/** Update an existing product — only sends the fields explicitly provided.
+ * Allocation fields are routed through the `set_product_allocations` RPC so
+ * every channel change writes an inventory_movements audit row and the DB
+ * CHECK constraints enforce the reconciliation invariants atomically.
+ */
 export async function updateProduct(id: string, updates: Partial<Product>): Promise<Product> {
-  const row = productToRow(updates);
-  if (Object.keys(row).length === 0) throw new Error('No fields to update');
-  const { data, error } = await supabase
-    .from('products').update(row).eq('id', id).select().single();
-  if (error) throw new Error(error.message);
-  return rowToProduct(data);
+  const { allocations, ...rest } = updates;
+  const row = productToRow(rest);
+
+  // Step 1 — apply non-allocation updates (including stock, which allocations
+  // depend on). The DB will reject downstream allocation writes if they exceed
+  // the new stock.
+  let latest: Product | null = null;
+  if (Object.keys(row).length > 0) {
+    const { data, error } = await supabase
+      .from('products').update(row).eq('id', id).select().single();
+    if (error) throw new Error(error.message);
+    latest = rowToProduct(data);
+  }
+
+  // Step 2 — if allocations were supplied, route them through the audited RPC.
+  if (allocations) {
+    const { setAllocations } = await import('./allocationService');
+    latest = await setAllocations(id, {
+      store:   Number(allocations.store   || 0),
+      auction: Number(allocations.auction || 0),
+      packs:   Number(allocations.packs   || 0),
+    }, 'product_update');
+  }
+
+  if (!latest) {
+    // No fields changed; return current state for parity with old behaviour.
+    const current = await fetchProduct(id);
+    if (!current) throw new Error('Product not found');
+    return current;
+  }
+  return latest;
 }
 
 /** Delete a product */
