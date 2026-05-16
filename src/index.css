@@ -482,15 +482,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Toast notifications ── */
-.toast {
-  @apply flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-}
-.toast-success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
-.toast-error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
-.toast-info { background: #faf5ff; color: #6d28d9; border: 1px solid #e9d5ff; }
-
 /* ── Admin card ── */
 .admin-card {
   @apply bg-white rounded-2xl border p-5;

@@ -7,6 +7,7 @@ import { useSession } from './hooks/useSession';
 import PageHeader from './components/layout/PageHeader';
 import MobileNav from './components/layout/MobileNav';
 import Footer from './components/layout/Footer';
+import { Toaster } from './components/ui/Toaster';
 
 const AuthPage = lazy(() => import('./components/auth/AuthPage'));
 const StoreFront = lazy(() => import('./components/store/StoreFront'));
@@ -59,10 +60,10 @@ function AnimatedRoutes() {
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={location.pathname}
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -6 }}
-        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+        exit={{ opacity: 0, y: -4 }}
+        transition={{ type: 'spring', stiffness: 280, damping: 32, mass: 0.9, opacity: { duration: 0.18 } }}
         style={{ willChange: 'opacity, transform' }}
       >
         <Routes location={location}>
@@ -117,6 +118,7 @@ function AppRoutes() {
       </main>
       <Footer />
       <MobileNav />
+      <Toaster />
     </>
   );
 }

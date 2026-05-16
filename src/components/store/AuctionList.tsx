@@ -3,12 +3,13 @@ import { Auction, Bid } from '../../types';
 import { subscribeToAuctions, placeBid, subscribeToBids, closeAuction } from '../../services/auctionService';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Clock, Gavel, AlertCircle, CheckCircle2, Trophy,
+  Clock, Gavel, Trophy,
   Flame, ChevronDown, ChevronUp, Users, Zap,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../../firebase';
+import { toast } from '../ui/Toaster';
 
 function useCountdown(endTime: string) {
   const [t, setT] = useState({ h: 0, m: 0, s: 0, ended: false, total: 0 });
@@ -279,8 +280,6 @@ export default function AuctionList() {
   const [loading, setLoading] = useState(true);
   const [bidAmount, setBidAmount] = useState<Record<string, number>>({});
   const [bidding, setBidding] = useState<Record<string, boolean>>({});
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const gavelAudio = useRef<HTMLAudioElement | null>(null);
   const navigate = useNavigate();
 
@@ -292,7 +291,7 @@ export default function AuctionList() {
     const tid = window.setTimeout(() => setLoading(false), 5000);
     const unsub = subscribeToAuctions(
       (data) => { window.clearTimeout(tid); setAuctions(data); setLoading(false); },
-      (msg) => { window.clearTimeout(tid); setAuctions([]); setError(msg); setLoading(false); }
+      (msg) => { window.clearTimeout(tid); setAuctions([]); toast.error(msg); setLoading(false); }
     );
     return () => { window.clearTimeout(tid); unsub(); };
   }, []);
@@ -301,21 +300,17 @@ export default function AuctionList() {
     if (!auth.currentUser) { navigate('/auth?next=%2Fauctions'); return; }
     const amount = bidAmount[auctionId];
     if (!amount || amount <= currentBid) {
-      setError(`Bid must exceed R${currentBid.toLocaleString()}`);
-      setTimeout(() => setError(null), 3000);
+      toast.error(`Bid must exceed R${currentBid.toLocaleString()}`);
       return;
     }
     setBidding(b => ({ ...b, [auctionId]: true }));
-    setError(null);
     try {
       await placeBid(auctionId, amount);
       gavelAudio.current?.play().catch(() => {});
-      setSuccess(`Bid of R${amount.toLocaleString()} placed!`);
+      toast.success(`Bid of R${amount.toLocaleString()} placed!`);
       setBidAmount(p => ({ ...p, [auctionId]: 0 }));
-      setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to place bid');
-      setTimeout(() => setError(null), 3000);
+      toast.error(err instanceof Error ? err.message : 'Failed to place bid');
     } finally {
       setBidding(b => ({ ...b, [auctionId]: false }));
     }
@@ -372,26 +367,6 @@ export default function AuctionList() {
             </div>
           )}
         </motion.div>
-
-        {/* Toasts */}
-        <AnimatePresence>
-          {error && (
-            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mb-4">
-              <div className="toast toast-error">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                {error}
-              </div>
-            </motion.div>
-          )}
-          {success && (
-            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mb-4">
-              <div className="toast toast-success">
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                {success}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Loading */}
         {loading && (
