@@ -5,7 +5,7 @@ import { Auction } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Trophy, Shield, Zap, Gavel, Box, Settings,
-  Wallet, CreditCard, User as UserIcon, LogIn, X
+  Wallet, CreditCard, User as UserIcon, LogIn, X, ShieldCheck, ChevronRight
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
@@ -387,6 +387,22 @@ export default function Collection() {
                     <p className="text-xs text-gray-400 mb-4">Join our seller community and start listing your products.</p>
                     <Link to="/seller/onboarding" className="btn-primary px-6 py-2.5 text-sm">Become a Seller</Link>
                   </div>
+
+                  <Link
+                    to="/profile/settings"
+                    className="mt-4 flex items-center justify-between p-4 rounded-2xl bg-white border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all max-w-xl"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-[#FAFAFA] border border-[#F3F4F6] flex items-center justify-center">
+                        <ShieldCheck className="w-4 h-4 text-[#6B7280]" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-[#0F0F0F]">Privacy &amp; data</p>
+                        <p className="text-xs text-[#9CA3AF] mt-0.5">Download your data or delete your account</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-[#D1D5DB]" />
+                  </Link>
                 </motion.div>
               )}
             </AnimatePresence>

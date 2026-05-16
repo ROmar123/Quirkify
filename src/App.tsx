@@ -17,6 +17,7 @@ const Checkout = lazy(() => import('./components/store/Checkout'));
 const PaymentResult = lazy(() => import('./components/store/PaymentResult'));
 const Orders = lazy(() => import('./components/profile/Orders'));
 const Collection = lazy(() => import('./components/profile/Collection'));
+const AccountSettings = lazy(() => import('./components/profile/AccountSettings'));
 const PublicProfile = lazy(() => import('./components/profile/PublicProfile'));
 const SellerOnboarding = lazy(() => import('./components/profile/SellerOnboarding'));
 const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard'));
@@ -75,6 +76,7 @@ function AnimatedRoutes() {
           <Route path="/checkout" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><Checkout /></Guard>} />
           <Route path="/orders" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><Orders /></Guard>} />
           <Route path="/profile" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><Collection /></Guard>} />
+          <Route path="/profile/settings" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><AccountSettings /></Guard>} />
           <Route path="/collection" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><Collection /></Guard>} />
           <Route path="/profile/:uid" element={<PublicProfile />} />
           <Route path="/seller/onboarding" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><SellerOnboarding /></Guard>} />
