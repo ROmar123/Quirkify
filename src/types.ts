@@ -42,7 +42,9 @@ export type ShippingStatus =
   | 'shipped'
   | 'delivered'
   | 'returned';
-export type AuctionStatus = 'scheduled' | 'live' | 'closed' | 'cancelled' | 'active' | 'ended' | 'completed';
+export type AuctionStatus =
+  | 'scheduled' | 'live' | 'active' | 'settling'
+  | 'completed' | 'no_sale' | 'closed' | 'cancelled' | 'ended';
 export type LiveSessionStatus = 'scheduled' | 'live' | 'ended';
 export type CampaignStatus = 'draft' | 'approved' | 'rejected' | 'scheduled' | 'active';
 

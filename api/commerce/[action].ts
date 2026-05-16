@@ -1,9 +1,6 @@
 // Merged commerce handler — routes all /api/commerce/* requests via req.query.action
 // Replaces: store-checkout, wallet-checkout, wallet-topup, cancel-order, order-status, auction-close
 import axios from 'axios';
-import { getAuth } from 'firebase-admin/auth';
-import { FieldValue } from 'firebase-admin/firestore';
-import { getAdminDb } from '../_lib/firebaseAdmin.js';
 import { requireVerifiedUser, sendAuthError } from '../_lib/auth.js';
 import { normalizeEnvValue } from '../_lib/env.js';
 import {
@@ -489,157 +486,41 @@ async function handleOrderStatus(req: any, res: any) {
 }
 
 // ─── auction-close ─────────────────────────────────────────────────────────
+// Atomic settlement is delegated to the `settle_auction` Postgres function
+// (migrations 022). The RPC handles: winner-order creation, hold→debit
+// conversion, losing-bidder hold release, stock decrement, collection insert,
+// and idempotency. We just translate its result to the legacy response shape
+// callers expect.
 async function handleAuctionClose(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
     const auctionId = String(req.body?.auctionId || '').trim();
     if (!auctionId) return res.status(400).json({ error: 'Missing auctionId' });
 
-    const adminDb = getAdminDb();
-    const auctionRef = adminDb.collection('auctions').doc(auctionId);
-    const auctionSnapshot = await auctionRef.get();
-    if (!auctionSnapshot.exists) return res.status(404).json({ error: 'Auction not found' });
-
-    const auction = { id: auctionSnapshot.id, ...auctionSnapshot.data() } as Record<string, any>;
-    if (auction.status === 'closed') {
-      return res.status(200).json({ auctionId, orderId: auction.winnerOrderId || null, settled: Boolean(auction.winnerOrderId), status: 'closed' });
-    }
-
-    if (!auction.highestBidderId) {
-      await auctionRef.update({ status: 'closed', winnerOrderId: null, updatedAt: new Date().toISOString() });
-      return res.status(200).json({ auctionId, orderId: null, settled: false, status: 'closed', reason: 'no_valid_bids' });
-    }
-
     const supabase = getSupabaseAdmin();
-    const { data: existingOrder } = await supabase
-      .from('orders').select('id, status, payment_status')
-      .eq('channel', 'auction').eq('source_ref', auctionId).maybeSingle();
+    const { data, error } = await supabase.rpc('settle_auction', { p_auction_id: auctionId });
+    if (error) throw new Error(error.message);
 
-    if (existingOrder?.id) {
-      await auctionRef.update({ status: 'closed', winnerOrderId: existingOrder.id, updatedAt: new Date().toISOString() });
-      return res.status(200).json({ auctionId, orderId: existingOrder.id, settled: existingOrder.status === 'paid', status: 'closed' });
+    const result = (data ?? {}) as {
+      status?: string;
+      orderId?: string | null;
+      reason?: string;
+      already_settled?: boolean;
+      error?: string;
+    };
+
+    if (result.error === 'AUCTION_NOT_FOUND') {
+      return res.status(404).json({ error: 'Auction not found' });
     }
 
-    const { data: product, error: productError } = await supabase
-      .from('products').select('id, name, image_url, stock, alloc_auction, status')
-      .eq('id', String(auction.productId || '')).maybeSingle();
-    if (productError) throw new Error(productError.message);
-    if (!product) return res.status(409).json({ error: 'Auction product is missing from catalog truth' });
-    if (product.status !== 'approved') return res.status(409).json({ error: 'Auction product is not approved for settlement' });
-    if (Number(product.alloc_auction || 0) < 1 || Number(product.stock || 0) < 1)
-      return res.status(409).json({ error: 'Auction inventory is not available to settle this lot' });
-
-    const bidderUser = await getAuth().getUser(String(auction.highestBidderId));
-    if (!bidderUser.email) return res.status(409).json({ error: 'Winning bidder does not have a usable identity record' });
-
-    const profile = await ensureProfileByIdentity({
-      firebaseUid: bidderUser.uid,
-      email: bidderUser.email,
-      displayName: bidderUser.displayName || bidderUser.email,
-    });
-
-    const normalizeAmount = (v: unknown, fb = 0) => { const n = Number(v); return Number.isFinite(n) ? n : fb; };
-    const settlementAmount = normalizeAmount(auction.currentBid, normalizeAmount(auction.startPrice, 0));
-    if (settlementAmount <= 0) return res.status(409).json({ error: 'Auction total is invalid' });
-
-    const walletBalance = normalizeAmount(profile.balance, 0);
-    const walletCovered = walletBalance >= settlementAmount;
-
-    const { data: insertedOrder, error: insertOrderError } = await supabase
-      .from('orders').insert({
-        profile_id: profile.id,
-        customer_email: bidderUser.email,
-        customer_name: bidderUser.displayName || bidderUser.email,
-        channel: 'auction',
-        source_ref: auctionId,
-        subtotal: settlementAmount,
-        discount: 0,
-        shipping_cost: 0,
-        payment_method: null,
-        payment_status: walletCovered ? 'paid' : 'pending',
-        paid_at: walletCovered ? new Date().toISOString() : null,
-        status: walletCovered ? 'paid' : 'pending',
-        admin_notes: walletCovered ? 'Auction settled against wallet balance' : 'Auction closed without sufficient wallet balance',
-      }).select('*').single();
-    if (insertOrderError) throw new Error(insertOrderError.message);
-
-    const { error: insertItemError } = await supabase.from('order_items').insert({
-      order_id: insertedOrder.id,
-      product_id: product.id,
-      product_name: auction.title || product.name,
-      product_image_url: auction.heroImage || product.image_url,
-      unit_price: settlementAmount,
-      quantity: 1,
-    });
-    if (insertItemError) throw new Error(insertItemError.message);
-
-    if (walletCovered) {
-      const { data: updatedProduct, error: stockError } = await supabase
-        .from('products')
-        .update({ stock: Number(product.stock || 0) - 1, alloc_auction: Number(product.alloc_auction || 0) - 1 })
-        .eq('id', product.id).eq('stock', product.stock).eq('alloc_auction', product.alloc_auction)
-        .select('id').maybeSingle();
-      if (stockError) throw new Error(stockError.message);
-      if (!updatedProduct) throw new Error('Auction inventory changed during settlement');
-
-      await supabase.from('profiles').update({
-        balance: walletBalance - settlementAmount,
-        auctions_won: Number(profile.auctions_won || 0) + 1,
-      }).eq('id', profile.id);
-
-      const { error: walletError } = await supabase.rpc('wallet_debit', {
-        p_profile_id: profile.id,
-        p_amount: settlementAmount,
-        p_entry_type: 'order_payment',
-        p_reference_type: 'auction',
-        p_reference_id: insertedOrder.id,
-        p_metadata: { auctionId, productId: product.id, orderId: insertedOrder.id },
-      });
-      if (walletError) console.warn('Wallet debit failed for auction settlement:', walletError.message);
-    }
-
-    void Promise.allSettled([
-      supabase.from('notifications').insert({
-        firebase_uid: bidderUser.uid,
-        type: 'auction_won',
-        title: '🏆 You won the auction!',
-        message: walletCovered
-          ? `You won "${auction.title || product.name}" for R${settlementAmount}. Check your collection!`
-          : `You won "${auction.title || product.name}" for R${settlementAmount}. Top up your wallet to complete payment.`,
-        link: '/orders',
-        read: false,
-      }),
-      walletCovered && supabase.from('collection_items').insert({
-        profile_id: profile.id,
-        product_id: product.id,
-        purchase_price: settlementAmount,
-        order_id: insertedOrder.id,
-        acquired_at: new Date().toISOString(),
-      }),
-    ]);
-
-    await supabase.rpc('log_order_event', {
-      p_order_id: insertedOrder.id,
-      p_event_type: walletCovered ? 'auction_settled' : 'auction_payment_required',
-      p_from_status: null,
-      p_to_status: insertedOrder.status,
-      p_note: walletCovered ? 'Auction closed and captured against wallet balance' : 'Auction closed; winner requires wallet top-up',
-      p_metadata: { auctionId, productId: product.id, highestBidderId: bidderUser.uid, settlementAmount, walletCovered },
-    });
-
-    await auctionRef.update({
-      status: 'closed',
-      winnerOrderId: insertedOrder.id,
-      updatedAt: new Date().toISOString(),
-      settledAt: new Date().toISOString(),
-      settlementStatus: walletCovered ? 'captured' : 'awaiting_payment',
-      settlementAmount,
-      metrics: { closedAt: FieldValue.serverTimestamp() },
-    });
-
+    const status = result.status ?? 'unknown';
     return res.status(200).json({
-      auctionId, orderId: insertedOrder.id, settled: walletCovered,
-      status: 'closed', paymentStatus: insertedOrder.payment_status,
+      auctionId,
+      orderId: result.orderId ?? null,
+      settled: status === 'completed',
+      status: status === 'completed' ? 'closed' : status,
+      reason: result.reason,
+      alreadySettled: result.already_settled ?? false,
     });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Failed to close auction' });

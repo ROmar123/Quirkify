@@ -57,7 +57,8 @@ function AuctionCard({
   const [bids, setBids] = useState<Bid[]>([]);
   const [showBids, setShowBids] = useState(false);
   const t = useCountdown(auction.endTime || auction.endsAt || new Date().toISOString());
-  const ended = t.ended || (auction.status !== 'active' && auction.status !== 'live');
+  const isActive = auction.status === 'scheduled' || auction.status === 'live' || auction.status === 'active' || auction.status === 'settling';
+  const ended = t.ended || !isActive;
   const isUrgent = !ended && t.h === 0 && t.m < 10;
   const isCritical = !ended && t.h === 0 && t.m < 3;
 
@@ -67,7 +68,7 @@ function AuctionCard({
 
   // Auto-close when timer hits zero
   useEffect(() => {
-    if (t.ended && (auction.status === 'active' || auction.status === 'live')) {
+    if (t.ended && (auction.status === 'scheduled' || auction.status === 'live' || auction.status === 'active')) {
       closeAuction(auction.id);
     }
   }, [t.ended, auction.id, auction.status]);
@@ -316,8 +317,9 @@ export default function AuctionList() {
     }
   };
 
-  const active = auctions.filter(a => a.status === 'active' || a.status === 'live');
-  const ended = auctions.filter(a => a.status !== 'active' && a.status !== 'live');
+  const ACTIVE_STATUSES = new Set(['scheduled', 'live', 'active', 'settling']);
+  const active = auctions.filter(a => ACTIVE_STATUSES.has(a.status));
+  const ended = auctions.filter(a => !ACTIVE_STATUSES.has(a.status));
 
   return (
     <div className="hero-bg min-h-screen">

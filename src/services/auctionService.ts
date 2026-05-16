@@ -1,137 +1,184 @@
-import {
-  addDoc,
-  collection,
-  doc,
-  type DocumentSnapshot,
-  getDoc,
-  getDocs,
-  limit,
-  onSnapshot,
-  orderBy,
-  query,
-  runTransaction,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-  where,
-} from 'firebase/firestore';
-import { auth, db, isFirebaseConfigured } from '../firebase';
-import type { Auction, Bid, LiveSession, Product } from '../types';
+import { isSupabaseConfigured, supabase } from '../supabase';
+import { rowToProduct } from './productService';
+import type { Auction, Bid, Product } from '../types';
 
-function fromSnapshot<T>(snapshot: DocumentSnapshot) {
-  return { id: snapshot.id, ...snapshot.data() } as T;
+// ── Row mappers ────────────────────────────────────────────────────────────
+
+function rowToAuction(row: any): Auction {
+  const product = row.product ? rowToProduct(row.product) : undefined;
+  return {
+    id: row.id,
+    productId: row.product_id,
+    product,
+    title: product?.name || product?.title || `Lot #${String(row.id).slice(-6).toUpperCase()}`,
+    heroImage: product?.imageUrl || product?.media?.[0]?.url,
+    status: row.status,
+    startsAt: row.start_time,
+    endsAt: row.end_time,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    currentBid: Number(row.current_highest_bid ?? row.start_price ?? 0),
+    startPrice: Number(row.start_price ?? 0),
+    reservePrice: row.reserve_price != null ? Number(row.reserve_price) : undefined,
+    increment: Number(row.increment ?? 50),
+    bidCount: Number(row.bid_count ?? 0),
+    highestBidderId: row.highest_bidder_id ?? null,
+    winnerOrderId: row.winner_order_id ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
-function toRealtimeErrorMessage(error: unknown) {
-  const message = error instanceof Error ? error.message : 'Realtime auction data is unavailable';
-  return message || 'Realtime auction data is unavailable';
+function rowToBid(row: any): Bid {
+  const bidder = row.bidder || {};
+  return {
+    id: row.id,
+    auctionId: row.auction_id,
+    bidderId: row.bidder_id,
+    bidderName: bidder.display_name || bidder.email || 'Bidder',
+    amount: Number(row.amount),
+    createdAt: row.timestamp,
+    updatedAt: row.timestamp,
+  };
 }
+
+const AUCTION_SELECT = '*, product:products(*)';
+const BID_SELECT = '*, bidder:profiles!bidder_id(display_name, email)';
+
+// ── Reads ──────────────────────────────────────────────────────────────────
+
+export async function listAuctions() {
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase
+    .from('auctions')
+    .select(AUCTION_SELECT)
+    .order('start_time', { ascending: true })
+    .limit(40);
+  if (error) throw new Error(error.message);
+  return (data || []).map(rowToAuction);
+}
+
+// ── Realtime subscriptions ─────────────────────────────────────────────────
 
 export function subscribeToAuctions(
   callback: (auctions: Auction[]) => void,
   onError?: (message: string) => void,
 ) {
-  if (!isFirebaseConfigured) {
+  if (!isSupabaseConfigured) {
     callback([]);
     onError?.('Realtime auctions are not configured for this environment.');
     return () => undefined;
   }
 
-  return onSnapshot(
-    query(collection(db, 'auctions'), orderBy('startsAt', 'asc'), limit(40)),
-    (snapshot) => callback(snapshot.docs.map((item) => fromSnapshot<Auction>(item))),
-    (error) => {
-      callback([]);
-      onError?.(toRealtimeErrorMessage(error));
-    },
-  );
-}
+  let cancelled = false;
 
-export async function listAuctions() {
-  if (!isFirebaseConfigured) {
-    return [];
-  }
-  const snapshot = await getDocs(query(collection(db, 'auctions'), orderBy('startsAt', 'asc'), limit(40)));
-  return snapshot.docs.map((item) => fromSnapshot<Auction>(item));
-}
+  const reload = async () => {
+    try {
+      const auctions = await listAuctions();
+      if (!cancelled) callback(auctions);
+    } catch (err) {
+      if (!cancelled) {
+        callback([]);
+        onError?.(err instanceof Error ? err.message : 'Realtime auction data is unavailable');
+      }
+    }
+  };
 
-export async function listAuctionsByCreator(createdBy: string) {
-  if (!isFirebaseConfigured) {
-    return [];
-  }
-  const snapshot = await getDocs(
-    query(
-      collection(db, 'auctions'),
-      where('createdBy', '==', createdBy),
-      orderBy('startsAt', 'desc'),
-      limit(12),
-    ),
-  );
-  return snapshot.docs.map((item) => fromSnapshot<Auction>(item));
+  void reload();
+
+  const channel = supabase
+    .channel('public:auctions')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'auctions' },
+      () => { void reload(); },
+    )
+    .subscribe();
+
+  return () => {
+    cancelled = true;
+    void supabase.removeChannel(channel);
+  };
 }
 
 export function subscribeToBids(auctionId: string, callback: (bids: Bid[]) => void) {
-  if (!isFirebaseConfigured) {
+  if (!isSupabaseConfigured) {
     callback([]);
     return () => undefined;
   }
 
-  return onSnapshot(
-    query(collection(db, 'auctions', auctionId, 'bids'), orderBy('amount', 'desc'), limit(25)),
-    (snapshot) => callback(snapshot.docs.map((item) => fromSnapshot<Bid>(item)))
-  );
+  let cancelled = false;
+
+  const reload = async () => {
+    const { data, error } = await supabase
+      .from('auction_bids')
+      .select(BID_SELECT)
+      .eq('auction_id', auctionId)
+      .order('amount', { ascending: false })
+      .limit(25);
+    if (error) {
+      if (!cancelled) callback([]);
+      return;
+    }
+    if (!cancelled) callback((data || []).map(rowToBid));
+  };
+
+  void reload();
+
+  const channel = supabase
+    .channel(`bids:${auctionId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'auction_bids', filter: `auction_id=eq.${auctionId}` },
+      () => { void reload(); },
+    )
+    .subscribe();
+
+  return () => {
+    cancelled = true;
+    void supabase.removeChannel(channel);
+  };
 }
 
-export async function placeBid(auctionId: string, amount: number) {
-  if (!isFirebaseConfigured) {
-    return { error: new Error('Realtime bidding is not configured right now') };
+// ── Bid placement (atomic RPC) ─────────────────────────────────────────────
+
+const BID_ERROR_MAP: Array<[RegExp, (m: RegExpMatchArray) => string]> = [
+  [/^AUCTION_NOT_FOUND/,        () => 'Auction not found'],
+  [/^AUCTION_NOT_LIVE/,         () => 'Auction is not live'],
+  [/^AUCTION_ENDED/,            () => 'Auction has ended'],
+  [/^ALREADY_HIGHEST_BIDDER/,   () => "You're already the highest bidder"],
+  [/^WALLET_NOT_FOUND/,         () => 'Top up your wallet to bid'],
+  [/^BID_TOO_LOW: minimum is (\S+)/, (m) => `Minimum bid is R${m[1]}`],
+  [/^INSUFFICIENT_BALANCE: have (\S+) need (\S+)/, (m) => `Insufficient balance — you have R${m[1]} and need R${m[2]}`],
+];
+
+function humanizeBidError(message: string): string {
+  for (const [re, format] of BID_ERROR_MAP) {
+    const match = message.match(re);
+    if (match) return format(match);
   }
-
-  const user = auth.currentUser;
-  if (!user) {
-    return { error: new Error('Sign in to bid') };
-  }
-
-  try {
-    await runTransaction(db, async (transaction) => {
-      const auctionRef = doc(db, 'auctions', auctionId);
-      const auctionSnapshot = await transaction.get(auctionRef);
-      if (!auctionSnapshot.exists()) {
-        throw new Error('Auction not found');
-      }
-
-      const auction = fromSnapshot<Auction>(auctionSnapshot);
-      if (auction.status !== 'live') {
-        throw new Error('Auction is not live');
-      }
-
-      const minimum = Math.max(auction.startPrice, auction.currentBid) + auction.increment;
-      if (amount < minimum) {
-        throw new Error(`Minimum bid is R${minimum}`);
-      }
-
-      const bidRef = doc(collection(db, 'auctions', auctionId, 'bids'));
-      transaction.set(bidRef, {
-        auctionId,
-        bidderId: user.uid,
-        bidderName: user.displayName || user.email || 'Bidder',
-        amount,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-      transaction.update(auctionRef, {
-        currentBid: amount,
-        highestBidderId: user.uid,
-        bidCount: (auction.bidCount || 0) + 1,
-        updatedAt: new Date().toISOString(),
-      });
-    });
-
-    return { error: null };
-  } catch (error) {
-    return { error: error instanceof Error ? error : new Error('Failed to place bid') };
-  }
+  return message;
 }
+
+export async function placeBid(auctionId: string, amount: number): Promise<{ error: Error | null }> {
+  if (!isSupabaseConfigured) {
+    return { error: new Error('Bidding requires Supabase configuration') };
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: new Error('Sign in to bid') };
+
+  const { error } = await supabase.rpc('place_auction_bid', {
+    p_auction_id: auctionId,
+    p_bidder_id: user.id,
+    p_amount: amount,
+  });
+
+  if (error) return { error: new Error(humanizeBidError(error.message)) };
+  return { error: null };
+}
+
+// ── Auction creation ───────────────────────────────────────────────────────
 
 export async function createAuctionFromProduct(params: {
   product: Product;
@@ -140,38 +187,35 @@ export async function createAuctionFromProduct(params: {
   startPrice: number;
   reservePrice?: number;
   increment?: number;
-  createdBy: string;
+  createdBy?: string; // accepted for API compatibility; not stored
 }) {
-  if (!isFirebaseConfigured) {
-    throw new Error('Realtime auctions are not configured right now');
+  if (!isSupabaseConfigured) {
+    throw new Error('Auctions require Supabase configuration');
   }
 
-  const auctionRef = doc(collection(db, 'auctions'));
-  const auction: Auction = {
-    id: auctionRef.id,
-    productId: params.product.id,
-    title: params.product.name || params.product.title || '',
-    heroImage: params.product.media?.[0]?.url || params.product.imageUrl,
-    status: new Date(params.startsAt).getTime() <= Date.now() ? 'live' : 'scheduled',
-    startsAt: params.startsAt,
-    endsAt: params.endsAt,
-    currentBid: params.startPrice,
-    startPrice: params.startPrice,
-    reservePrice: params.reservePrice,
-    increment: params.increment || 50,
-    bidCount: 0,
-    highestBidderId: null,
-    winnerOrderId: null,
-    channelReservationQuantity: 1,
-    createdBy: params.createdBy,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
+  const status = new Date(params.startsAt).getTime() <= Date.now() ? 'live' : 'scheduled';
 
-  await setDoc(auctionRef, auction);
-  return auction;
+  const { data, error } = await supabase
+    .from('auctions')
+    .insert({
+      product_id: params.product.id,
+      start_price: params.startPrice,
+      reserve_price: params.reservePrice ?? null,
+      start_time: params.startsAt,
+      end_time: params.endsAt,
+      status,
+      increment: params.increment ?? 50,
+      current_highest_bid: 0,
+      bid_count: 0,
+    })
+    .select(AUCTION_SELECT)
+    .single();
+
+  if (error) throw new Error(error.message);
+  return rowToAuction(data);
 }
 
+// Backwards-compatible alias used by Inventory
 export async function createAuction(params: {
   product: Product;
   productId?: string;
@@ -192,51 +236,22 @@ export async function createAuction(params: {
     startPrice: params.startPrice,
     reservePrice: params.reservePrice,
     increment: params.increment,
-    createdBy: params.createdBy || params.sellerId || auth.currentUser?.uid || 'admin',
   });
 }
 
-export async function listLiveSessions() {
-  if (!isFirebaseConfigured) {
-    return [];
-  }
-  const snapshot = await getDocs(query(collection(db, 'liveSessions'), orderBy('createdAt', 'desc'), limit(20)));
-  return snapshot.docs.map((item) => fromSnapshot<LiveSession>(item));
-}
-
-export async function createLiveSession(session: LiveSession) {
-  if (!isFirebaseConfigured) {
-    throw new Error('Realtime live sessions are not configured right now');
-  }
-  await setDoc(doc(db, 'liveSessions', session.id), session);
-  return session;
-}
-
-export async function advanceLiveSession(sessionId: string, currentAuctionId: string | null, spotlightMessage?: string) {
-  if (!isFirebaseConfigured) {
-    throw new Error('Realtime live sessions are not configured right now');
-  }
-  await updateDoc(doc(db, 'liveSessions', sessionId), {
-    currentAuctionId,
-    spotlightMessage: spotlightMessage || null,
-    status: 'live',
-    startedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  });
-}
+// ── Settlement ─────────────────────────────────────────────────────────────
 
 export async function closeAuction(auctionId: string) {
   const response = await fetch('/api/commerce/auction-close', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ auctionId }),
   });
   const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error || 'Failed to close auction');
-  }
+  if (!response.ok) throw new Error(data.error || 'Failed to close auction');
   return data;
 }
+
+// ── Live sessions (UI prototype, Firestore — see liveSessionService.ts) ────
+// Re-export for backwards compat. New code should import from liveSessionService directly.
+export { listLiveSessions, createLiveSession, advanceLiveSession } from './liveSessionService';
