@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import { auth } from '../firebase';
+import { logAudit } from '../lib/audit';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -329,6 +330,8 @@ export async function updateOrderStatus(
     paymentStatus?: string;
   }
 ): Promise<OrderDetail> {
+  const before = await fetchOrder(id);
+
   const response = await fetch('/api/commerce/order-status', {
     method: 'PATCH',
     headers: await authHeaders(),
@@ -345,10 +348,25 @@ export async function updateOrderStatus(
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || 'Failed to update order');
 
-  return {
+  const after = {
     ...rowToOrder(data.order, data.items || []),
     events: (data.events || []).map(rowToEvent),
   };
+
+  void logAudit({
+    action: 'order.status_change',
+    entityType: 'order',
+    entityId: id,
+    before: before ? { status: before.status } : null,
+    after:  { status: after.status },
+    metadata: {
+      trackingNumber: extras?.trackingNumber,
+      carrier:        extras?.carrier,
+      paymentStatus:  extras?.paymentStatus,
+    },
+  });
+
+  return after;
 }
 
 /** Real-time subscription — polls every 30s, upgrades to Supabase Realtime when available */

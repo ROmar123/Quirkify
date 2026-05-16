@@ -1,6 +1,7 @@
 import { isSupabaseConfigured, supabase } from '../supabase';
 import { Product, AllocationSnapshot } from '../types';
 import { slugify, emptyReservations } from '../lib/quirkify';
+import { logAudit } from '../lib/audit';
 
 const PRODUCT_POLL_INTERVAL_MS = 30000;
 let productSubscriptionSequence = 0;
@@ -197,7 +198,14 @@ export async function createProduct(product: Partial<Product>): Promise<Product>
 
   const { data, error } = await supabase.from('products').insert(row).select().single();
   if (error) throw new Error(error.message);
-  return rowToProduct(data);
+  const created = rowToProduct(data);
+  void logAudit({
+    action: 'product.create',
+    entityType: 'product',
+    entityId: created.id,
+    after: { name: created.name, status: created.status, stock: created.stock, retailPrice: created.retailPrice },
+  });
+  return created;
 }
 
 /** Update an existing product — only sends the fields explicitly provided.
@@ -208,6 +216,9 @@ export async function createProduct(product: Partial<Product>): Promise<Product>
 export async function updateProduct(id: string, updates: Partial<Product>): Promise<Product> {
   const { allocations, ...rest } = updates;
   const row = productToRow(rest);
+
+  // Capture the prior state for audit + status-change detection.
+  const before = await fetchProduct(id);
 
   // Step 1 — apply non-allocation updates (including stock, which allocations
   // depend on). The DB will reject downstream allocation writes if they exceed
@@ -232,17 +243,44 @@ export async function updateProduct(id: string, updates: Partial<Product>): Prom
 
   if (!latest) {
     // No fields changed; return current state for parity with old behaviour.
-    const current = await fetchProduct(id);
-    if (!current) throw new Error('Product not found');
-    return current;
+    if (!before) throw new Error('Product not found');
+    return before;
   }
+
+  // Audit: emit a status_change event when status moves, plus a generic
+  // update event with only the changed top-level fields.
+  if (before && before.status !== latest.status) {
+    void logAudit({
+      action: 'product.status_change',
+      entityType: 'product',
+      entityId: id,
+      before: { status: before.status },
+      after:  { status: latest.status },
+    });
+  }
+  void logAudit({
+    action: 'product.update',
+    entityType: 'product',
+    entityId: id,
+    before: before ? { name: before.name, status: before.status, stock: before.stock, retailPrice: before.retailPrice, allocations: before.allocations } : null,
+    after:  { name: latest.name, status: latest.status, stock: latest.stock, retailPrice: latest.retailPrice, allocations: latest.allocations },
+    metadata: { fields: Object.keys(updates) },
+  });
+
   return latest;
 }
 
 /** Delete a product */
 export async function deleteProduct(id: string): Promise<void> {
+  const before = await fetchProduct(id);
   const { error } = await supabase.from('products').delete().eq('id', id);
   if (error) throw new Error(error.message);
+  void logAudit({
+    action: 'product.delete',
+    entityType: 'product',
+    entityId: id,
+    before: before ? { name: before.name, status: before.status, stock: before.stock } : null,
+  });
 }
 
 /** Subscribe to real-time product changes */

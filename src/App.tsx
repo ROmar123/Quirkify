@@ -26,6 +26,7 @@ const GrowthPage = lazy(() => import('./components/admin/GrowthPage'));
 const WithdrawalsPage = lazy(() => import('./components/admin/WithdrawalsPage'));
 const OfflineReservationsPage = lazy(() => import('./components/admin/OfflineReservationsPage'));
 const CampaignPlacementsPage = lazy(() => import('./components/admin/CampaignPlacementsPage'));
+const AuditLogPage = lazy(() => import('./components/admin/AuditLogPage'));
 const WalletPage = lazy(() => import('./components/profile/WalletPage'));
 const LiveStreamRoom = lazy(() => import('./components/live/LiveStreamRoom'));
 const TermsOfService = lazy(() => import('./components/legal/TermsOfService'));
@@ -90,6 +91,7 @@ function AnimatedRoutes() {
           <Route path="/admin/withdrawals" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><WithdrawalsPage /></Guard>} />
           <Route path="/admin/reservations" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><OfflineReservationsPage /></Guard>} />
           <Route path="/admin/placements" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><CampaignPlacementsPage /></Guard>} />
+          <Route path="/admin/audit" element={<Guard allow={isAdmin} loading={loading} redirectTo="/auth"><AuditLogPage /></Guard>} />
           <Route path="/wallet" element={<Guard allow={isAuthenticated} loading={loading} redirectTo="/auth"><WalletPage /></Guard>} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />

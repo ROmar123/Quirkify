@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Boxes, Gavel, ShoppingBag, Sparkles, Radio, Package,
   ArrowRight, ClipboardList, Megaphone, AlertCircle,
-  TrendingUp, LayoutGrid,
+  TrendingUp, LayoutGrid, ShieldCheck,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { listActiveProducts, listPacks, subscribeToReviewQueue } from '../../services/catalogService';
@@ -213,6 +213,14 @@ export default function AdminDashboard() {
       icon: Megaphone,
       gradient: 'linear-gradient(135deg, #4a1d96 0%, #c026d3 100%)',
       delay: 0.65,
+    },
+    {
+      title: 'Audit log',
+      description: 'Trace every state change across the platform',
+      path: '/admin/audit',
+      icon: ShieldCheck,
+      gradient: 'linear-gradient(135deg, #1f2937 0%, #4b5563 100%)',
+      delay: 0.7,
     },
   ];
 
